@@ -26,7 +26,7 @@ def explicitMLP(inputLength, outputLength, hiddenLayersLengths, intermediateActi
     return result
         
     
-class explicitMLPParametrisedCategorical(nn.Module):
+class MLPCategorical(nn.Module):
     
     def __init__(self, mlpInputLength, logitsLength, hiddenLayersLengths, intemediateActivation, outputActivation):
         super().__init__()
@@ -82,3 +82,5 @@ class explicitMLPParametrisedCategorical(nn.Module):
             #Omer Sella: TODO: I'm using log probabilities to make log likelihood - doesn't look good.
             logLikelihood = self._logProbabilitiesFromDistribution(categoricalDistribution, action)
         return categoricalDistribution, logLikelihood
+    
+    
