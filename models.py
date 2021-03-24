@@ -5,9 +5,13 @@ Created on Tue Mar 23 08:19:52 2021
 @author: Omer Sella
 """
 
-
+import numpy as np
+import torch
 import torch.nn as nn
 from torch.distributions.categorical import Categorical
+
+MODELS_BOOLEAN_TYPE = np.bool
+MODELS_INTEGER_TYPE = np.int32
 
 
 def explicitMLP(inputLength, outputLength, hiddenLayersLengths, intermediateActivation = nn.Identity(), outputActivation = nn.Identity()):
@@ -83,7 +87,7 @@ class MLPCategorical(nn.Module):
             logLikelihood = self._logProbabilitiesFromDistribution(categoricalDistribution, action)
         return categoricalDistribution, logLikelihood
     
-class actorCritic(nn.nodule):
+class actorCritic(nn.module):
     def __init__(self, observationSpaceType, observationSpaceSize, actionSpaceType, actionSpaceSize, maximumNumberOfHotBits, hiddenLayerParameters, actorCriticDevice):
         self.observationSpaceType = observationSpaceType
         self.observationSpaceSize = observationSpaceSize
@@ -93,6 +97,7 @@ class actorCritic(nn.nodule):
         self.maxNumberOfHotBits = maximumNumberOfHotBits
         self.rowCoordinateRange = 2
         self.columnCoordinateRange = 16
+        self.circulantSize = 511
         self.defaultHiddenLayerSizes = [64,64]
         self.defaultActivation = nn.Identity()
 
@@ -100,4 +105,29 @@ class actorCritic(nn.nodule):
 
         self.columnCoordinateModel = MLPCategorical(self.observationSpaceSize + 1, self.columnCoordinateRange, self.defaultHiddenLayerSizes)
         
+        self.numberOfHotBitsModel = MLPCategorical(self.observationSpaceSize + 2, self.maximumNumberOfHotBits, self.defaultHiddenLayerSizes)
+        
+        self.to(actorCriticDevice)
+        
+    def actorActionToEnvAction(self, actorAction):
+        i, j, hotCoordinates = actorAction
+        """
+        The actor is expected to produce i, j, and up to k coordinates which will be hot.
+        The environment is expecting i,j and a binary vector.
+        """
+        binaryVector = np.zeros(self.circulantSize, dtype = MODELS_BOOLEAN_TYPE)
+        binaryVector[hotCoordinates] = 1
+        environmentStyleAction = [i, j, binaryVector]
+        return environmentStyleAction
     
+    def step(self, observations):
+        with torch.no_grad():
+            iCategoricalDistribution = self.rowCoordinateModel(observations)
+            i = iCategoricalDistribution.sample()
+            # Omer Sella: now we need to append i to the observations
+            jCategoricalDistribution = self.columnCoordinateModel(observations)
+            j = jCategoricalDistribution.sample()
+            # Omer Sella: now we need to append j to the observations
+            kCategoricalDistribution = self.numberOfHotBitsModel(observations)
+            k = kCategoricalDistribution.sample()
+        return i, j, k, logpI, logpJ, logpK
