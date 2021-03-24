@@ -28,7 +28,7 @@ def explicitMLP(inputLength, outputLength, hiddenLayersLengths, intermediateActi
     
 class MLPCategorical(nn.Module):
     
-    def __init__(self, mlpInputLength, logitsLength, hiddenLayersLengths, intemediateActivation, outputActivation):
+    def __init__(self, mlpInputLength, logitsLength, hiddenLayersLengths, intemediateActivation = nn.Identity(), outputActivation = nn.Identity()):
         super().__init__()
         self.logitsNetwork = explicitMLP(mlpInputLength, logitsLength, hiddenLayersLengths, intemediateActivation, outputActivation)
         
@@ -83,4 +83,21 @@ class MLPCategorical(nn.Module):
             logLikelihood = self._logProbabilitiesFromDistribution(categoricalDistribution, action)
         return categoricalDistribution, logLikelihood
     
+class actorCritic(nn.nodule):
+    def __init__(self, observationSpaceType, observationSpaceSize, actionSpaceType, actionSpaceSize, maximumNumberOfHotBits, hiddenLayerParameters, actorCriticDevice):
+        self.observationSpaceType = observationSpaceType
+        self.observationSpaceSize = observationSpaceSize
+        self.actionSpaceType = actionSpaceType
+        self.actionSpaceSize = actionSpaceSize
+        self.device = actorCriticDevice
+        self.maxNumberOfHotBits = maximumNumberOfHotBits
+        self.rowCoordinateRange = 2
+        self.columnCoordinateRange = 16
+        self.defaultHiddenLayerSizes = [64,64]
+        self.defaultActivation = nn.Identity()
+
+        self.rowCoordinateModel = MLPCategorical(self.observationSpaceSize, self.rowCoordinateRange, self.defaultHiddenLayerSizes)
+
+        self.columnCoordinateModel = MLPCategorical(self.observationSpaceSize + 1, self.columnCoordinateRange, self.defaultHiddenLayerSizes)
+        
     
