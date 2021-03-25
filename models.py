@@ -107,7 +107,7 @@ def testExplicitMLP():
     myMLP = explicitMLP(inputLength, outputLength, hiddenLayersLengths)
     return myMLP
 
-def testForward():
+def testExplicitMLPForward():
     myMLP = testExplicitMLP()
     testVector = torch.rand(2048)
     y = myMLP(testVector)
