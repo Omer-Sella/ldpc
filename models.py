@@ -15,9 +15,6 @@ MODELS_INTEGER_TYPE = np.int32
 
 
 class explicitMLP(nn.Module):
-        
-    
-
     """
     explicitMLP creates a multi layer perceptron with explicit input and output lengths.
     if hiddenLayersLengths is not an empty list it will create hidden layers with the specified lengths as input lengths.
@@ -34,7 +31,7 @@ class explicitMLP(nn.Module):
                 activation = intermediateActivation
             else:
                 activation = outputActivation
-            layerList = layerList + [nn.Linear(lengths[l], lengths[l+1]), activation()]
+            layerList = layerList + [nn.Linear(lengths[l], lengths[l + 1]), activation()]
         self.layers = nn.ModuleList(layerList)
         self.outputDimension = outputLength
         
@@ -47,7 +44,8 @@ class explicitMLP(nn.Module):
     
     
 class actorCritic(nn.Module):
-    def __init__(self, observationSpaceType, observationSpaceSize, actionSpaceType, actionSpaceSize, maximumNumberOfHotBits, hiddenLayerParameters, actorCriticDevice):
+    def __init__(self, observationSpaceType, observationSpaceSize, actionSpaceType, 
+                 actionSpaceSize, hiddenEncoderSize, maximumNumberOfHotBits, hiddenLayerParameters, actorCriticDevice):
         super().__init__()
         self.observationSpaceType = observationSpaceType
         self.observationSpaceSize = observationSpaceSize
@@ -55,18 +53,22 @@ class actorCritic(nn.Module):
         self.actionSpaceSize = actionSpaceSize
         self.device = actorCriticDevice
         self.maximumNumberOfHotBits = maximumNumberOfHotBits
+        self.hiddenEncoderSize = hiddenEncoderSize
+        self.encoder = explicitMLP(observationSpaceSize, hiddenEncoderSize, [hiddenEncoderSize, hiddenEncoderSize])
         self.rowCoordinateRange = 2
         self.columnCoordinateRange = 16
         self.circulantSize = 511
-        self.defaultHiddenLayerSizes = [64,64]
+        self.defaultHiddenLayerSizes = [64]
         self.defaultActivation = nn.Identity
 
-        self.rowCoordinateModel = explicitMLP(self.observationSpaceSize, self.rowCoordinateRange, self.defaultHiddenLayerSizes)
+        self.rowCoordinateModel = explicitMLP(self.hiddenEncoderSize, self.rowCoordinateRange, self.defaultHiddenLayerSizes)
 
-        self.columnCoordinateModel = explicitMLP(self.observationSpaceSize + 1, self.columnCoordinateRange, self.defaultHiddenLayerSizes)
+        self.columnCoordinateModel = explicitMLP(self.hiddenEncoderSize + 1, self.columnCoordinateRange, self.defaultHiddenLayerSizes)
         
-        self.numberOfHotBitsModel = explicitMLP(self.observationSpaceSize + 2, self.maximumNumberOfHotBits, self.defaultHiddenLayerSizes)
+        self.numberOfHotBitsModel = explicitMLP(self.hiddenEncoderSize + 2, self.maximumNumberOfHotBits, self.defaultHiddenLayerSizes)
         
+        ## Omer: A note to self: the critic valuates the present state, not the state you are going to be in after taking the action.
+        self.critic = explicitMLP(self.hiddenEncoderSize, 1, [hiddenEncoderSize, hiddenEncoderSize])
         self.to(actorCriticDevice)
     
     
@@ -84,10 +86,16 @@ class actorCritic(nn.Module):
     
     def step(self, observations):
         with torch.no_grad():
+            
+            ## First we need a 
+            
             iCategoricalDistribution = Categorical(logits = self.rowCoordinateModel(observations))
             i = iCategoricalDistribution.sample()
             logpI = iCategoricalDistribution.log_prob(i).sum(axis = -1)
             # Omer Sella: now we need to append i to the observations
+            ## Omer Sella: when acting you need to sample and concat. When evaluating, you need to break the action into internal components and set to them.
+            ## Then log probabilities are evaluated at the end (regardless of whether this was sampled or given)
+            
             iAppendedObservations = torch.cat([observations, i], dim = -1)
             
             jCategoricalDistribution = self.columnCoordinateModel(iAppendedObservations)
