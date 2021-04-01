@@ -50,7 +50,8 @@ class logger():
     
     def __init__(self, keys, logPath = None, fileName = 'experiment.txt'):
         
-        if mpiProccessID() == 0:
+        
+        if  mpiProcessID() == 0:
             if logPath == None:
                 self.logPath = PROJECT_PATH + "/temp/experiments/%i" %int(time.time())
             else:
@@ -67,21 +68,22 @@ class logger():
         self.columnKeys = []
         for key in keys:
             self.columnKeys.append(key)
-        if mpiProccessID() == 0:            
+        if mpiProcessID() == 0:            
             with open(os.path.join(self.logPath, self.fileName), 'w') as fid:
                 fid.write("\t".join(self.columnKeys)+"\n")
         
     def logPrint(self, message, colour='green'):
-        if mpiProccessID() == 0:
+        if mpiProcessID() == 0:
             print(colourString(message, colour, bold = True))
     
     def keyValue(self, key, value):
         assert key in self.columnKeys, "Assertion failed since the key %s in keyValue(key, value) was not introduced when the logger was initialised."%key
         assert key not in self.currentRow, "Assertion failed since the value for key %s already exists in this row"%key
         self.currentRow[key] = value
+        return 'OK'
         
     def dumpLogger(self):
-        if mpiProccessID() == 0:
+        if mpiProcessID() == 0:
             values = []
             keyLengths = []
             for key in self.columnKeys:
@@ -93,7 +95,9 @@ class logger():
             print("-"*numberOfDashes)
             for key in self.columnKeys:
                 value = self.currentRow.get(key, "")
-                if hasattr(value, "__float__"):
+                if isinstance(value, np.ndarray):
+                    valueString = value
+                elif hasattr(value, "__float__"):
                     valueString = "%8.3g"%value
                 else:
                     valueString = value
