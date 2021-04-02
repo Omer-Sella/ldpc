@@ -1,2 +1,0 @@
-minimum	maximum	average	serialNumber
-0.0	4000		

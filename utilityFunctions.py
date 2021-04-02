@@ -9,6 +9,7 @@ import time
 import os
 import mpiFunctions
 from mpiFunctions import mpiProcessID
+import h5py
 
 PROJECT_PATH = os.environ.get('LDPC')
 
@@ -33,6 +34,11 @@ def numToBits(number, numberOfBits):
         number = number >> 1
     return newNumber
 
+#class plotter():
+    
+#    def __init__(self, axisPairs):
+        
+
 def colourString(string, color, bold=False, highlight=False):
     """
     Colorize a string.
@@ -48,7 +54,7 @@ def colourString(string, color, bold=False, highlight=False):
 
 class logger():
     
-    def __init__(self, keys, logPath = None, fileName = 'experiment.txt'):
+    def __init__(self, keys, agentSeed = None, environmentSeed = None, logPath = None, hdf5FileName = 'experiment.h5', fileName = 'experiment.txt', graphics = False):
         
         
         if  mpiProcessID() == 0:
@@ -61,16 +67,26 @@ class logger():
             else:
                 os.makedirs(self.logPath)
             self.fileName = os.path.join(self.logPath, fileName)
+            self.hdf5FileName = os.path.join(self.logPath, hdf5FileName)
         else:
             self.logPath = None
             self.fileName = None
+            self.hdf5FileName = None
         self.currentRow = {}
         self.columnKeys = []
+        if agentSeed != None:
+            self.environmentSeed = environmentSeed
+        if environmentSeed != None:
+            self.agentSeed = agentSeed
         for key in keys:
             self.columnKeys.append(key)
         if mpiProcessID() == 0:            
-            with open(os.path.join(self.logPath, self.fileName), 'w') as fid:
+            with open(self.fileName, 'w') as fid:
                 fid.write("\t".join(self.columnKeys)+"\n")
+            with h5py.File(self.hdf5FileName, 'a') as fid:
+                for key in self.columnKeys:
+                    fid.create_group(key)
+        self.dataSet = 0
         
     def logPrint(self, message, colour='green'):
         if mpiProcessID() == 0:
@@ -108,8 +124,13 @@ class logger():
                 with open(os.path.join(self.logPath, self.fileName), 'a') as fid:
                     fid.write("\t".join(map(str,values))+"\n")
                     fid.flush()
-                    self.currentRow.clear()
-
+                with h5py.File(self.hdf5FileName, 'a') as fid:
+                    fid.create_group(str(self.dataSet))
+                    for key in self.columnKeys:
+                        fid[str(self.dataSet)].attrs[key] = self.currentRow[key]
+                        fid[key].attrs[str(self.dataSet)] = self.currentRow[key]
+                    self.dataSet = self.dataSet + 1
+                self.currentRow.clear()
 
 def testLogger():
     status = 'OK'
@@ -117,8 +138,15 @@ def testLogger():
     myLogger = logger(keys)
     myLogger.logPrint("Hello world !")
     myLogger.logPrint("Hello world !", "red")
-    myLogger.keyValue('minimum', 0.0)
-    myLogger.keyValue('maximum', 4000)
-    myLogger.dumpLogger()
+    for i in range(10):
+        myLogger.keyValue('minimum', np.random.random())
+        myLogger.keyValue('maximum', 15 + np.random.random())
+        myLogger.keyValue('average', 20 +np.random.random())
+        myLogger.keyValue('serialNumber', 90210)
+        myLogger.dumpLogger()
     return status
+
+if __name__ == '__main__':
+    status = testLogger()
+    print(status)
     

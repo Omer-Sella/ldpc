@@ -7,17 +7,6 @@ Created on Tue Mar 23 14:59:39 2021
 import os
 import utilityFunctions
 
-
-projectDir = os.environ.get('LDPC')
-if projectDir == None:
-    import pathlib
-    projectDir = pathlib.Path(__file__).parent.absolute()
-
-
-import sys
-# insert at 1, 0 is the script path (or '' in REPL)
-sys.path.insert(1, projectDir)
-
 GREEN =  "\033[32m" # green text
 WHITE =  "\033[37m" # white text
 RED   =  "\033[31m" # red text
@@ -42,8 +31,7 @@ def testEnvironmentVariable():
 
 def explainLogger():
     keys = ['minimum', 'maximum', 'someOtherValue']
-    logPath = projectDir + "/temp/gettingStarted/experiments/"
-    myLog = utilityFunctions.logger(keys, logPath)
+    myLog = utilityFunctions.logger(keys)
     print("Logger explained:")
     print("The logger is a class with functions like logPrint, keyValue, dumpLogger.")
     print("Initialise using: myLog = utilityFunctions.logger(keys)")
