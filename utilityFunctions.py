@@ -9,9 +9,14 @@ import time
 import os
 import mpiFunctions
 from mpiFunctions import mpiProcessID
-import h5py
+import matplotlib.pyplot as plt
 
 PROJECT_PATH = os.environ.get('LDPC')
+# When logging (printing, writing to csv etc.) numpy arrays, if there are 
+#"too many" elements the array will contain ellipsis look like this:
+#[0, 0, 0, ..., 0, 0, 0] so when using array2string we need to set a threshold
+#only overwhich np will use ellipsis
+UTILITY_FUNCTIONS_BIG_NUMBER = 9000
 
 color2num = dict(
     gray=30,
@@ -34,9 +39,35 @@ def numToBits(number, numberOfBits):
         number = number >> 1
     return newNumber
 
-#class plotter():
+class plotter():
     
-#    def __init__(self, axisPairs):
+    def __init__(self, epochs, numberOfStepsPerEpoch, maximumEpisodeLength):
+        self.epochs = epochs
+        self.numberOfStepsPerEpoch = numberOfStepsPerEpoch
+        self.maximumEpisodeLength = maximumEpisodeLength
+        self.fig, self.axs = plt.subplots(2,2)
+        self.axs[0,0].set_title('Current episode rewards')
+        self.axs[0,0].set_ylabel('undiscounted reward')
+        self.axs[0,0].set_xlabel('time')
+        self.axs[1,0].set_title('Previous episode returns')
+        self.axs[1,0].set_ylabel('return')
+        self.axs[1,0].set_xlabel('Episode number')
+        self.axs[1,1].set_title('Previous epochs')
+        self.axs[1,1].set_ylabel('return')
+        self.axs[1,1].set_xlabel('Epoch number')
+        self.currentRewards = []
+        
+    def step(self, reward):
+        self.currentRewards.append(reward)
+        self.axs[0,0].clear()
+        self.axs[0,0].set_title('Current episode rewards')
+        self.axs[0,0].set_ylabel('undiscounted reward')
+        self.axs[0,0].set_xlabel('time')
+        self.axs[0,0].plot(self.currentRewards)
+        plt.pause(0.001)
+        
+        
+        
         
 
 def colourString(string, color, bold=False, highlight=False):
@@ -54,7 +85,7 @@ def colourString(string, color, bold=False, highlight=False):
 
 class logger():
     
-    def __init__(self, keys, agentSeed = None, environmentSeed = None, logPath = None, hdf5FileName = 'experiment.h5', fileName = 'experiment.txt', graphics = False):
+    def __init__(self, keys, logPath = None, hdf5FileName = 'experiment.h5', fileName = 'experiment.txt'):
         
         
         if  mpiProcessID() == 0:
@@ -74,18 +105,18 @@ class logger():
             self.hdf5FileName = None
         self.currentRow = {}
         self.columnKeys = []
-        if agentSeed != None:
-            self.environmentSeed = environmentSeed
-        if environmentSeed != None:
-            self.agentSeed = agentSeed
+        # if agentSeed != None:
+        #     self.environmentSeed = environmentSeed
+        # if environmentSeed != None:
+        #     self.agentSeed = agentSeed
         for key in keys:
             self.columnKeys.append(key)
         if mpiProcessID() == 0:            
             with open(self.fileName, 'w') as fid:
                 fid.write("\t".join(self.columnKeys)+"\n")
-            with h5py.File(self.hdf5FileName, 'a') as fid:
-                for key in self.columnKeys:
-                    fid.create_group(key)
+            #with h5py.File(self.hdf5FileName, 'a') as fid:
+            #    for key in self.columnKeys:
+            #        fid.create_group(key)
         self.dataSet = 0
         
     def logPrint(self, message, colour='green'):
@@ -104,6 +135,7 @@ class logger():
             keyLengths = []
             for key in self.columnKeys:
                 keyLengths.append(len(key))
+                
             maximalKeyLength = max(15,max(keyLengths))
             keyString = '%'+'%d'%maximalKeyLength
             stringFormat = "| " + keyString + "s | %15s |"
@@ -112,24 +144,29 @@ class logger():
             for key in self.columnKeys:
                 value = self.currentRow.get(key, "")
                 if isinstance(value, np.ndarray):
-                    valueString = value
+                    valueString = np.array2string(value, max_line_width = UTILITY_FUNCTIONS_BIG_NUMBER, threshold = UTILITY_FUNCTIONS_BIG_NUMBER)
                 elif hasattr(value, "__float__"):
                     valueString = "%8.3g"%value
                 else:
                     valueString = value
                 print(stringFormat%(key, valueString))
-                values.append(value)
+                values.append(valueString)
             print("-"*numberOfDashes, flush=True)
             if self.fileName is not None:
                 with open(os.path.join(self.logPath, self.fileName), 'a') as fid:
                     fid.write("\t".join(map(str,values))+"\n")
                     fid.flush()
-                with h5py.File(self.hdf5FileName, 'a') as fid:
-                    fid.create_group(str(self.dataSet))
-                    for key in self.columnKeys:
-                        fid[str(self.dataSet)].attrs[key] = self.currentRow[key]
-                        fid[key].attrs[str(self.dataSet)] = self.currentRow[key]
-                    self.dataSet = self.dataSet + 1
+                
+                # with h5py.File(self.hdf5FileName, 'a') as fid:
+                #     if isinstance(self.currentRow[key], np.ndarray):
+                #         fid.create_dataset()
+                #     fid.create_group(str(self.dataSet))
+                #     for key in self.columnKeys:
+                #         fid[str(self.dataSet)].attrs[key] = self.currentRow[key]
+                #         fid[key].attrs[str(self.dataSet)] = self.currentRow[key]
+                #     df = pandas.DataFrame(self.currentRow, index = self.dataSet)
+                #     df.to_hdf(self.hdf5FileName, "/", 'r+', format = 'table')
+                #     self.dataSet = self.dataSet + 1
                 self.currentRow.clear()
 
 def testLogger():
