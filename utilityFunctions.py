@@ -65,6 +65,7 @@ class plotter():
         self.axs[0,0].set_xlabel('time')
         self.axs[0,0].plot(self.currentRewards)
         plt.pause(0.001)
+        plt.show()
         
         
         
