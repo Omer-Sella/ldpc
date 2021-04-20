@@ -11,7 +11,10 @@ from torch.optim import Adam
 import models
 import utilityFunctions
 import scipy.signal
-from mpiFunctions import mpi_statistics_scalar
+from mpiFunctions import mpi_statistics_scalar, num_procs
+# Needed for the update / training function
+from mpiFunctions import mpi_avg
+from mpiFunctions import mpi_avg_grads
 
 OBSERVATION_DATA_TYPE = np.float32
 INTERNAL_ACTION_DATA_TYPE = np.float32
@@ -24,7 +27,10 @@ maximumEpisodeLength = 3
 clipRatio = 0.2
 policyLearningRate = 3e-4
 valueFunctionLearningRate = 1e-3
-
+loggerKeyWords = dict()
+policyTrainIterations = 80
+targetKL = 1.5 * 0.01
+valueFunctionTrainIterations = 80
 
 class ppoBuffer:
     
@@ -85,11 +91,19 @@ class ppoBuffer:
 def ppo():
   
     
+    # localStepsPerEpochs is the number of steps each MPI process spends in an epoch.
+    localStepsPerEpoch = int( numberOfStepsPerEpoch / num_procs() )
+    
     # Initialise actor-critic
     myActorCritic = models.actorCritic(int, 2048, int, 16, 7, [64,64] , 'cpu')
     
     policyOptimizer = Adam.(myActorCritic.policy.parameters(), policyLearningRate)
     valueFunctionOptimizer = Adam.(myActorCritic.value.parameters(), valueFunctionLearningRate)
+    
+    myLog = utilityFunctions.logger(**loggerKeyWords, logPath, fileName = 'experiment.txt')
+    myLog.setupPytorchSave(myActorCritic)
+    
+    myBuffer = ppoBuffer(observationDim, internalActionDim, localStepsPerEpoch, gamma, lam)
     
     # Internal function to ppo, so exposed to all parameters passed to ppo
     def computeLoss(data):
@@ -116,15 +130,46 @@ def ppo():
         
         return policyLoss, policyInfo, valueLoss
     
+    def update():
+        data = myBuffer.get()
+        policyLossOld, policyInfoOld, valueLossOld = computeLoss(data)
+        policyLossOld = policyLossOld.item()
+        valueLossOld = valueLossOld.item()
+        
+        # Policy training
+        for i in range(policyTrainIterations):
+            policyOptimizer.zero_grad()
+            lossPolicy, policyInformation, _ = computeLoss(data)
+            klAverage = mpi_avg(policyInformation['kl'])
+            if klAverage > targetKL:
+                myLog.logPrint('Early stopping at step %d due to reaching maximal KL divergence.' %i)
+                break
+            lossPolicy.backwards()
+            mpi_avg_grads(myActorCritic.policy)
+            policyOptimizer.step()
+        
+        # Omer Sella: not implemented: myLog.store(stopIteration = i)
     
-
-    
-    
+        # Value function training
+        for i in range(valueFunctionTrainIterations):
+            valueFunctionOptimizer.zero_grad()
+            _, _, lossValue = computeLoss(data)
+            lossValue.backwards()
+            mpi_avg_grads(myActorCritic.valueFunction)
+            valueFunctionOptimizer.step()
+            
+        # Omer Sella: not implemented: log changes due to update.
+        # log.store policyLossOld, valueLossOld, kl, entropy, clipFraction, delta between lossPolicy and policyLossOld, delta between lossValue and valueLossOld
     
     #
     
+    startTime = time.time()
+    observation = env.reset()
+    episodeReturn = 0
+    episodeLength = 0
+    
     for epoch in range(epochs):
-        for t in range(numberOfStepsPerEpoch):
+        for t in range(localStepsPerEpoch):
             vector = np.zeros(511, dtype = int)
             i, j, k, logpI, logpJ, logpK = myActorCritic.step(torch.as_tensor(observation))
             
@@ -144,8 +189,8 @@ def ppo():
             episodeLength = episodeLength + 1
             
             ## save to buffer and log
-            ppoBuffer.store(observation, action, reward, logProbabilityList)
-            logger.store(value)
+            ppoBuffer.store(observation, action, reward, logProbabilityList, nextObservation)
+            logger.keyValue('value', value)
             
             # Update observation to be nextObservation
             observation = nextObservation
@@ -160,10 +205,25 @@ def ppo():
                     value = 2
                 else:
                     value = 0
+                myBuffer.finishPath()
+                if terminal:
+                    myLog.keyValue('Episode return', episodeReturn)
+                    myLog.keyValue('Episode length', episodeLength)
+                    observation = env.reset()
+                    episodeLength = 0
+                    episodeReturn = 0
                     
         # Save the model accordingly
-        #if (epoch % saveModelFrequency == 0) or (epoch == (epochs - 1)):
-            
-        #perform ppo policy update
+        if (epoch % saveModelFrequency == 0) or (epoch == (epochs - 1)):
+        
+            # Omer Sella: not yet implemented: this is a state savingof the experiment. I need to add this ability to the logger.
+            #myLog.save_state
+            pass    
+        
+        # ppo policy update
+        update()
+        
+        
+        
             
                 

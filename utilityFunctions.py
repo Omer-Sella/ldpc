@@ -10,6 +10,7 @@ import os
 import mpiFunctions
 from mpiFunctions import mpiProcessID
 import matplotlib.pyplot as plt
+import torch
 
 PROJECT_PATH = os.environ.get('LDPC')
 # When logging (printing, writing to csv etc.) numpy arrays, if there are 
@@ -169,6 +170,9 @@ class logger():
                 #     df.to_hdf(self.hdf5FileName, "/", 'r+', format = 'table')
                 #     self.dataSet = self.dataSet + 1
                 self.currentRow.clear()
+                
+    def setupPytorchSave(self, parametersToSave):
+        self.pytorchElementsToSave = parametersToSave
 
 def testLogger():
     status = 'OK'
