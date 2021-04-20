@@ -84,28 +84,37 @@ class actorCritic(nn.Module):
         environmentStyleAction = [i, j, binaryVector]
         return environmentStyleAction
     
-    def step(self, observations):
-        with torch.no_grad():
-            
-            ## First we need a 
-            
-            iCategoricalDistribution = Categorical(logits = self.rowCoordinateModel(observations))
-            i = iCategoricalDistribution.sample()
+    def step(self, observations, action = None):
+        
+        # The step function has 3 modes:
+        #   1. Training - this is where we use the model and sample from the distributions parametrised by the model.
+        #   2. Most probable action - this is where we use the deterministic model and instead of sampling take the most probable action.
+        #   3. Both observations AND actions are provided, in which case we are evaluating log probabilities
+        
+        if action is not None:
+            action = torch.as_tensor(action, device=self.device)
+            [i, j, k] = action
             logpI = iCategoricalDistribution.log_prob(i).sum(axis = -1)
-            # Omer Sella: now we need to append i to the observations
-            ## Omer Sella: when acting you need to sample and concat. When evaluating, you need to break the action into internal components and set to them.
-            ## Then log probabilities are evaluated at the end (regardless of whether this was sampled or given)
-            
-            iAppendedObservations = torch.cat([observations, i], dim = -1)
-            
-            jCategoricalDistribution = self.columnCoordinateModel(iAppendedObservations)
-            j = jCategoricalDistribution.sample()
-            logpJ = jCategoricalDistribution.log_prob(j).sum(axis = -1)
-            # Omer Sella: now we need to append j to the observations
-            jAppendedObservations = torch.cat([iAppendedObservations, i], dim = -1)
-            kCategoricalDistribution = self.numberOfHotBitsModel(jAppendedObservations)
-            k = kCategoricalDistribution.sample()
-            logpK = kCategoricalDistribution.log_prob(k).sum(axis = -1)
+
+        elif training:
+            with torch.no_grad():   
+                iCategoricalDistribution = Categorical(logits = self.rowCoordinateModel(observations))
+                i = iCategoricalDistribution.sample()
+                logpI = iCategoricalDistribution.log_prob(i).sum(axis = -1)
+                # Omer Sella: now we need to append i to the observations
+                ## Omer Sella: when acting you need to sample and concat. When evaluating, you need to break the action into internal components and set to them.
+                ## Then log probabilities are evaluated at the end (regardless of whether this was sampled or given)
+                
+                iAppendedObservations = torch.cat([observations, i], dim = -1)
+                
+                jCategoricalDistribution = self.columnCoordinateModel(iAppendedObservations)
+                j = jCategoricalDistribution.sample()
+                logpJ = jCategoricalDistribution.log_prob(j).sum(axis = -1)
+                # Omer Sella: now we need to append j to the observations
+                jAppendedObservations = torch.cat([iAppendedObservations, i], dim = -1)
+                kCategoricalDistribution = self.numberOfHotBitsModel(jAppendedObservations)
+                k = kCategoricalDistribution.sample()
+                logpK = kCategoricalDistribution.log_prob(k).sum(axis = -1)
         return i, j, k, logpI, logpJ, logpK
 
 def testExplicitMLP():
