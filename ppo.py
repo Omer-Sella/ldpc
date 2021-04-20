@@ -4,12 +4,13 @@ Created on Thu Mar 25 14:19:32 2021
 
 @author: Omer Sella
 """
+import numpy as np
+import torch
+from torch.optim import Adam
 
 import models
 import utilityFunctions
-import numpy as np
 import scipy.signal
-import torch
 from mpiFunctions import mpi_statistics_scalar
 
 OBSERVATION_DATA_TYPE = np.float32
@@ -20,11 +21,9 @@ numberOfStepsPerEpoch = 10
 seed = 7134066
 localRandom = np.random.RandomState(seed)
 maximumEpisodeLength = 3
-
-
-
-
-
+clipRatio = 0.2
+policyLearningRate = 3e-4
+valueFunctionLearningRate = 1e-3
 
 
 class ppoBuffer:
@@ -76,18 +75,51 @@ class ppoBuffer:
         advantageMean, advantageStd = mpi_statistics_scalar(self.advantageBuffer)
         self.advantageBuffer = (self.advantageBuffer - advantageMean) / advantageStd
         data = dict(observations = self.observationBuffer, nextObservations = self.nextObservationBuffer, 
-                    actions = self.actionBuffer, returns = self.returnBuffer, advantage = self.advantageBuffer,
+                    actions = self.actionBuffer, returns = self.returnBuffer, advantages = self.advantageBuffer,
                     logProbabilities = self.logProbabilityBuffer)
         return {k: torch.as_tensor(v, dtype = torch.float32) for k,v in data.items()}
 
+
+
+
 def ppo():
-    
-    
-    
-    
+  
     
     # Initialise actor-critic
     myActorCritic = models.actorCritic(int, 2048, int, 16, 7, [64,64] , 'cpu')
+    
+    policyOptimizer = Adam.(myActorCritic.policy.parameters(), policyLearningRate)
+    valueFunctionOptimizer = Adam.(myActorCritic.value.parameters(), valueFunctionLearningRate)
+    
+    # Internal function to ppo, so exposed to all parameters passed to ppo
+    def computeLoss(data):
+        #clipRatio is a (hyper)parameter passed to ppo
+        observations = data['observations']
+        actions = data['actions']
+        advantages = data['advantages']
+        logProbabilitiesOld = data['logProbabilities']
+        returns = data['returns']
+        
+        # Omer Sella: is policy(pi) the policy model parameters here ?
+        policy, logProbabilities = myActorCritic.policy(observations, actions)
+        ratio = torch.exp(logProbabilities - logProbabilitiesOld)
+        advantagesClipped = torch.clamp(ratio, 1 - clipRatio, 1 + clipRatio) * advantages
+        policyLoss = -1 * ( torch.min(ratio * advantages, advantagesClipped)).mean()
+        
+        approximatedKL = (logProbabilitiesOld - logProbabilities).mean().item()
+        entropy = policy.entropy().mean().item()
+        clippedPart = ratio.gt(1 + clipRatio) | ratio.lt(1-clipRatio)
+        clippedFraction = torch.as_tensor(clippedPart, dtype = torch.float32).mean().item()
+        policyInfo = dict(kl = approximatedKL, entropy = entropy, clippedFraction = clippedFraction)
+        
+        valueLoss = ( (myActorCritic.value(observations) - returns) ** 2).mean()
+        
+        return policyLoss, policyInfo, valueLoss
+    
+    
+
+    
+    
     
     #
     
