@@ -11,7 +11,7 @@ import mpiFunctions
 from mpiFunctions import mpiProcessID
 import matplotlib.pyplot as plt
 import torch
-
+#plt.ioff()
 PROJECT_PATH = os.environ.get('LDPC')
 # When logging (printing, writing to csv etc.) numpy arrays, if there are 
 #"too many" elements the array will contain ellipsis look like this:
@@ -42,10 +42,10 @@ def numToBits(number, numberOfBits):
 
 class plotter():
     
-    def __init__(self, epochs, numberOfStepsPerEpoch, maximumEpisodeLength):
+    def __init__(self, epochs):
         self.epochs = epochs
-        self.numberOfStepsPerEpoch = numberOfStepsPerEpoch
-        self.maximumEpisodeLength = maximumEpisodeLength
+        #self.numberOfStepsPerEpoch = numberOfStepsPerEpoch
+        #self.maximumEpisodeLength = maximumEpisodeLength
         self.fig, self.axs = plt.subplots(2,2)
         self.axs[0,0].set_title('Current episode rewards')
         self.axs[0,0].set_ylabel('undiscounted reward')
@@ -57,14 +57,18 @@ class plotter():
         self.axs[1,1].set_ylabel('return')
         self.axs[1,1].set_xlabel('Epoch number')
         self.currentRewards = []
+        self.epochsDone = []
+        self.counter = 0
         
     def step(self, reward):
         self.currentRewards.append(reward)
+        self.epochsDone.append(self.counter + 1)
+        self.counter = self.counter + 1
         self.axs[0,0].clear()
-        self.axs[0,0].set_title('Current episode rewards')
+        self.axs[0,0].set_title('Episode rewards')
         self.axs[0,0].set_ylabel('undiscounted reward')
-        self.axs[0,0].set_xlabel('time')
-        self.axs[0,0].plot(self.currentRewards)
+        self.axs[0,0].set_xlabel('Epoch number')
+        self.axs[0,0].scatter(np.arange(len(self.currentRewards)), self.currentRewards)
         plt.pause(0.001)
         plt.show()
         

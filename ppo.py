@@ -15,6 +15,8 @@ from mpiFunctions import mpi_statistics_scalar, num_procs
 # Needed for the update / training function
 from mpiFunctions import mpi_avg
 from mpiFunctions import mpi_avg_grads
+import time
+import gym
 
 OBSERVATION_DATA_TYPE = np.float32
 INTERNAL_ACTION_DATA_TYPE = np.float32
@@ -27,10 +29,15 @@ maximumEpisodeLength = 3
 clipRatio = 0.2
 policyLearningRate = 3e-4
 valueFunctionLearningRate = 1e-3
-loggerKeyWords = dict()
+loggerKeyWords = ['Episode return', 'Episode length']
 policyTrainIterations = 80
 targetKL = 1.5 * 0.01
 valueFunctionTrainIterations = 80
+loggerPath = utilityFunctions.PROJECT_PATH + "/temp/"
+MAXIMUM_NUMBER_OF_HOT_BITS = 5
+INTERNAL_ACTION_SPACE_SIZE = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS
+SAVE_MODEL_FREQUENCY = 10
+
 
 class ppoBuffer:
     
@@ -88,22 +95,22 @@ class ppoBuffer:
 
 
 
-def ppo():
+def ppo(environmentFunction):
   
     
     # localStepsPerEpochs is the number of steps each MPI process spends in an epoch.
     localStepsPerEpoch = int( numberOfStepsPerEpoch / num_procs() )
     
     # Initialise actor-critic
-    myActorCritic = models.actorCritic(int, 2048, int, 16, 7, [64,64] , 'cpu')
+    myActorCritic = models.actorCritic(int, 2048, int, 16, INTERNAL_ACTION_SPACE_SIZE, [64,64] , 'cpu')
     
-    policyOptimizer = Adam.(myActorCritic.policy.parameters(), policyLearningRate)
-    valueFunctionOptimizer = Adam.(myActorCritic.value.parameters(), valueFunctionLearningRate)
+    policyOptimizer = Adam(myActorCritic.policy.parameters(), policyLearningRate)
+    valueFunctionOptimizer = Adam(myActorCritic.value.parameters(), valueFunctionLearningRate)
     
-    myLog = utilityFunctions.logger(**loggerKeyWords, logPath, fileName = 'experiment.txt')
-    myLog.setupPytorchSave(myActorCritic)
+    myLog = utilityFunctions.logger(loggerKeyWords, loggerPath, fileName = 'experiment.txt')
+    #myLog.setupPytorchSave(myActorCritic)
     
-    myBuffer = ppoBuffer(observationDim, internalActionDim, localStepsPerEpoch, gamma, lam)
+    myBuffer = ppoBuffer(2048, INTERNAL_ACTION_SPACE_SIZE, localStepsPerEpoch)
     
     # Internal function to ppo, so exposed to all parameters passed to ppo
     def computeLoss(data):
@@ -164,25 +171,25 @@ def ppo():
     #
     
     startTime = time.time()
-    observation = env.reset()
+    observation = environmentFunction.reset()
     episodeReturn = 0
     episodeLength = 0
     
     for epoch in range(epochs):
         for t in range(localStepsPerEpoch):
-            vector = np.zeros(511, dtype = int)
-            i, j, k, logpI, logpJ, logpK = myActorCritic.step(torch.as_tensor(observation))
+            newVector = np.zeros(511, dtype = int)
+            i, j, k, coordinates, logpI, logpJ, logpK, logpC = myActorCritic.step(torch.as_tensor(observation))
             
             ## I don't have a critic to give value estimation yet, so set value to 1
             value = 1
             
-            logProbabilityList = [logpI, logpJ, logpK]
+            logProbabilityList = [logpI, logpJ, logpK, logpC]
             ## Omer Sella: temporarily generate a random sparse vector
             xCoordinate = utilityFunctions.numToBits(i, 1)
             yCoordinate = utilityFunctions.numToBits(j, 4)
-            hotBits = localRandom.choice(511, k, replace = False)
-            newVector[hotBits] = 1
-            nextObservation, reward, done, _ = env.step(i, j, newVector)
+            newVector[coordinates[0:k]] = 1
+            action = np.hstack((np.hstack((xCoordinate, yCoordinate)), newVector))
+            nextObservation, reward, done, _ = environmentFunction.step(i, j, newVector)
             
             ## book keeping
             episodeReturn = episodeReturn + reward
@@ -190,7 +197,7 @@ def ppo():
             
             ## save to buffer and log
             ppoBuffer.store(observation, action, reward, logProbabilityList, nextObservation)
-            logger.keyValue('value', value)
+            myLog.keyValue('value', value)
             
             # Update observation to be nextObservation
             observation = nextObservation
@@ -206,15 +213,15 @@ def ppo():
                 else:
                     value = 0
                 myBuffer.finishPath()
-                if terminal:
+                if terminate:
                     myLog.keyValue('Episode return', episodeReturn)
                     myLog.keyValue('Episode length', episodeLength)
-                    observation = env.reset()
+                    observation = environmentFunction.reset()
                     episodeLength = 0
                     episodeReturn = 0
                     
         # Save the model accordingly
-        if (epoch % saveModelFrequency == 0) or (epoch == (epochs - 1)):
+        if (epoch % SAVE_MODEL_FREQUENCY == 0) or (epoch == (epochs - 1)):
         
             # Omer Sella: not yet implemented: this is a state savingof the experiment. I need to add this ability to the logger.
             #myLog.save_state
@@ -224,6 +231,8 @@ def ppo():
         update()
         
         
-        
+if __name__ == '__main__':
+    
+    ppo(lambda : gym.make('gym_ldpc:ldpc-v0'))      
             
                 
