@@ -45,7 +45,7 @@ class explicitMLP(nn.Module):
     
 class actorCritic(nn.Module):
     def __init__(self, observationSpaceType, observationSpaceSize, actionSpaceType, 
-                 actionSpaceSize, hiddenEncoderSize, maximumNumberOfHotBits, hiddenLayerParameters, actorCriticDevice):
+                 actionSpaceSize, hiddenEncoderSize, maximumNumberOfHotBits, hiddenLayerParameters, actorCriticDevice = 'cpu'):
         super().__init__()
         self.observationSpaceType = observationSpaceType
         self.observationSpaceSize = observationSpaceSize
