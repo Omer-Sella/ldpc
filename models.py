@@ -69,9 +69,9 @@ class actorCritic(nn.Module):
         
         self.numberOfHotBitsModel = explicitMLP(self.hiddenEncoderSize + 2, self.maximumNumberOfHotBits, self.defaultHiddenLayerSizes)
         
-        self.kHotVectorGenerator = explicitMLP(self.hiddenEncoderSize + 3, self.circulantSize, self.defaultHiddenLayerSizes)
+        self.kHotVectorGenerator = explicitMLP(self.circulantSize, self.circulantSize, self.defaultHiddenLayerSizes)
         
-        self.encoder2 = explicitMLP(self.circulantSize, self.hiddenEncoderSize + 3, self.defaultHiddenLayerSizes)
+        self.encoder2 = explicitMLP(self.hiddenEncoderSize + 3, self.circulantSize, self.defaultHiddenLayerSizes)
         
         ## Omer: A note to self: the critic valuates the present state, not the state you are going to be in after taking the action.
         self.critic = explicitMLP(self.hiddenEncoderSize, 1, [hiddenEncoderSize, hiddenEncoderSize])
@@ -110,14 +110,18 @@ class actorCritic(nn.Module):
             i = iCategoricalDistribution.sample()
         else:
             i = torch.argmax(logitsForIChooser)
-                
+               
         
                 
         # Omer Sella: now we need to append i to the observations
         ## Omer Sella: when acting you need to sample and concat. When evaluating, you need to break the action into internal components and set to them.
         ## Then log probabilities are evaluated at the end (regardless of whether this was sampled or given)
         
-        iAppendedObservations = torch.cat([encodedObservation, i], dim = -1)
+
+        #Omer Sella: I changed torch.cat to torch.stack since i is 0 dimensional.
+        i = i.float()
+        iTensor = i.unsqueeze(0)
+        iAppendedObservations = torch.cat([encodedObservation, iTensor], dim = -1)
         logitsForJChooser = self.columnCoordinateModel(iAppendedObservations)
         jCategoricalDistribution = Categorical(logits = logitsForJChooser)
         
@@ -129,7 +133,9 @@ class actorCritic(nn.Module):
             j = torch.argmax(logitsForJChooser)
                 
         # Omer Sella: now we need to append j to the observations
-        jAppendedObservations = torch.cat([iAppendedObservations, i], dim = -1)
+        j = j.float()
+        jTensor = j.unsqueeze(0)
+        jAppendedObservations = torch.cat([iAppendedObservations, jTensor], dim = -1)
         logitsForKChooser = self.numberOfHotBitsModel(jAppendedObservations)
         kCategoricalDistribution = Categorical(logits = logitsForKChooser)
         
@@ -139,9 +145,13 @@ class actorCritic(nn.Module):
             k = kCategoricalDistribution.sample()
         else:
             k = torch.argmax(logitsForKChooser)
-                
-        kAppendedObservations = torch.cat([jAppendedObservations, k], dim = -1)
+        
+        k = k.float()
+        kTensor = k.unsqueeze(0)
+        kAppendedObservations = torch.cat([jAppendedObservations, kTensor], dim = -1)
         setEncodedStuff = self.encoder2(kAppendedObservations)
+        
+        
         logProbCoordinates = np.zeros(self.maximumNumberOfHotBits)
         
         if action is not None:
@@ -153,6 +163,7 @@ class actorCritic(nn.Module):
                 newCoordinate = coordinates[idx]
                 logProbCoordinates[idx] = circulantSizeCategoricalDistribution.log_prob(newCoordinate)
                 setEncodedStuff = setEncodedStuff + logitsForCoordinateChooser
+                idx = idx + 1
         elif self.training:
             coordinates = -1 * np.ones(self.maximumNumberOfHotBits)
             idx = 0
@@ -163,6 +174,7 @@ class actorCritic(nn.Module):
                 coordinates[idx] = newCoordinate
                 logProbCoordinates[idx] = circulantSizeCategoricalDistribution.log_prob(newCoordinate)
                 setEncodedStuff = setEncodedStuff + logitsForCoordinateChooser
+                idx = idx + 1
         else:
             coordinates = -1 * np.ones(self.maximumNumberOfHotBits)
             idx = 0
@@ -173,12 +185,16 @@ class actorCritic(nn.Module):
                 coordinates[idx] = newCoordinate
                 logProbCoordinates[idx] = circulantSizeCategoricalDistribution.log_prob(newCoordinate)
                 setEncodedStuff = setEncodedStuff + logitsForCoordinateChooser
+                idx = idx + 1
                 
                     
-                #log probs
-        logpI = iCategoricalDistribution.log_prob(i).sum(axis = -1)                    
+        #log probs
+        logpI = iCategoricalDistribution.log_prob(i)
         logpJ = jCategoricalDistribution.log_prob(j).sum(axis = -1)
         logpK = kCategoricalDistribution.log_prob(k).sum(axis = -1)
+        #logProbabilityList = [,
+        #    ,
+        #    ]
         
                 
                 
@@ -197,3 +213,15 @@ def testExplicitMLPForward():
     y = myMLP(testVector)
     return y
 
+
+def testActorCritic():
+     testAC = actorCritic(observationSpaceType = int, observationSpaceSize = 2048, actionSpaceType = int, actionSpaceSize = (1 + 1 + 1 + 7), hiddenEncoderSize = 64, maximumNumberOfHotBits = 7, hiddenLayerParameters = [64,64], actorCriticDevice = 'cpu')
+     print(testAC.parameters())
+     testVector = torch.rand(2048)
+     print(testVector.size())
+     result = testAC.step(torch.rand(2048))
+     print(result)
+     return
+
+if __name__ == '__main__':
+    testActorCritic()

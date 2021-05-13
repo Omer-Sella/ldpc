@@ -47,6 +47,7 @@ class plotter():
         #self.numberOfStepsPerEpoch = numberOfStepsPerEpoch
         #self.maximumEpisodeLength = maximumEpisodeLength
         self.fig, self.axs = plt.subplots(2,2)
+        plt.ion()
         self.axs[0,0].set_title('Current episode rewards')
         self.axs[0,0].set_ylabel('undiscounted reward')
         self.axs[0,0].set_xlabel('time')
@@ -68,7 +69,11 @@ class plotter():
         self.axs[0,0].set_title('Episode rewards')
         self.axs[0,0].set_ylabel('undiscounted reward')
         self.axs[0,0].set_xlabel('Epoch number')
+        #self.axs[0.0].set_xticks(np.arange(len(self.currentRewards)))
+        plt.sca(self.axs[0, 0])
+        plt.xticks(range(len(self.currentRewards)), range(len(self.currentRewards)))
         self.axs[0,0].scatter(np.arange(len(self.currentRewards)), self.currentRewards)
+        plt.ion()
         plt.pause(0.001)
         plt.show()
         

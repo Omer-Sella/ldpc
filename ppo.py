@@ -93,6 +93,120 @@ class ppoBuffer:
         return {k: torch.as_tensor(v, dtype = torch.float32) for k,v in data.items()}
 
 
+def computeLoss(actorCritic, data, clipRatio, valueFunctionCoefficients, entropyCoefficients, device = 'None'):
+    #clipRatio is a (hyper)parameter passed to ppo
+    observations = data['observations']
+    actions = data['actions']
+    advantages = data['advantages']
+    logProbabilitiesOld = data['logProbabilities']
+    returns = data['returns']
+        
+    # Omer Sella: is policy(pi) the policy model parameters here ?
+    predictions = myActorCritic.step(observations, actions)
+    
+    # Policy loss
+    ratio = torch.exp(predictions['logProbabilities'] - logProbabilitiesOld)
+    obj = ratio * advantages
+    clippedObj = ratio.clamp(1 - clipRatio, 1 + clipRatio) * advantages
+    policyLoss = -1 *  torch.min(clippedObj, obj).mean()
+    
+    # Entropy loss
+    entropyLoss = -entropyCoefficients * predictions['entropy'].mean()
+
+    # Value loss
+    valueLoss = (predictions['value'] - returns).pow(2).mean()
+    
+    # Total loss
+    totalLoss = policyLoss + entropyLoss + valueLoss
+    
+    # Approximated KL for early stopping
+    approximatedKL = (logProbabilitiesOld - predictions['logProbabilities']).mean()
+    
+    clipped = ratio.lt(1 - clipRatio) | ratio.gt(1 + clipRatio)
+    clippedFraction = torch.as_tensor(clippedPart, dtype = torch.float32).mean()
+    
+    info = dict(
+        policyLoss = policyLoss.cpu().detach().numpy().item(),
+        entropyLoss = entropyLoss.cpu().detach().numpy().item(),
+        valueLoss = valueLoss.cpu().detach().numpy().item(),
+        totalLoss = totalLoss.cpu().detach().numpy().item(),
+        approximatedKL = approxiapproximatedKL.cpu().detach().numpy().item(),
+        clippedFraction = clippedFraction.cpu().detach().numpy().item(),
+        )
+        
+    return totalLoss, info
+
+def getBatchGenerator():
+    raise NotImplemented
+
+def collectDataBatch():
+    raise NotImplemented
+
+def computeMeanDict():
+    raise NotImplemented
+
+def trainingUpdate(actorCritic, optimizer, data, miniBatchSize, clipRatio, targetKL, valueCoefficients,   
+    entropyCoefficients, gradientClip, meximumNumberOfSteps, device = None):
+    infos = {}
+    start = time.time()
+    numberOfEpochs = 0
+
+    #data = myBuffer.get()
+    #policyLossOld, policyInfoOld, valueLossOld = computeLoss(data)
+    #policyLossOld = policyLossOld.item()
+    #valueLossOld = valueLossOld.item()
+        
+    # Policy training
+    for i in range(meximumNumberOfSteps):
+        optimizer.zero_grad()
+        batchInfos = []
+        batchGenerator = getBatchGenerator(indices = np.arange(len(data['observations'])), batchSize = miniBatchSize)
+        for batchIndices in batchGenerator:
+            dataBatch = collectDataBatch(data, indices = batchIndices)
+            batchTotalLLoss, batchInfo = computeLoss(actorCritic, dataBatch, clipRatio, valueCoefficients, entropyCoefficients, device = device)
+            batchTotalLoss.backwards(retain_graph = False)
+            batchInfos.append(batchInfo)
+
+        lossInfo = computeMeanDict(batchInfos)
+        lossInfo['gradientNorm'] = computeGradientNorm(actorCritic.parameters)
+
+
+        if lossInfo['approximatedKL'] > 1.5 * targetKL
+            myLog.logPrint('Early stopping at step %d due to reaching maximal KL divergence.' %i)
+            break
+        
+        torch.nn.utils.clip_grad_norm_(actorCritic.parameters(), max_norm = gradientClip)
+        optimizer.step()
+        optimizer.zero_grad()
+        
+        numberOfEpochs = numberOfEpochs + 1
+        
+        # Omer Sella: not implemented: 
+        #logging.debug(f'Loss {i}: {loss_info}')
+        infos.update(loss_info)
+
+        # Omer Sella: not implemented: 
+        #if numberOfEpochs > 0:
+        #    logging.info(f'Optimization: policy loss={infos["policy_loss"]:.3f}, vf loss={infos["vf_loss"]:.3f}, '
+        #             f'entropy loss={infos["entropy_loss"]:.3f}, total loss={infos["total_loss"]:.3f}, '
+        #             f'num steps={num_epochs}')
+        return infos
+
+
+  
+    # Value function training
+    #for i in range(valueFunctionTrainIterations):
+    #    valueFunctionOptimizer.zero_grad()
+    #    _, _, lossValue = computeLoss(data)
+    #    lossValue.backwards()
+    #    mpi_avg_grads(myActorCritic.valueFunction)
+    #    valueFunctionOptimizer.step()
+    #        
+    # Omer Sella: not implemented: log changes due to update.
+    # log.store policyLossOld, valueLossOld, kl, entropy, clipFraction, delta between lossPolicy and policyLossOld, delta between lossValue and valueLossOld
+    
+
+
 
 
 def ppo(environmentFunction):
@@ -102,74 +216,16 @@ def ppo(environmentFunction):
     localStepsPerEpoch = int( numberOfStepsPerEpoch / num_procs() )
     
     # Initialise actor-critic
-    myActorCritic = models.actorCritic(int, 2048, int, 16, INTERNAL_ACTION_SPACE_SIZE, [64,64] , 'cpu')
+    myActorCritic = models.actorCritic(int, 2048, int, 16, INTERNAL_ACTION_SPACE_SIZE, 7, [64,64] , 'cpu')
     
-    policyOptimizer = Adam(myActorCritic.policy.parameters(), policyLearningRate)
-    valueFunctionOptimizer = Adam(myActorCritic.value.parameters(), valueFunctionLearningRate)
+    #policyOptimizer = Adam(myActorCritic.policy.parameters(), policyLearningRate)
+    #valueFunctionOptimizer = Adam(myActorCritic.value.parameters(), valueFunctionLearningRate)
     
     myLog = utilityFunctions.logger(loggerKeyWords, loggerPath, fileName = 'experiment.txt')
     #myLog.setupPytorchSave(myActorCritic)
     
     myBuffer = ppoBuffer(2048, INTERNAL_ACTION_SPACE_SIZE, localStepsPerEpoch)
-    
-    # Internal function to ppo, so exposed to all parameters passed to ppo
-    def computeLoss(data):
-        #clipRatio is a (hyper)parameter passed to ppo
-        observations = data['observations']
-        actions = data['actions']
-        advantages = data['advantages']
-        logProbabilitiesOld = data['logProbabilities']
-        returns = data['returns']
         
-        # Omer Sella: is policy(pi) the policy model parameters here ?
-        policy, logProbabilities = myActorCritic.policy(observations, actions)
-        ratio = torch.exp(logProbabilities - logProbabilitiesOld)
-        advantagesClipped = torch.clamp(ratio, 1 - clipRatio, 1 + clipRatio) * advantages
-        policyLoss = -1 * ( torch.min(ratio * advantages, advantagesClipped)).mean()
-        
-        approximatedKL = (logProbabilitiesOld - logProbabilities).mean().item()
-        entropy = policy.entropy().mean().item()
-        clippedPart = ratio.gt(1 + clipRatio) | ratio.lt(1-clipRatio)
-        clippedFraction = torch.as_tensor(clippedPart, dtype = torch.float32).mean().item()
-        policyInfo = dict(kl = approximatedKL, entropy = entropy, clippedFraction = clippedFraction)
-        
-        valueLoss = ( (myActorCritic.value(observations) - returns) ** 2).mean()
-        
-        return policyLoss, policyInfo, valueLoss
-    
-    def update():
-        data = myBuffer.get()
-        policyLossOld, policyInfoOld, valueLossOld = computeLoss(data)
-        policyLossOld = policyLossOld.item()
-        valueLossOld = valueLossOld.item()
-        
-        # Policy training
-        for i in range(policyTrainIterations):
-            policyOptimizer.zero_grad()
-            lossPolicy, policyInformation, _ = computeLoss(data)
-            klAverage = mpi_avg(policyInformation['kl'])
-            if klAverage > targetKL:
-                myLog.logPrint('Early stopping at step %d due to reaching maximal KL divergence.' %i)
-                break
-            lossPolicy.backwards()
-            mpi_avg_grads(myActorCritic.policy)
-            policyOptimizer.step()
-        
-        # Omer Sella: not implemented: myLog.store(stopIteration = i)
-    
-        # Value function training
-        for i in range(valueFunctionTrainIterations):
-            valueFunctionOptimizer.zero_grad()
-            _, _, lossValue = computeLoss(data)
-            lossValue.backwards()
-            mpi_avg_grads(myActorCritic.valueFunction)
-            valueFunctionOptimizer.step()
-            
-        # Omer Sella: not implemented: log changes due to update.
-        # log.store policyLossOld, valueLossOld, kl, entropy, clipFraction, delta between lossPolicy and policyLossOld, delta between lossValue and valueLossOld
-    
-    #
-    
     startTime = time.time()
     observation = environmentFunction.reset()
     episodeReturn = 0

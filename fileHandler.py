@@ -134,6 +134,10 @@ def hotLocationsToCirculant(locationList, circulantSize):
     return newCirculant
 
 def readMatrixFromFile(fileName, dim0, dim1, circulantSize, isRow = True, isHex = True, isGenerator = True ):
+    # This function assumes that each line in the file contains the non zero locations of the first row of a circulant.
+    # Each line in the file then defines a circulant, and the order in which they are defined is top to bottom left to right, i.e.:
+    # line 0 defines circulant 0,0
+    
     with open(fileName) as fid:
         lines = fid.readlines()    
     if isGenerator:

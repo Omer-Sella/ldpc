@@ -1,11 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Mar  20 16:53 2020
 
-@author: Omer
-"""
-### New encoder / decoder implementation using numba + cuda
-#if you uncomment the next line the world will end
 
 from numba import cuda, float32, int32
 import numpy as np
@@ -15,6 +8,7 @@ import time
 import copy
 import operator
 import math
+
 
 projectDir = os.environ.get('SWIFT')
 if projectDir == None:
@@ -28,29 +22,30 @@ sys.path.insert(1, projectDir)
 
 import fileHandler
 import common
+import wifiMatrices
 LDPC_LOCAL_PRNG = np.random.RandomState(7134066)
 
 
 
 # Omer Sella: in an ideal world, the value written in BIG_NUMBER would be the maximal value of float32, where float32 is on the GPU.
 BIG_NUMBER = float32(10000)
-MATRIX_DIM0 = 1022
-MATRIX_DIM1 = 8176
+MATRIX_DIM0 = 324
+MATRIX_DIM1 = 1944
 CODEWORDSIZE = MATRIX_DIM1
 VECTOR_DIM = MATRIX_DIM0
 SHARED_SIZE_0 = 1024 # AND NOT MATRIX_DIM0
 SHARED_SIZE_1 = 8196
 CONST1 = MATRIX_DIM0
 CONST2 = MATRIX_DIM1
-THREADS_PER_BLOCK = 512
+THREADS_PER_BLOCK = 82 #512
 BLOCKS_PER_GRID_DIM0 = (MATRIX_DIM0 + (THREADS_PER_BLOCK - 1)) // THREADS_PER_BLOCK
 BLOCKS_PER_GRID_DIM1 = (MATRIX_DIM1 + (THREADS_PER_BLOCK - 1)) // THREADS_PER_BLOCK
 LDPC_CUDA_INT_DATA_TYPE = np.int32
 
-SHARED_MEM_VERTICAL_RECUTION = 512
-THREADS_PER_BLOCK_VERTICAL_SUM = (512, 1)
+SHARED_MEM_VERTICAL_RECUTION = 82 #512
+THREADS_PER_BLOCK_VERTICAL_SUM = (82,1)#(512, 1)
 
-BLOCKS_PER_GRID_X_VERTICAL_SUM = math.ceil(512 / THREADS_PER_BLOCK_VERTICAL_SUM[0])
+BLOCKS_PER_GRID_X_VERTICAL_SUM = math.ceil(82 / THREADS_PER_BLOCK_VERTICAL_SUM[0])#(512 / THREADS_PER_BLOCK_VERTICAL_SUM[0])
 BLOCKS_PER_GRID_Y_VERTICAL_SUM = math.ceil(MATRIX_DIM1 / THREADS_PER_BLOCK_VERTICAL_SUM[1])
 BLOCKS_PER_GRID_VERTICAL_SUM = (BLOCKS_PER_GRID_X_VERTICAL_SUM, BLOCKS_PER_GRID_Y_VERTICAL_SUM)
 
@@ -572,9 +567,9 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                 
                 # Check if fromChannel makes a codeword    
                 slicerCuda[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device, binaryVector_device)
-                resetVector[1022, 1](isCodewordVector_device)
+                resetVector[MATRIX_DIM0, 1](isCodewordVector_device)
                 calcBinaryProduct2[BLOCKS_PER_GRID_BINARY_CALC, THREADS_PER_BLOCK_BINARY_CALC](parityMatrix_device, binaryVector_device, isCodewordVector_device)
-                mod2Vector[16, 511](isCodewordVector_device)
+                mod2Vector[16, 81](isCodewordVector_device)
                 checkIsCodeword[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](isCodewordVector_device, result_device)
                 
                 if result_device[0] == 0 :
@@ -587,7 +582,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                     findMinimaAndNumberOfNegatives[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](parityMatrix_device, matrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device)
                     numberOfNegativesToProductOfSigns[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](numberOfNegatives_device,productOfSigns_device)  
                     locateTwoSmallestHorizontal2DV2[BLOCKS_PER_GRID_LOCATE_TWO_SMALLEST_HORIZONTAL_2D, THREADS_PER_BLOCK_LOCATE_TWO_SMALLEST_HORIZONTAL_2D](matrix_device, parityMatrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device)
-                    signReduceHorizontal[1022, 1](matrix_device, productOfSigns_device)  
+                    signReduceHorizontal[324 , 1](matrix_device, productOfSigns_device)  
                     produceNewMatrix2D[BLOCKS_PER_GRID_PRODUCE_NEW_MATRIX_2D, THREADS_PER_BLOCK_PRODUCE_NEW_MATRIX_2D](parityMatrix_device, matrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device, productOfSigns_device, newMatrix_device)
                     matrixSumVertical[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](newMatrix_device, softVector_device)
                     #sumReduction2DVertical[BLOCKS_PER_GRID_VERTICAL_SUM, THREADS_PER_BLOCK_VERTICAL_SUM](newMatrix_device, softVector_device)
@@ -601,7 +596,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                     
                     
                     
-                    resetVector[1022, 1](isCodewordVector_device)
+                    resetVector[324, 1](isCodewordVector_device)
                     calcBinaryProduct2[BLOCKS_PER_GRID_BINARY_CALC, THREADS_PER_BLOCK_BINARY_CALC](parityMatrix_device, binaryVector_device, isCodewordVector_device)
                     mod2Vector[16, 511](isCodewordVector_device)
                     
@@ -662,24 +657,23 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
     return berStats
         
 
-def testNearEarth(numOfTransmissions = 50):
-    status = 'Near earth problem'
-    print("*** in test near earth")
-    nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
+def testWifi(numOfTransmissions = 50):
+    status = 'WIFI problem'
+    print("*** in test near wifi")
+    wifiParity = wifiMatrices.getWifiParityMatrix()
     #numOfTransmissions = 50
     roi = [3.0, 3.2,3.4,3.6]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
-    codewordSize = 8176
-    messageSize = 7154
+    codewordSize = 1944
+    messageSize = 1620
     numOfIterations = 50
 
     start = time.time()
     
-    bStats = evaluateCodeCuda(460101, roi, numOfIterations, nearEarthParity, numOfTransmissions)    
-        
-    #bStats = testCodeUsingMultiprocessing(460101, roi, messageSize, codewordSize, numOfIterations, numOfTransmissions, nearEarthParity)
+    bStats = evaluateCodeCuda(460101, roi, numOfIterations, wifiParity, numOfTransmissions)    
+      
     end = time.time()
     print('Time it took for code evaluation == %d' % (end-start))
-    print('Throughput == '+str((8176*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
+    print('Throughput == '+str((codewordSize*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
     a, b, c, d = bStats.getStats(codewordSize)
     
     print("berDecoded " + str(c))
@@ -689,7 +683,7 @@ def testNearEarth(numOfTransmissions = 50):
 
 
 def main():
-    print("*** In ldpcCUDA.py main function.")
+    print("*** In wifiCUDA.py main function.")
     #status = testFindMinimum()
     #print(status)
     #status = testCheckUpdateAndSum()
@@ -699,7 +693,7 @@ def main():
     #status = testIntegration()
     #print(status)
     
-    testNearEarth()
+    testWifi()
     #print(bStats.getStats())
     return 
 
@@ -710,5 +704,13 @@ if __name__ == '__main__':
 
 
 
+
+
+# -*- coding: utf-8 -*-
+"""
+Created on Thu May 13 11:59:30 2021
+
+@author: optimus
+"""
 
 

@@ -6,7 +6,7 @@ import os
 import copy
 from numba import jit, int32, float32, jitclass, types, typed, boolean, float64, int64
 #import math
-
+import wifiMatrices
 
 projectDir = os.environ.get('SWIFT')
 if projectDir == None:
@@ -492,9 +492,34 @@ def testNearEarth(numOfTransmissions = 50):
     #print("berDecoded " + str(c))
     return bStats
 
+
+def testWifi(numOfTransmissions = 50):
+    print("*** in test wifi")
+    wifiParity = wifiMatrices.getWifiParityMatrix()
+    #numOfTransmissions = 50
+    roi = [3.0, 3.2,3.4,3.6]#np.arange(3, 3.8, 0.2)
+    codewordSize = 1944
+    messageSize = 1620
+    numOfIterations = 50
+
+    start = time.time()
+    
+    bStats = evaluateCode(numOfTransmissions, 460101, roi, messageSize, codewordSize, numOfIterations, wifiParity)    
+    #for i in range(numOfTransmissions):
+    #    bStats = evaluateCodeAtSingleTransmission(460101, roi, messageSize, codewordSize, numOfIterations, nearEarthParity)    
+        
+    #bStats = testCodeUsingMultiprocessing(460101, roi, messageSize, codewordSize, numOfIterations, numOfTransmissions, nearEarthParity)
+    end = time.time()
+    print('Time it took for code evaluation == %d' % (end-start))
+    print('Throughput == '+str((8176*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
+    #a, b, c, d = bStats.getStats(codewordSize)
+    #print("berDecoded " + str(c))
+    return bStats
+
 # Omer Sella: Name guarding is needed when doing concurrent futures in Windows (i.e.: if __name__ ...)
 def main():
     print("*** In ldpc.py main function.")
+    #bStats = testWifi()
     bStats = testNearEarth()
     return bStats
     
