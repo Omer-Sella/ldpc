@@ -136,6 +136,7 @@ def computeLoss(actorCritic, data, clipRatio, valueFunctionCoefficients, entropy
         
     return totalLoss, info
 
+
 def getBatchGenerator():
     raise NotImplemented
 
@@ -171,7 +172,7 @@ def trainingUpdate(actorCritic, optimizer, data, miniBatchSize, clipRatio, targe
         lossInfo['gradientNorm'] = computeGradientNorm(actorCritic.parameters)
 
 
-        if lossInfo['approximatedKL'] > 1.5 * targetKL
+        if lossInfo['approximatedKL'] > 1.5 * targetKL:
             myLog.logPrint('Early stopping at step %d due to reaching maximal KL divergence.' %i)
             break
         
@@ -227,7 +228,8 @@ def ppo(environmentFunction):
     myBuffer = ppoBuffer(2048, INTERNAL_ACTION_SPACE_SIZE, localStepsPerEpoch)
         
     startTime = time.time()
-    observation = environmentFunction.reset()
+    # Omer Sella: dirty fix: cast to float32 because that's what actor-critic model expects.
+    observation = environmentFunction.reset().astype(np.float32)
     episodeReturn = 0
     episodeLength = 0
     
@@ -243,9 +245,14 @@ def ppo(environmentFunction):
             ## Omer Sella: temporarily generate a random sparse vector
             xCoordinate = utilityFunctions.numToBits(i, 1)
             yCoordinate = utilityFunctions.numToBits(j, 4)
+            print(xCoordinate)
+            print(yCoordinate)
+            k = np.int32(k)
+            print(coordinates)
+            coordinates = np.int32(coordinates)
             newVector[coordinates[0:k]] = 1
             action = np.hstack((np.hstack((xCoordinate, yCoordinate)), newVector))
-            nextObservation, reward, done, _ = environmentFunction.step(i, j, newVector)
+            nextObservation, reward, done, _ = environmentFunction.step(action)
             
             ## book keeping
             episodeReturn = episodeReturn + reward
@@ -289,6 +296,8 @@ def ppo(environmentFunction):
         
 if __name__ == '__main__':
     
-    ppo(lambda : gym.make('gym_ldpc:ldpc-v0'))      
+    # Omer Sella: using lambda didn't give back an environment, I commecnted it out for debug.
+    #ppo(lambda : gym.make('gym_ldpc:ldpc-v0'))
+    ppo(gym.make('gym_ldpc:ldpc-v0'))      
             
                 

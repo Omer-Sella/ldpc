@@ -97,6 +97,8 @@ class actorCritic(nn.Module):
         #   2. Most probable action - this is where we use the deterministic model and instead of sampling take the most probable action.
         #   3. Both observations AND actions are provided, in which case we are evaluating log probabilities
         
+        # Observations batchSize X observationSpaceSize of type observationSpaceType
+
         if action is not None:
             action = torch.as_tensor(action, device = self.device)
         
@@ -117,8 +119,6 @@ class actorCritic(nn.Module):
         ## Omer Sella: when acting you need to sample and concat. When evaluating, you need to break the action into internal components and set to them.
         ## Then log probabilities are evaluated at the end (regardless of whether this was sampled or given)
         
-
-        #Omer Sella: I changed torch.cat to torch.stack since i is 0 dimensional.
         i = i.float()
         iTensor = i.unsqueeze(0)
         iAppendedObservations = torch.cat([encodedObservation, iTensor], dim = -1)
@@ -198,7 +198,7 @@ class actorCritic(nn.Module):
         
                 
                 
-        return i, j, k, coordinates, logpI, logpJ, logpK, logProbCoordinates
+        return i, j, k.item(), coordinates, logpI, logpJ, logpK, logProbCoordinates
 
 def testExplicitMLP():
     inputLength = 2048
