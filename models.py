@@ -3,6 +3,56 @@
 Created on Tue Mar 23 08:19:52 2021
 
 @author: Omer Sella
+
+Here is the spec from openAI ppo:
+ actor_critic: The constructor method for a PyTorch Module with a 
+            ``step`` method, an ``act`` method, a ``pi`` module, and a ``v`` 
+            module. The ``step`` method should accept a batch of observations 
+            and return:
+
+            ===========  ================  ======================================
+            Symbol       Shape             Description
+            ===========  ================  ======================================
+            ``a``        (batch, act_dim)  | Numpy array of actions for each 
+                                           | observation.
+            ``v``        (batch,)          | Numpy array of value estimates
+                                           | for the provided observations.
+            ``logp_a``   (batch,)          | Numpy array of log probs for the
+                                           | actions in ``a``.
+            ===========  ================  ======================================
+
+            The ``act`` method behaves the same as ``step`` but only returns ``a``.
+
+            The ``pi`` module's forward call should accept a batch of 
+            observations and optionally a batch of actions, and return:
+
+            ===========  ================  ======================================
+            Symbol       Shape             Description
+            ===========  ================  ======================================
+            ``pi``       N/A               | Torch Distribution object, containing
+                                           | a batch of distributions describing
+                                           | the policy for the provided observations.
+            ``logp_a``   (batch,)          | Optional (only returned if batch of
+                                           | actions is given). Tensor containing 
+                                           | the log probability, according to 
+                                           | the policy, of the provided actions.
+                                           | If actions not given, will contain
+                                           | ``None``.
+            ===========  ================  ======================================
+
+            The ``v`` module's forward call should accept a batch of observations
+            and return:
+
+            ===========  ================  ======================================
+            Symbol       Shape             Description
+            ===========  ================  ======================================
+            ``v``        (batch,)          | Tensor containing the value estimates
+                                           | for the provided observations. (Critical: 
+                                           | make sure to flatten this!)
+            ===========  ================  ======================================
+
+
+
 """
 
 import numpy as np

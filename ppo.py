@@ -29,7 +29,7 @@ maximumEpisodeLength = 3
 clipRatio = 0.2
 policyLearningRate = 3e-4
 valueFunctionLearningRate = 1e-3
-loggerKeyWords = ['Episode return', 'Episode length']
+loggerKeyWords = ['value', 'Episode return', 'Episode length']
 policyTrainIterations = 80
 targetKL = 1.5 * 0.01
 valueFunctionTrainIterations = 80
@@ -42,14 +42,14 @@ SAVE_MODEL_FREQUENCY = 10
 class ppoBuffer:
     
     def __init__(self, observationDimension, internalActionDimensions, size, gamma = 0.99, lam = 0.95):
-        self.observationBuffer = np.zeros((size , observationDimension), dtype = OBSERVATION_DATA_TYPE)
-        self.nextObservationBuffer = np.zeros((size , observationDimension), dtype = OBSERVATION_DATA_TYPE)
-        self.actionBuffer = np.zeros((size , internalActionDimensions), dtype = INTERNAL_ACTION_DATA_TYPE)
-        self.advantageBuffer = np.zeros(size, dtype = np.float32)
-        self.rewardBuffer = np.zeros(size, dtype = np.float32)
-        self.returnBuffer = np.zeros(size, dtype = np.float32)
-        self.valueBuffer = np.zeros(size, dtype = np.float32)
-        self.logProbabilityBuffer = np.zeros(size, dtype = np.float32)
+        self.observationBuffer = [] #np.zeros((size , observationDimension), dtype = OBSERVATION_DATA_TYPE)
+        self.nextObservationBuffer = [] #= np.zeros((size , observationDimension), dtype = OBSERVATION_DATA_TYPE)
+        self.actionBuffer = [] #np.zeros((size , internalActionDimensions), dtype = INTERNAL_ACTION_DATA_TYPE)
+        self.advantageBuffer = [] #np.zeros(size, dtype = np.float32)
+        self.rewardBuffer = [] #np.zeros(size, dtype = np.float32)
+        self.returnBuffer = [] #np.zeros(size, dtype = np.float32)
+        self.valueBuffer = [] #np.zeros(size, dtype = np.float32)
+        self.logProbabilityBuffer = [] #np.zeros(size, dtype = np.float32)
         self.gamma = gamma
         self.lam = lam
         self.counter = 0
@@ -58,12 +58,12 @@ class ppoBuffer:
     
     def store(self, observation, action, reward, value, logProbability, nextObservation):
         assert self.counter < self.maximalSize
-        self.observationBuffer[self.counter] = observation
-        self.actionBuffer[self.counter] = action
-        self.rewardBuffer[self.counter] = reward
-        self.valueBuffer[self.counter] = value
-        self.logProbabilityBuffer[self.counter] = logProbability
-        self.nextObservationBuffer[self.counter] = nextObservation
+        self.observationBuffer.append(observation)
+        self.actionBuffer.append(action)
+        self.rewardBuffer.append(reward)
+        self.valueBuffer.append(value)
+        self.logProbabilityBuffer.append(logProbability)
+        self.nextObservationBuffer.append(nextObservation)
         self.counter = self.counter + 1
             
     def finishPath(self, lastValue = 0):
@@ -187,10 +187,10 @@ def trainingUpdate(actorCritic, optimizer, data, miniBatchSize, clipRatio, targe
         infos.update(loss_info)
 
         # Omer Sella: not implemented: 
-        #if numberOfEpochs > 0:
-        #    logging.info(f'Optimization: policy loss={infos["policy_loss"]:.3f}, vf loss={infos["vf_loss"]:.3f}, '
-        #             f'entropy loss={infos["entropy_loss"]:.3f}, total loss={infos["total_loss"]:.3f}, '
-        #             f'num steps={num_epochs}')
+        if numberOfEpochs > 0:
+            logging.info(f'Optimization: policy loss={infos["policy_loss"]:.3f}, vf loss={infos["vf_loss"]:.3f}, '
+                     f'entropy loss={infos["entropy_loss"]:.3f}, total loss={infos["total_loss"]:.3f}, '
+                     f'num steps={num_epochs}')
         return infos
 
 
@@ -253,13 +253,14 @@ def ppo(environmentFunction):
             newVector[coordinates[0:k]] = 1
             action = np.hstack((np.hstack((xCoordinate, yCoordinate)), newVector))
             nextObservation, reward, done, _ = environmentFunction.step(action)
-            
+            nextObservation = nextObservation.astype(np.float32)
             ## book keeping
             episodeReturn = episodeReturn + reward
             episodeLength = episodeLength + 1
             
             ## save to buffer and log
-            ppoBuffer.store(observation, action, reward, logProbabilityList, nextObservation)
+            myBuffer.store(observation = observation, action = action, reward = reward, value = value, logProbability = logProbabilityList, nextObservation = nextObservation)
+            
             myLog.keyValue('value', value)
             
             # Update observation to be nextObservation
@@ -279,10 +280,11 @@ def ppo(environmentFunction):
                 if terminate:
                     myLog.keyValue('Episode return', episodeReturn)
                     myLog.keyValue('Episode length', episodeLength)
-                    observation = environmentFunction.reset()
+                    observation = environmentFunction.reset().astype(np.float32)
                     episodeLength = 0
                     episodeReturn = 0
                     
+            myLog.dumpLogger()
         # Save the model accordingly
         if (epoch % SAVE_MODEL_FREQUENCY == 0) or (epoch == (epochs - 1)):
         
@@ -291,9 +293,9 @@ def ppo(environmentFunction):
             pass    
         
         # ppo policy update
-        update()
-        
-        
+        print("Going into training ...")
+        trainingUpdate(actorCritic, optimizer, data, miniBatchSize, clipRatio, targetKL, valueCoefficients, entropyCoefficients, gradientClip, meximumNumberOfSteps, device = None)
+
 if __name__ == '__main__':
     
     # Omer Sella: using lambda didn't give back an environment, I commecnted it out for debug.
