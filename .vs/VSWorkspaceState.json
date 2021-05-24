@@ -6,8 +6,10 @@
     "\\spinup\\algos",
     "\\spinup\\algos\\pytorch",
     "\\spinup\\algos\\pytorch\\ppo",
+    "\\spinup\\examples",
+    "\\spinup\\examples\\pytorch",
     "\\spinup\\utils"
   ],
-  "SelectedNode": "\\mpi_pytorch.py",
+  "SelectedNode": "\\openAIppo.py",
   "PreviewInSolutionExplorer": false
 }

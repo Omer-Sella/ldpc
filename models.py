@@ -91,7 +91,7 @@ class explicitMLP(nn.Module):
             x = layer(x)
         return x
         
-    
+   
     
 class actorCritic(nn.Module):
     def __init__(self, observationSpaceType, observationSpaceSize, actionSpaceType, 
@@ -250,6 +250,198 @@ class actorCritic(nn.Module):
                 
         return i, j, k.item(), coordinates, logpI, logpJ, logpK, logProbCoordinates
 
+
+
+class Actor(nn.Module):
+    def _distribution(self, obs):
+        raise NotImplementedError
+
+    def _log_prob_from_distribution(self, pi, act):
+        raise NotImplementedError
+
+    def forward(self, obs, act = None):
+        # Produce action distributions for given observations, and 
+        # optionally compute the log likelihood of given actions under
+        # those distributions.
+        raise NotImplementedError
+
+class openAIActor(Actor):
+        def __init__(self, observationSpaceType, observationSpaceSize, actionSpaceType, actionSpaceSize, hiddenEncoderSize, maximumNumberOfHotBits, hiddenLayerParameters, actorCriticDevice = 'cpu'):
+            super().__init__()
+            self.observationSpaceType = observationSpaceType
+            self.observationSpaceSize = observationSpaceSize
+            self.actionSpaceType = actionSpaceType
+            self.actionSpaceSize = actionSpaceSize
+            self.device = actorCriticDevice
+            self.maximumNumberOfHotBits = maximumNumberOfHotBits
+            self.hiddenEncoderSize = hiddenEncoderSize
+            self.rowCoordinateRange = 2
+            self.columnCoordinateRange = 16
+            self.circulantSize = 511
+            self.defaultHiddenLayerSizes = [64]
+            self.defaultActivation = nn.Identity
+            self.encoder = explicitMLP(observationSpaceSize, hiddenEncoderSize, [hiddenEncoderSize, hiddenEncoderSize])
+            self.rowCoordinateModel = explicitMLP(self.hiddenEncoderSize, self.rowCoordinateRange, self.defaultHiddenLayerSizes)
+            self.columnCoordinateModel = explicitMLP(self.hiddenEncoderSize + 1, self.columnCoordinateRange, self.defaultHiddenLayerSizes)
+            self.numberOfHotBitsModel = explicitMLP(self.hiddenEncoderSize + 2, self.maximumNumberOfHotBits, self.defaultHiddenLayerSizes)
+            self.kHotVectorGenerator = explicitMLP(self.circulantSize, self.circulantSize, self.defaultHiddenLayerSizes)
+            self.encoder2 = explicitMLP(self.hiddenEncoderSize + 3, self.circulantSize, self.defaultHiddenLayerSizes)
+            self.to(actorCriticDevice)
+        
+        def actorActionToEnvAction(self, actorAction):
+            i, j, k, hotCoordinates = actorAction
+            """
+            The actor is expected to produce i, j, and up to k coordinates which will be hot.
+            The environment is expecting i,j and a binary vector.
+            """
+            binaryVector = np.zeros(self.circulantSize, dtype = MODELS_BOOLEAN_TYPE)
+            binaryVector[hotCoordinates[0:k]] = 1
+            environmentStyleAction = [i, j, binaryVector]
+            return environmentStyleAction
+    
+        def step(self, observations, action = None):
+        
+            # The step function has 3 modes:
+            #   1. Training - this is where we use the model and sample from the distributions parametrised by the model.
+            #   2. Most probable action - this is where we use the deterministic model and instead of sampling take the most probable action.
+            #   3. Both observations AND actions are provided, in which case we are evaluating log probabilities
+        
+            # Observations batchSize X observationSpaceSize of type observationSpaceType
+
+            if action is not None:
+                action = torch.as_tensor(action, device = self.device)
+        
+            encodedObservation = self.encoder(observations)
+            logitsForIChooser = self.rowCoordinateModel(encodedObservation)
+            iCategoricalDistribution = Categorical(logits = logitsForIChooser)
+        
+            if action is not None:
+                i = action[:, 0]
+            elif self.training:
+                i = iCategoricalDistribution.sample()
+            else:
+                i = torch.argmax(logitsForIChooser)
+               
+        
+                
+            # Omer Sella: now we need to append i to the observations
+            ## Omer Sella: when acting you need to sample and concat. When evaluating, you need to break the action into internal components and set to them.
+            ## Then log probabilities are evaluated at the end (regardless of whether this was sampled or given)
+        
+            i = i.float()
+            iTensor = i.unsqueeze(0)
+            iAppendedObservations = torch.cat([encodedObservation, iTensor], dim = -1)
+            logitsForJChooser = self.columnCoordinateModel(iAppendedObservations)
+            jCategoricalDistribution = Categorical(logits = logitsForJChooser)
+        
+            if action is not None:
+                j = action[:, 1]
+            elif self.training:    
+                j = jCategoricalDistribution.sample()
+            else:
+                j = torch.argmax(logitsForJChooser)
+                
+            # Omer Sella: now we need to append j to the observations
+            j = j.float()
+            jTensor = j.unsqueeze(0)
+            jAppendedObservations = torch.cat([iAppendedObservations, jTensor], dim = -1)
+            logitsForKChooser = self.numberOfHotBitsModel(jAppendedObservations)
+            kCategoricalDistribution = Categorical(logits = logitsForKChooser)
+        
+            if action is not None:
+                k = action[:, 2]
+            elif self.training:
+                k = kCategoricalDistribution.sample()
+            else:
+                k = torch.argmax(logitsForKChooser)
+        
+            k = k.float()
+            kTensor = k.unsqueeze(0)
+            kAppendedObservations = torch.cat([jAppendedObservations, kTensor], dim = -1)
+            setEncodedStuff = self.encoder2(kAppendedObservations)
+        
+        
+            logProbCoordinates = np.zeros(self.maximumNumberOfHotBits)
+        
+            if action is not None:
+                coordinates = action[:, 3 : 3 + self.maximumNumberOfHotBits]
+                idx = 0
+                while idx < k:
+                    logitsForCoordinateChooser = self.kHotVectorGenerator(setEncodedStuff)
+                    circulantSizeCategoricalDistribution = Categorical(logits = logitsForCoordinateChooser)
+                    newCoordinate = coordinates[idx]
+                    logProbCoordinates[idx] = circulantSizeCategoricalDistribution.log_prob(newCoordinate)
+                    setEncodedStuff = setEncodedStuff + logitsForCoordinateChooser
+                    idx = idx + 1
+            elif self.training:
+                coordinates = -1 * np.ones(self.maximumNumberOfHotBits)
+                idx = 0
+                while idx < k:
+                    logitsForCoordinateChooser = self.kHotVectorGenerator(setEncodedStuff)
+                    circulantSizeCategoricalDistribution = Categorical(logits = logitsForCoordinateChooser)
+                    newCoordinate = circulantSizeCategoricalDistribution.sample()
+                    coordinates[idx] = newCoordinate
+                    logProbCoordinates[idx] = circulantSizeCategoricalDistribution.log_prob(newCoordinate)
+                    setEncodedStuff = setEncodedStuff + logitsForCoordinateChooser
+                    idx = idx + 1
+            else:
+                coordinates = -1 * np.ones(self.maximumNumberOfHotBits)
+                idx = 0
+                while idx < k:
+                    logitsForCoordinateChooser = self.kHotVectorGenerator(setEncodedStuff)
+                    circulantSizeCategoricalDistribution = Categorical(logits = logitsForCoordinateChooser)
+                    newCoordinate = torch.argmax(logitsForCoordinateChooser)
+                    coordinates[idx] = newCoordinate
+                    logProbCoordinates[idx] = circulantSizeCategoricalDistribution.log_prob(newCoordinate)
+                    setEncodedStuff = setEncodedStuff + logitsForCoordinateChooser
+                    idx = idx + 1
+                
+                    
+            #log probs
+            logpI = iCategoricalDistribution.log_prob(i)
+            logpJ = jCategoricalDistribution.log_prob(j).sum(axis = -1)
+            logpK = kCategoricalDistribution.log_prob(k).sum(axis = -1)
+            
+        
+                
+                
+            return i, j, k.item(), coordinates, logpI, logpJ, logpK, logProbCoordinates
+
+
+class openAIActorCritic(nn.Module):
+
+    def __init__(self, observationSpaceType, observationSpaceSize, actionSpaceType, actionSpaceSize, hiddenEncoderSize, maximumNumberOfHotBits, hiddenLayerParameters, actorCriticDevice = 'cpu'):
+    
+        super().__init__()
+        self.pi = openAIActor(observationSpaceType, observationSpaceSize, actionSpaceType, actionSpaceSize, hiddenEncoderSize, maximumNumberOfHotBits, hiddenLayerParameters, actorCriticDevice)
+        self.v  = explicitMLP(observationSpaceSize, 1, [hiddenEncoderSize, hiddenEncoderSize])
+
+    #def step(self, obs):
+    #    with torch.no_grad():
+    #        pi = self.pi._distribution(obs)
+    #        a = pi.sample()
+    #        logp_a = self.pi._log_prob_from_distribution(pi, a)
+    #        v = self.v(obs)
+    #        #print("*** actor_critic step debug***")
+    #        #print("*** action:")
+    #        #print(a)
+    #        #print(a.shape)
+    #        a = a.numpy().astype(int)
+    #        v = v.numpy()
+    #        logp_a = logp_a.numpy()
+    #    return a, v, logp_a
+
+    #def act(self, obs):
+    #    return self.step(obs)[0]
+
+    def step(self, obs, actions = None):
+        i, j, k, coordinates, logpI, logpJ, logpK, logProbCoordinates = self.pi.step(obs, actions)
+        v = self.v(obs)
+        a = [i, j, k, coordinates]
+        logp = [logpI, logpJ, logpK, logProbCoordinates]
+        return a, v, logp
+
+    
 def testExplicitMLP():
     inputLength = 2048
     outputLength = 16

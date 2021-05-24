@@ -3,12 +3,13 @@ import torch
 from torch.optim import Adam
 import gym
 import time
+import os
 
 projectDir = os.environ.get('LDPC')
 if projectDir == None:
     import pathlib
     projectDir = pathlib.Path(__file__).parent.absolute()
-import core as core
+import openAIcore as core
 from logx import EpochLogger
 from mpi_pytorch import setup_pytorch_for_mpi, sync_params, mpi_avg_grads
 from mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
@@ -29,7 +30,7 @@ loggerKeyWords = ['value', 'Episode return', 'Episode length']
 policyTrainIterations = 80
 targetKL = 1.5 * 0.01
 valueFunctionTrainIterations = 80
-loggerPath = utilityFunctions.PROJECT_PATH + "/temp/"
+loggerPath = projectDir + "/temp/"
 MAXIMUM_NUMBER_OF_HOT_BITS = 5
 INTERNAL_ACTION_SPACE_SIZE = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS
 SAVE_MODEL_FREQUENCY = 10
@@ -246,7 +247,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     # Omer Sella: this is where I need to plant my AC
     #ac = actor_critic(env.observation_space, env.action_space, **ac_kwargs)
     #ac = actor_critic(OVERRIDE_OBSERVATION_SPACE_DIM, OVERRIDE_ACTION_SPACE_DIM, **ac_kwargs)
-    ac = models.actorCritic(int, 2048, int, 16, INTERNAL_ACTION_SPACE_SIZE, 7, [64,64] , 'cpu')
+    ac = models.openAIActorCritic(int, 2048, int, INTERNAL_ACTION_SPACE_SIZE, 64, MAXIMUM_NUMBER_OF_HOT_BITS, [64,64] , actorCriticDevice = 'cpu')
     # Sync params across processes
     sync_params(ac)
 
@@ -263,13 +264,10 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         obs, act, adv, logp_old = data['obs'], data['act'], data['adv'], data['logp']
 
         # Policy loss
+        # Omer Sella: This is where we need ac.pi to accept both observations AND actions
         pi, logp = ac.pi(obs, act)
         ratio = torch.exp(logp - logp_old)
-        #print("*** size mismatch debug")
-        #print("*** ratio.shape (expect 516)")
-        #print(ratio.shape)
-        #print("*** adv shape (expect 4000)")
-        #print(adv.shape)
+        
         clip_adv = torch.clamp(ratio, 1-clip_ratio, 1+clip_ratio) * adv
         loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
 
@@ -410,20 +408,19 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default='HalfCheetah-v2')
+    parser.add_argument('--env', type=str, default='gym_ldpc:ldpc-v0')
     parser.add_argument('--hid', type=int, default=64)
     parser.add_argument('--l', type=int, default=2)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--cpu', type=int, default=4)
+    parser.add_argument('--cpu', type=int, default=1) #Omer Sella: was 4 instead of 1
     parser.add_argument('--steps', type=int, default=4000)
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--exp_name', type=str, default='ppo')
     args = parser.parse_args()
-
     mpi_fork(args.cpu)  # run parallel code with mpi
 
-    from spinup.utils.run_utils import setup_logger_kwargs
+    from run_utils import setup_logger_kwargs
     logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed)
 
     ppo(lambda : gym.make(args.env), #Omer Sella: Actor_Critic is now embedded and thus commented actor_critic=core.MLPActorCritic,
