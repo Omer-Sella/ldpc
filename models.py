@@ -62,7 +62,17 @@ from torch.distributions.categorical import Categorical
 
 MODELS_BOOLEAN_TYPE = np.bool
 MODELS_INTEGER_TYPE = np.int32
+CIRCULANT_SIZE = 511
 
+
+def numToBits(number, numberOfBits):
+    assert number < 16
+    assert number >= 0
+    newNumber = np.zeros(numberOfBits, dtype = int)
+    for j in range(numberOfBits - 1, -1, -1):
+        newNumber[j] = newNumber[j] + (number % 2)
+        number = number >> 1
+    return newNumber
 
 class explicitMLP(nn.Module):
     """
@@ -361,7 +371,7 @@ class openAIActor(Actor):
             setEncodedStuff = self.encoder2(kAppendedObservations)
         
         
-            logProbCoordinates = np.zeros(self.maximumNumberOfHotBits)
+            logProbCoordinates = torch.zeros(self.maximumNumberOfHotBits)
         
             if action is not None:
                 coordinates = action[:, 3 : 3 + self.maximumNumberOfHotBits]
@@ -398,14 +408,14 @@ class openAIActor(Actor):
                 
                     
             #log probs
-            logpI = iCategoricalDistribution.log_prob(i)
-            logpJ = jCategoricalDistribution.log_prob(j).sum(axis = -1)
-            logpK = kCategoricalDistribution.log_prob(k).sum(axis = -1)
+            logpI = iCategoricalDistribution.log_prob(i).unsqueeze(-1)
+            logpJ = jCategoricalDistribution.log_prob(j).unsqueeze(-1)#.sum(axis = -1)
+            logpK = kCategoricalDistribution.log_prob(k).unsqueeze(-1)#.sum(axis = -1)
             
         
                 
                 
-            return i, j, k.item(), coordinates, logpI, logpJ, logpK, logProbCoordinates
+            return np.int32(i.item()), np.int32(j.item()), np.int32(k.item()), np.int32(coordinates), logpI, logpJ, logpK, logProbCoordinates
 
 
 class openAIActorCritic(nn.Module):
@@ -437,9 +447,26 @@ class openAIActorCritic(nn.Module):
     def step(self, obs, actions = None):
         i, j, k, coordinates, logpI, logpJ, logpK, logProbCoordinates = self.pi.step(obs, actions)
         v = self.v(obs)
-        a = [i, j, k, coordinates]
-        logp = [logpI, logpJ, logpK, logProbCoordinates]
-        return a, v, logp
+        vector = np.zeros(CIRCULANT_SIZE, dtype = np.int32)
+        #print(k)
+        #print(coordinates)
+        #print(coordinates[0: k - 1])
+        vector[coordinates[0: k - 1]] = 1
+        xCoordinate = numToBits(i, 1)
+        yCoordinate = numToBits(j, 4)
+        envAction = np.hstack((np.hstack((xCoordinate, yCoordinate)), vector))
+        logp_list = [logpI,  logpJ, logpK, logProbCoordinates]
+        #print(logp_list)
+        for l in logp_list:
+            print(l)
+        logp = torch.cat(logp_list, dim = -1)
+        #print(logp)
+        logPSummed = logp.sum(dim = -1, keepdim = False)
+        #print(logPSummed)
+        ppoBufferAction = np.hstack(([i,j,k], coordinates))
+        #print(ppoBufferAction)
+        a = [i, j, k, coordinates, ppoBufferAction, envAction]
+        return a, v, logPSummed
 
     
 def testExplicitMLP():

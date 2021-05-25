@@ -116,7 +116,9 @@ class PPOBuffer:
 
 
 def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0, 
-        steps_per_epoch=4000, epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
+        #Omer Sella: I replaced this: steps_per_epoch=4000, with this:
+        steps_per_epoch=40,
+        epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), save_freq=10):
     """
@@ -238,11 +240,11 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     # Instantiate environment
     env = env_fn()
     obs_dim = env.observation_space.shape
-    act_dim = env.action_space.shape
+    act_dim = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS #env.action_space.shape
 
     # Create actor-critic module
-    OVERRIDE_OBSERVATION_SPACE_DIM = np.zeros(2048)
-    OVERRIDE_ACTION_SPACE_DIM = np.zeros(516)
+    #OVERRIDE_OBSERVATION_SPACE_DIM = np.zeros(2048)
+    #OVERRIDE_ACTION_SPACE_DIM = np.zeros(516)
     
     # Omer Sella: this is where I need to plant my AC
     #ac = actor_critic(env.observation_space, env.action_space, **ac_kwargs)
@@ -347,15 +349,15 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             a, v, logp = ac.step(torch.as_tensor(o, dtype=torch.float32))
             #a, v, logp = ac.step(torch.as_tensor(o, dtype=torch.float32))
             #print("*** Debugging action shape and type")
-            #print(a)
-            
-            next_o, r, d, _ = env.step(a)
+            print(a[-2])
+            print(a[-2].shape)
+            next_o, r, d, _ = env.step(a[-1])
             print(d)
             ep_ret += r
             ep_len += 1
 
             # save and log
-            buf.store(o, a, r, v, logp)
+            buf.store(o, a[-2], r, v, logp)
             logger.store(VVals=v)
             
             # Update obs (critical!)
