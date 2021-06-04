@@ -26,7 +26,7 @@ maximumEpisodeLength = 3
 clipRatio = 0.2
 policyLearningRate = 3e-4
 valueFunctionLearningRate = 1e-3
-loggerKeyWords = ['value', 'Episode return', 'Episode length']
+#loggerKeyWords = ['value', 'EpRet', 'Episode length', ]
 policyTrainIterations = 80
 targetKL = 1.5 * 0.01
 valueFunctionTrainIterations = 80
@@ -52,12 +52,13 @@ class PPOBuffer:
         self.rew_buf = np.zeros(size, dtype=np.float32)
         self.ret_buf = np.zeros(size, dtype=np.float32)
         self.val_buf = np.zeros(size, dtype=np.float32)
+        self.ent_buf = np.zeros(size, dtype=np.float32)
         
         self.logp_buf = np.zeros(size, dtype=np.float32)
         self.gamma, self.lam = gamma, lam
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
 
-    def store(self, obs, act, rew, val, logp):
+    def store(self, obs, act, rew, val, logp, ent):
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
@@ -67,6 +68,7 @@ class PPOBuffer:
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
+        self.ent_buf[self.ptr] = ent
         self.ptr += 1
 
     def finish_path(self, last_val=0):
@@ -110,7 +112,7 @@ class PPOBuffer:
         adv_mean, adv_std = mpi_statistics_scalar(self.adv_buf)
         self.adv_buf = (self.adv_buf - adv_mean) / adv_std
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
-                    adv=self.adv_buf, logp=self.logp_buf)
+                    adv=self.adv_buf, logp=self.logp_buf, ent=self.ent_buf)
         return {k: torch.as_tensor(v, dtype=torch.float32) for k,v in data.items()}
 
 
@@ -263,11 +265,12 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
     # Set up function for computing PPO policy loss
     def compute_loss_pi(data):
-        obs, act, adv, logp_old = data['obs'], data['act'], data['adv'], data['logp']
+        obs, act, adv, logp_old, entropy_old = data['obs'], data['act'], data['adv'], data['logp'], data['ent']
 
         # Policy loss
         # Omer Sella: This is where we need ac.pi to accept both observations AND actions
-        pi, logp = ac.pi(obs, act)
+        #pi, logp = ac.pi(obs, act)
+        _, _, logp, actorEntropy = ac.step(obs, act)
         ratio = torch.exp(logp - logp_old)
         
         clip_adv = torch.clamp(ratio, 1-clip_ratio, 1+clip_ratio) * adv
@@ -275,7 +278,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
         # Useful extra info
         approx_kl = (logp_old - logp).mean().item()
-        ent = pi.entropy().mean().item()
+        ent = actorEntropy.mean().item()
         clipped = ratio.gt(1+clip_ratio) | ratio.lt(1-clip_ratio)
         clipfrac = torch.as_tensor(clipped, dtype=torch.float32).mean().item()
         pi_info = dict(kl=approx_kl, ent=ent, cf=clipfrac)
@@ -303,12 +306,12 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
         # Train policy with multiple steps of gradient descent
         for i in range(train_pi_iters):
-            print("*** Policy training step %d..."%i)
+            #print("*** Policy training step %d..."%i)
             pi_optimizer.zero_grad()
             loss_pi, pi_info = compute_loss_pi(data)
             kl = mpi_avg(pi_info['kl'])
-            print("*** Understanding early stopping to due kl:")
-            print(kl)
+            #print("*** Understanding early stopping to due kl:")
+            #print(kl)
             if kl > 1.5 * target_kl:
                 logger.log('Early stopping at step %d due to reaching max kl.'%i)
                 break
@@ -320,7 +323,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
         # Value function learning
         for i in range(train_v_iters):
-            print("*** Value function training step %d..."%i)
+            #print("*** Value function training step %d..."%i)
             vf_optimizer.zero_grad()
             loss_v = compute_loss_v(data)
             loss_v.backward()
@@ -346,18 +349,21 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
         for t in range(local_steps_per_epoch):
-            a, v, logp = ac.step(torch.as_tensor(o, dtype=torch.float32))
+            print("*** step number: " + str(t))
+            a, v, logp, actorEntropy = ac.step(torch.as_tensor(o, dtype=torch.float32))
+            #print(actorEntropy)
+            #print(v)
             #a, v, logp = ac.step(torch.as_tensor(o, dtype=torch.float32))
             #print("*** Debugging action shape and type")
-            print(a[-2])
-            print(a[-2].shape)
+            #print(a[-2])
             next_o, r, d, _ = env.step(a[-1])
-            print(d)
+            #print("*** reward: " + str(r))
+            #print(d)
             ep_ret += r
             ep_len += 1
 
             # save and log
-            buf.store(o, a[-2], r, v, logp)
+            buf.store(o, a[-2], r, v, logp, actorEntropy)
             logger.store(VVals=v)
             
             # Update obs (critical!)
@@ -372,15 +378,19 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
                     print('Warning: trajectory cut off by epoch at %d steps.'%ep_len, flush=True)
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if timeout or epoch_ended:
-                    _, v, _ = ac.step(torch.as_tensor(o, dtype=torch.float32))
+                    _, v, _, _ = ac.step(torch.as_tensor(o, dtype=torch.float32))
                 else:
                     v = 0
                 buf.finish_path(v)
                 if terminal:
                     # only save EpRet / EpLen if trajectory finished
                     print("*** PPO acknowledges that the episode terminated")
+                    print("*** EpRet debug. ep_ret == " + str(ep_ret))
                     logger.store(EpRet=ep_ret, EpLen=ep_len)
                 o, ep_ret, ep_len = env.reset(), 0, 0
+
+
+
 
 
         # Save model
@@ -392,9 +402,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
         # Log info about epoch
         logger.log_tabular('Epoch', epoch)
-        logger.log_tabular('EpRet', with_min_and_max=True)
-        logger.log_tabular('EpLen', average_only=True)
         logger.log_tabular('VVals', with_min_and_max=True)
+        
         logger.log_tabular('TotalEnvInteracts', (epoch+1)*steps_per_epoch)
         logger.log_tabular('LossPi', average_only=True)
         logger.log_tabular('LossV', average_only=True)
@@ -405,6 +414,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         logger.log_tabular('ClipFrac', average_only=True)
         logger.log_tabular('StopIter', average_only=True)
         logger.log_tabular('Time', time.time()-start_time)
+        logger.log_tabular('EpLen', average_only=True)
+        logger.log_tabular('EpRet', with_min_and_max=True)
         logger.dump_tabular()
 
 if __name__ == '__main__':
@@ -416,7 +427,7 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--cpu', type=int, default=1) #Omer Sella: was 4 instead of 1
-    parser.add_argument('--steps', type=int, default=4000)
+    parser.add_argument('--steps', type=int, default=10)#=4000)
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--exp_name', type=str, default='ppo')
     args = parser.parse_args()

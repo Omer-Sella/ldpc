@@ -324,7 +324,7 @@ class openAIActor(Actor):
             encodedObservation = self.encoder(observations)
             logitsForIChooser = self.rowCoordinateModel(encodedObservation)
             iCategoricalDistribution = Categorical(logits = logitsForIChooser)
-        
+            iDistributionEntropy = iCategoricalDistribution.entropy().unsqueeze(-1)
             if action is not None:
                 i = action[:, 0]
             elif self.training:
@@ -339,11 +339,12 @@ class openAIActor(Actor):
             ## Then log probabilities are evaluated at the end (regardless of whether this was sampled or given)
         
             i = i.float()
-            iTensor = i.unsqueeze(0)
+            iTensor = i.unsqueeze(-1)
             iAppendedObservations = torch.cat([encodedObservation, iTensor], dim = -1)
             logitsForJChooser = self.columnCoordinateModel(iAppendedObservations)
             jCategoricalDistribution = Categorical(logits = logitsForJChooser)
-        
+            jDistributionEntropy = jCategoricalDistribution.entropy().unsqueeze(-1)
+
             if action is not None:
                 j = action[:, 1]
             elif self.training:    
@@ -353,10 +354,11 @@ class openAIActor(Actor):
                 
             # Omer Sella: now we need to append j to the observations
             j = j.float()
-            jTensor = j.unsqueeze(0)
+            jTensor = j.unsqueeze(-1)
             jAppendedObservations = torch.cat([iAppendedObservations, jTensor], dim = -1)
             logitsForKChooser = self.numberOfHotBitsModel(jAppendedObservations)
             kCategoricalDistribution = Categorical(logits = logitsForKChooser)
+            kDistributionEntropy = kCategoricalDistribution.entropy().unsqueeze(-1)
         
             if action is not None:
                 k = action[:, 2]
@@ -366,43 +368,60 @@ class openAIActor(Actor):
                 k = torch.argmax(logitsForKChooser)
         
             k = k.float()
-            kTensor = k.unsqueeze(0)
+            kTensor = k.unsqueeze(-1)
             kAppendedObservations = torch.cat([jAppendedObservations, kTensor], dim = -1)
             setEncodedStuff = self.encoder2(kAppendedObservations)
         
         
-            logProbCoordinates = torch.zeros(self.maximumNumberOfHotBits)
+            
+            
         
+            # In this part we choose k coordinates, where: k <= maximumNumberOfHotBits <= circulantSize 
+            # In practice we choose maximumNumberOfHotBits coordinates, and use only the first k of them
+            
             if action is not None:
                 coordinates = action[:, 3 : 3 + self.maximumNumberOfHotBits]
+                numberOfObservations = coordinates.shape[0]
+                print(coordinates.shape[0])
+                coordinateEntropies = torch.zeros((numberOfObservations, self.maximumNumberOfHotBits))
+                logProbCoordinates = torch.zeros((numberOfObservations, self.maximumNumberOfHotBits))
+                
+                
                 idx = 0
-                while idx < k:
+                while idx < self.maximumNumberOfHotBits:
                     logitsForCoordinateChooser = self.kHotVectorGenerator(setEncodedStuff)
                     circulantSizeCategoricalDistribution = Categorical(logits = logitsForCoordinateChooser)
-                    newCoordinate = coordinates[idx]
-                    logProbCoordinates[idx] = circulantSizeCategoricalDistribution.log_prob(newCoordinate)
+                    newCoordinate = coordinates[:, idx]
+                    logProbCoordinates[:, idx] = circulantSizeCategoricalDistribution.log_prob(newCoordinate)
+                    coordinateEntropies[:, idx] = circulantSizeCategoricalDistribution.entropy()# Omer Sella: commented this: .unsqueeze(-1)
                     setEncodedStuff = setEncodedStuff + logitsForCoordinateChooser
                     idx = idx + 1
             elif self.training:
+                coordinateEntropies = torch.zeros(self.maximumNumberOfHotBits)
+                logProbCoordinates = torch.zeros(self.maximumNumberOfHotBits)
                 coordinates = -1 * np.ones(self.maximumNumberOfHotBits)
                 idx = 0
-                while idx < k:
+                while idx < self.maximumNumberOfHotBits:
                     logitsForCoordinateChooser = self.kHotVectorGenerator(setEncodedStuff)
                     circulantSizeCategoricalDistribution = Categorical(logits = logitsForCoordinateChooser)
                     newCoordinate = circulantSizeCategoricalDistribution.sample()
                     coordinates[idx] = newCoordinate
                     logProbCoordinates[idx] = circulantSizeCategoricalDistribution.log_prob(newCoordinate)
+                    coordinateEntropies[idx] = circulantSizeCategoricalDistribution.entropy().unsqueeze(-1)
                     setEncodedStuff = setEncodedStuff + logitsForCoordinateChooser
                     idx = idx + 1
             else:
+                coordinateEntropies = torch.zeros(self.maximumNumberOfHotBits)
+                logProbCoordinates = torch.zeros(self.maximumNumberOfHotBits)
                 coordinates = -1 * np.ones(self.maximumNumberOfHotBits)
                 idx = 0
-                while idx < k:
+                while idx < self.maximumNumberOfHotBits:
                     logitsForCoordinateChooser = self.kHotVectorGenerator(setEncodedStuff)
                     circulantSizeCategoricalDistribution = Categorical(logits = logitsForCoordinateChooser)
                     newCoordinate = torch.argmax(logitsForCoordinateChooser)
                     coordinates[idx] = newCoordinate
                     logProbCoordinates[idx] = circulantSizeCategoricalDistribution.log_prob(newCoordinate)
+                    coordinateEntropies[idx] = circulantSizeCategoricalDistribution.entropy().unsqueeze(-1)
                     setEncodedStuff = setEncodedStuff + logitsForCoordinateChooser
                     idx = idx + 1
                 
@@ -412,10 +431,15 @@ class openAIActor(Actor):
             logpJ = jCategoricalDistribution.log_prob(j).unsqueeze(-1)#.sum(axis = -1)
             logpK = kCategoricalDistribution.log_prob(k).unsqueeze(-1)#.sum(axis = -1)
             
-        
+            
+            if action is None:
+                i = np.int32(i.item())
+                j = np.int32(j.item())
+                k = np.int32(k.item())
+                coordinates = np.int32(coordinates)
                 
                 
-            return np.int32(i.item()), np.int32(j.item()), np.int32(k.item()), np.int32(coordinates), logpI, logpJ, logpK, logProbCoordinates
+            return i, j, k, coordinates, logpI, logpJ, logpK, logProbCoordinates, iDistributionEntropy, jDistributionEntropy, kDistributionEntropy, coordinateEntropies
 
 
 class openAIActorCritic(nn.Module):
@@ -445,28 +469,41 @@ class openAIActorCritic(nn.Module):
     #    return self.step(obs)[0]
 
     def step(self, obs, actions = None):
-        i, j, k, coordinates, logpI, logpJ, logpK, logProbCoordinates = self.pi.step(obs, actions)
+        i, j, k, coordinates, logpI, logpJ, logpK, logProbCoordinates, iDistributionEntropy, jDistributionEntropy, kDistributionEntropy, coordinateEntropies = self.pi.step(obs, actions)
         v = self.v(obs)
         vector = np.zeros(CIRCULANT_SIZE, dtype = np.int32)
         #print(k)
         #print(coordinates)
-        #print(coordinates[0: k - 1])
-        vector[coordinates[0: k - 1]] = 1
-        xCoordinate = numToBits(i, 1)
-        yCoordinate = numToBits(j, 4)
-        envAction = np.hstack((np.hstack((xCoordinate, yCoordinate)), vector))
+        #print(coordinates[0: np.int(k)])
+        # Omer Sella: if action is None, then k is an integer >= 0 and all is ok to use it as an index.
+        # If action is not None, then this "step" function is just supposed to evaulate entropies and log probabilities, not produce new actions, so
+        # it's ok to return the environment vector action as zeros.
+        if actions is None:
+            vector[coordinates[0: k]] = 1
+            xCoordinate = numToBits(i, 1)
+            yCoordinate = numToBits(j, 4)
+            ppoBufferAction = np.hstack(([i,j,k], coordinates))
+            envAction = np.hstack((np.hstack((xCoordinate, yCoordinate)), vector))
+        else:
+            # Omer Sella: temporary fix for when action is not none:
+            xCoordinate = numToBits(1, 1)
+            yCoordinate = numToBits(1, 1)
+            ppoBufferAction = False #np.hstack(([i,j,k], coordinates))
+            envAction = False#np.hstack((np.hstack((xCoordinate, yCoordinate)), vector))
         logp_list = [logpI,  logpJ, logpK, logProbCoordinates]
         #print(logp_list)
-        for l in logp_list:
-            print(l)
+        #for l in logp_list:
+        #    print(l)
         logp = torch.cat(logp_list, dim = -1)
         #print(logp)
         logPSummed = logp.sum(dim = -1, keepdim = False)
         #print(logPSummed)
-        ppoBufferAction = np.hstack(([i,j,k], coordinates))
         #print(ppoBufferAction)
+        entropy_list = [iDistributionEntropy, jDistributionEntropy, kDistributionEntropy, coordinateEntropies]
+        entropy = torch.cat(entropy_list, dim = -1)
+        entropySummed = entropy.sum(dim = -1, keepdim = False)
         a = [i, j, k, coordinates, ppoBufferAction, envAction]
-        return a, v, logPSummed
+        return a, v.detach().numpy(), logPSummed, entropySummed
 
     
 def testExplicitMLP():
@@ -493,4 +530,5 @@ def testActorCritic():
      return
 
 if __name__ == '__main__':
+    print("***You hit play on the wrong file #**hole... modulu ...")
     testActorCritic()
