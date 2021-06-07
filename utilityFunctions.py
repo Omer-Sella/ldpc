@@ -7,10 +7,25 @@ Created on Thu Mar 25 14:26:10 2021
 import numpy as np
 import time
 import os
-import mpiFunctions
-from mpiFunctions import mpiProcessID
 import matplotlib.pyplot as plt
 import torch
+from mpi_tools import proc_id as mpiProcessID
+
+import pandas as pd
+import seaborn as sns
+import matplotlib
+
+import matplotlib.animation as animation
+
+from celluloid import Camera
+
+
+
+
+
+
+
+
 #plt.ioff()
 PROJECT_PATH = os.environ.get('LDPC')
 # When logging (printing, writing to csv etc.) numpy arrays, if there are 
@@ -46,36 +61,61 @@ class plotter():
         self.epochs = epochs
         #self.numberOfStepsPerEpoch = numberOfStepsPerEpoch
         #self.maximumEpisodeLength = maximumEpisodeLength
-        self.fig, self.axs = plt.subplots(2,2)
-        plt.ion()
-        self.axs[0,0].set_title('Current episode rewards')
-        self.axs[0,0].set_ylabel('undiscounted reward')
-        self.axs[0,0].set_xlabel('time')
-        self.axs[1,0].set_title('Previous episode returns')
-        self.axs[1,0].set_ylabel('return')
-        self.axs[1,0].set_xlabel('Episode number')
-        self.axs[1,1].set_title('Previous epochs')
-        self.axs[1,1].set_ylabel('return')
-        self.axs[1,1].set_xlabel('Epoch number')
+        self.fig = plt.figure()
+        self.ax1 = self.fig.add_subplot(1, 2, 1)
+        self.ax2 = self.fig.add_subplot(2, 2, 2)
+        self.ax3 = self.fig.add_subplot(2, 2, 4)
+        self.ax1.set_title('current episode rewards')
+        self.ax1.set_ylabel('undiscounted reward')
+        self.ax1.set_xlabel('time')
+        #self.fig, self.axs = plt.subplots(2,2)
+        #plt.ion()
+        #self.axs[0,0].set_title('current episode rewards')
+        #self.axs[0,0].set_ylabel('undiscounted reward')
+        #self.axs[0,0].set_xlabel('time')
+        #self.axs[1,0].set_title('previous episode returns')
+        #self.axs[1,0].set_ylabel('return')
+        #self.axs[1,0].set_xlabel('episode number')
+        #self.axs[1,1].set_title('previous epochs')
+        #self.axs[1,1].set_ylabel('return')
+        #self.axs[1,1].set_xlabel('epoch number')
         self.currentRewards = []
         self.epochsDone = []
         self.counter = 0
+        self.images = []
+        #self.camera = Camera(self.fig)
         
-    def step(self, reward):
+        
+    def step(self, reward, duration = None):
         self.currentRewards.append(reward)
         self.epochsDone.append(self.counter + 1)
         self.counter = self.counter + 1
-        self.axs[0,0].clear()
-        self.axs[0,0].set_title('Episode rewards')
-        self.axs[0,0].set_ylabel('undiscounted reward')
-        self.axs[0,0].set_xlabel('Epoch number')
-        #self.axs[0.0].set_xticks(np.arange(len(self.currentRewards)))
-        plt.sca(self.axs[0, 0])
-        plt.xticks(range(len(self.currentRewards)), range(len(self.currentRewards)))
-        self.axs[0,0].scatter(np.arange(len(self.currentRewards)), self.currentRewards)
-        plt.ion()
-        plt.pause(0.001)
+        #self.axs[0,0].clear()
+        #self.axs[0,0].set_title('Episode rewards')
+        #self.axs[0,0].set_ylabel('undiscounted reward')
+        #self.axs[0,0].set_xlabel('Epoch number')
+        #self.axs[0,0].set_xticks(np.arange(len(self.currentRewards)))
+        #plt.sca(self.axs[0, 0])
+        #plt.xticks(range(len(self.currentRewards)), range(len(self.currentRewards)))
+        #self.axs[0,0].scatter(np.arange(len(self.currentRewards)), self.currentRewards)
+        #image = self.fig
+        plt.pause(0.1)
+        #self.camera.snap()
+        image = self.ax1.scatter(np.arange(len(self.currentRewards)), self.currentRewards)
+        self.images.append([image])
+        #plt.ion()
+        #plt.pause(0.001)
+        #plt.show()
+
+    def saveAnimation(self, fileName):
+        
+    
+        ani = animation.ArtistAnimation(self.fig, self.images, interval=50, blit=True, repeat_delay=1000)
+        ani.save(fileName)
         plt.show()
+        return 'OK'
+
+    
         
         
         
@@ -168,16 +208,7 @@ class logger():
                     fid.write("\t".join(map(str,values))+"\n")
                     fid.flush()
                 
-                # with h5py.File(self.hdf5FileName, 'a') as fid:
-                #     if isinstance(self.currentRow[key], np.ndarray):
-                #         fid.create_dataset()
-                #     fid.create_group(str(self.dataSet))
-                #     for key in self.columnKeys:
-                #         fid[str(self.dataSet)].attrs[key] = self.currentRow[key]
-                #         fid[key].attrs[str(self.dataSet)] = self.currentRow[key]
-                #     df = pandas.DataFrame(self.currentRow, index = self.dataSet)
-                #     df.to_hdf(self.hdf5FileName, "/", 'r+', format = 'table')
-                #     self.dataSet = self.dataSet + 1
+                
                 self.currentRow.clear()
                 
     def setupPytorchSave(self, parametersToSave):
@@ -197,7 +228,17 @@ def testLogger():
         myLogger.dumpLogger()
     return status
 
-if __name__ == '__main__':
-    status = testLogger()
-    print(status)
+def testPlotter():
     
+    myPlotter = plotter(epochs = 50)
+    for i in range(50):
+        myPlotter.step(np.random.random())
+    fileName = PROJECT_PATH + "/localData/plotterTest/testingPlotter.mp4"
+    status = myPlotter.saveAnimation(fileName)
+    return status
+
+
+if __name__ == '__main__':
+    #status = testLogger()
+    #print(status)
+    status = testPlotter()

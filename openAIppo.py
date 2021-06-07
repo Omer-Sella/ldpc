@@ -13,6 +13,8 @@ import openAIcore as core
 from logx import EpochLogger
 from mpi_pytorch import setup_pytorch_for_mpi, sync_params, mpi_avg_grads
 from mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
+from utilityFunctions import plotter as ossplotter
+from utilityFunctions import logger as osslogger
 
 
 OBSERVATION_DATA_TYPE = np.float32
@@ -121,7 +123,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         #Omer Sella: I replaced this: steps_per_epoch=4000, with this:
         steps_per_epoch=40,
         epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
-        vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
+        vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=14,#max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), save_freq=10):
     """
     Proximal Policy Optimization (by clipping), 
@@ -226,12 +228,20 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
     """
 
-    # Special function to avoid certain slowdowns from PyTorch + MPI combo.
+
+    # Special function to avoid certain slowdowns from PyTorch + MPI combo.  
     setup_pytorch_for_mpi()
 
     # Set up logger and save configuration
     logger = EpochLogger(**logger_kwargs)
     logger.save_config(locals())
+
+
+    # Omer Sella: this is my logger and plotter:
+    simpleKeys = ['Observation', 'iAction', 'jAction', 'hotBitsAction', 'Reward']
+    myLogger = osslogger(simpleKeys, logPath = "D:/data/")
+    #logger.save_config(locals())
+    myPlotter = ossplotter(50)
 
     # Random seed
     seed += 10000 * proc_id()
@@ -340,6 +350,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     # Prepare for interaction with environment
     start_time = time.time()
     o, ep_ret, ep_len = env.reset(), 0, 0
+    
     ## Omer Sella: flatten added
     #o = o.flatten()
     #print("*** type debug")
@@ -350,15 +361,17 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     for epoch in range(epochs):
         for t in range(local_steps_per_epoch):
             print("*** step number: " + str(t))
+            myLogger.keyValue('Observation', o)
             a, v, logp, actorEntropy = ac.step(torch.as_tensor(o, dtype=torch.float32))
-            #print(actorEntropy)
-            #print(v)
-            #a, v, logp = ac.step(torch.as_tensor(o, dtype=torch.float32))
-            #print("*** Debugging action shape and type")
-            #print(a[-2])
+            myLogger.keyValue('iAction', a[0])
+            myLogger.keyValue('jAction', a[1])
+            myLogger.keyValue('hotBitsAction', a[3])
+                        
             next_o, r, d, _ = env.step(a[-1])
-            #print("*** reward: " + str(r))
-            #print(d)
+            myLogger.keyValue('Reward', r)
+            ################################
+            myLogger.dumpLogger()
+            ################################
             ep_ret += r
             ep_len += 1
 
@@ -374,6 +387,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             epoch_ended = t==local_steps_per_epoch-1
 
             if terminal or epoch_ended:
+                myPlotter.step(ep_ret)
                 if epoch_ended and not(terminal):
                     print('Warning: trajectory cut off by epoch at %d steps.'%ep_len, flush=True)
                 # if trajectory didn't reach terminal state, bootstrap value target
@@ -388,6 +402,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
                     print("*** EpRet debug. ep_ret == " + str(ep_ret))
                     logger.store(EpRet=ep_ret, EpLen=ep_len)
                 o, ep_ret, ep_len = env.reset(), 0, 0
+            
+            
 
 
 
@@ -417,6 +433,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         logger.log_tabular('EpLen', average_only=True)
         logger.log_tabular('EpRet', with_min_and_max=True)
         logger.dump_tabular()
+    myPlotter.saveAnimation("D:/ldpc/localData/plot.mp4")
 
 if __name__ == '__main__':
     import argparse
