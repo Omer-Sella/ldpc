@@ -1,8 +1,6 @@
 {
   "ExpandedNodes": [
     "",
-    "\\spinningup",
-    "\\spinup",
     "\\spinup\\algos",
     "\\spinup\\algos\\pytorch",
     "\\spinup\\algos\\pytorch\\ppo",
@@ -10,6 +8,6 @@
     "\\spinup\\examples\\pytorch",
     "\\spinup\\utils"
   ],
-  "SelectedNode": "\\utilityFunctions.py",
+  "SelectedNode": "\\postProcessing.py",
   "PreviewInSolutionExplorer": false
 }

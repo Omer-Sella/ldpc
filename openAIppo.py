@@ -238,8 +238,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
 
     # Omer Sella: this is my logger and plotter:
-    simpleKeys = ['Observation', 'iAction', 'jAction', 'hotBitsAction', 'Reward']
-    myLogger = osslogger(simpleKeys, logPath = "D:/data/")
+    simpleKeys = ['Observation', 'iAction', 'jAction', 'hotBitsAction', 'Reward', 'epochNumber', 'stepNumber']
+    myLogger = osslogger(simpleKeys)
     #logger.save_config(locals())
     myPlotter = ossplotter(50)
 
@@ -369,6 +369,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
                         
             next_o, r, d, _ = env.step(a[-1])
             myLogger.keyValue('Reward', r)
+            myLogger.keyValue('epochNumber', epoch)
+            myLogger.keyValue('stepNumber', t)
             ################################
             myLogger.dumpLogger()
             ################################
@@ -387,7 +389,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             epoch_ended = t==local_steps_per_epoch-1
 
             if terminal or epoch_ended:
-                myPlotter.step(ep_ret)
+                #myPlotter.step(ep_ret)
                 if epoch_ended and not(terminal):
                     print('Warning: trajectory cut off by epoch at %d steps.'%ep_len, flush=True)
                 # if trajectory didn't reach terminal state, bootstrap value target
@@ -433,18 +435,18 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         logger.log_tabular('EpLen', average_only=True)
         logger.log_tabular('EpRet', with_min_and_max=True)
         logger.dump_tabular()
-    myPlotter.saveAnimation("D:/ldpc/localData/plot.mp4")
+    #myPlotter.saveAnimation("D:/ldpc/localData/plot.mp4")
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default='gym_ldpc:ldpc-v0')
+    parser.add_argument('--env', type=str, default= 'gym_ldpc:ldpc-v0')
     parser.add_argument('--hid', type=int, default=64)
     parser.add_argument('--l', type=int, default=2)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--cpu', type=int, default=1) #Omer Sella: was 4 instead of 1
-    parser.add_argument('--steps', type=int, default=10)#=4000)
+    parser.add_argument('--cpu', type=int, default=2) #Omer Sella: was 4 instead of 1
+    parser.add_argument('--steps', type=int, default=160)
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--exp_name', type=str, default='ppo')
     args = parser.parse_args()

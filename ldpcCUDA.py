@@ -681,7 +681,9 @@ def testNearEarth(numOfTransmissions = 50):
     print('Time it took for code evaluation == %d' % (end-start))
     print('Throughput == '+str((8176*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
     a, b, c, d = bStats.getStats(codewordSize)
-    
+    scatterSnr, scatterBer, scatterItr, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = bStats.getStatsV2()
+    common.plotEvaluationData(scatterSnr, scatterBer)
+
     print("berDecoded " + str(c))
     if (c[2] == 0) and (c[3] == 0):
         status = 'OK'

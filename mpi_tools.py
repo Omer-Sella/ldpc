@@ -32,6 +32,8 @@ def mpi_fork(n, bind_to_core=False):
         if bind_to_core:
             args += ["-bind-to", "core"]
         args += [sys.executable] + sys.argv
+        print("*** mpi fork debug")
+        print(env)
         subprocess.check_call(args, env=env)
         sys.exit()
 

@@ -244,6 +244,30 @@ def spawnGraphics(matrix, subMatrixDimX, subMatrixDimY):
     axs[1,16].set_title('SNR to BER scatter plot')
     return fig, axs
 
+def plotEvaluationData(snr, ber, linearFit = True, fillBetween = True):
+
+    p = np.polyfit(snr, ber, 1)
+    print(p)
+    trendP = np.poly1d(p)
+    print(trendP)
+    slope = p[0]
+    bias = p[1]
+    fig, ax = plt.subplots()
+    ax.scatter(snr, ber)
+    ax.plot(snr, trendP(snr), color = 'g')
+    ax.set_ylabel('Bit error rate', size = 18)
+    ax.set_xlabel('Signal to noise ratio', size = 18)
+    ax.set_title('Evaluation data', size = 18)
+    #ax.set_xticks(ber)
+    #ax.set_xticklabels(snr)
+    #ax.legend()
+    region = np.arange(2.9,3.9,0.1)
+    ax.fill_between(region, trendP(region), 0.035, color = '#FFA500', alpha = 0.5)
+    plt.show()
+    #reward = -1 * p[0]
+    #reward =  0.5 * slope * (self.SNRpoints[-1] ** 2)  + bias * self.SNRpoints[-1] - ( 0.5 * slope * (self.SNRpoints[0] ** 2)  + bias * self.SNRpoints[0])
+    #reward = -1 * reward
+    return fig, ax
 
 def testGraphics():
     matrix = np.random.randint(0,2, (1022,8176))
