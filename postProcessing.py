@@ -6,11 +6,17 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 from numpy.polynomial import Polynomial
+import os
 
 
-def postMortem():
-    filePath = "D:/ldpc/temp/experiments/1623248772/experimet.txt"
-    df = pd.read_csv("D:/ldpc/temp/experiments/1623248772/experiment.txt", sep='\t')
+def postMortem(filePath = None):
+    
+    if filePath == None:
+        #filePath = "D:/ldpc/temp/experiments/1623248772/experimet.txt"
+        filePath = "D:/ldpc/temp/experiments/1623831779/experimet.txt"
+        filePath = "D:/ldpc/temp/experiments/1623831779/experiment.txt"
+    
+    df = pd.read_csv(filePath, sep='\t')
     
     keys = df.columns.values
     
@@ -32,6 +38,9 @@ def postMortem():
     dfEpochNumber.iAction.plot(ax=ax[2,0])
     dfEpochNumber.jAction.plot(ax=ax[2,1])
     #df.hotBitsAction.plot(ax=ax[3,0])
+    pathBreakdown = os.path.split(filePath)
+    imageName = pathBreakdown[0] + "/postProcessing.png"
+    plt.savefig(fname = imageName)
     return
 
 def drawRewardSurface():

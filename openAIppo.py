@@ -123,7 +123,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         #Omer Sella: I replaced this: steps_per_epoch=4000, with this:
         steps_per_epoch=40,
         epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
-        vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=14,#max_ep_len=1000,
+        vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=32,#max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), save_freq=10):
     """
     Proximal Policy Optimization (by clipping), 
@@ -445,8 +445,8 @@ if __name__ == '__main__':
     parser.add_argument('--l', type=int, default=2)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--cpu', type=int, default=2) #Omer Sella: was 4 instead of 1
-    parser.add_argument('--steps', type=int, default=160)
+    parser.add_argument('--cpu', type=int, default=1) #Omer Sella: was 4 instead of 1
+    parser.add_argument('--steps', type=int, default=320)
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--exp_name', type=str, default='ppo')
     args = parser.parse_args()
