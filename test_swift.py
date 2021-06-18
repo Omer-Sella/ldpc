@@ -30,7 +30,7 @@ def test_fileHandler_nearEarth():
 #    assert ldpcTF.testMinSumStep == 'OK'
 
 def test_ldpcCUDAdecoder():
-    _, status = ldpcCUDA.testNearEarth()
+    _, status = ldpcCUDA.testNearEarth(graphics = False)
     assert status =='OK'
     
     
@@ -42,9 +42,14 @@ def test_models():
 def test_utilityFunctionLogger():
     status = utilityFunctions.testLogger()
     assert status == 'OK'
+    
+#def test_utilityFunctionPlotter():
+#    status = utilityFunctions.testPlotter()
+#    assert status == 'OK'
 
 
-import ldpc_env
+
 def test_roundtripCompression():
+    import ldpc_env
     status = ldpc_env.testCompressionRoundrip()
     assert status == 'OK'

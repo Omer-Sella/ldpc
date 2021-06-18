@@ -11,16 +11,8 @@ import matplotlib.pyplot as plt
 import torch
 from mpi_tools import proc_id as mpiProcessID
 
-import pandas as pd
-import seaborn as sns
-import matplotlib
 
 import matplotlib.animation as animation
-
-from celluloid import Camera
-
-
-
 
 
 

@@ -662,7 +662,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
     return berStats
         
 
-def testNearEarth(numOfTransmissions = 50):
+def testNearEarth(numOfTransmissions = 50, graphics = True):
     status = 'Near earth problem'
     print("*** in test near earth")
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
@@ -682,7 +682,8 @@ def testNearEarth(numOfTransmissions = 50):
     print('Throughput == '+str((8176*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
     a, b, c, d = bStats.getStats(codewordSize)
     scatterSnr, scatterBer, scatterItr, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = bStats.getStatsV2()
-    common.plotEvaluationData(scatterSnr, scatterBer)
+    if graphics == True:
+        common.plotEvaluationData(scatterSnr, scatterBer)
 
     print("berDecoded " + str(c))
     if (c[2] == 0) and (c[3] == 0):
