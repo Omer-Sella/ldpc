@@ -9,7 +9,8 @@ import json
 import joblib
 import shutil
 import numpy as np
-import tensorflow as tf
+# Omer Sella: I commented import tensorflow since there is a problem installing tensorflow on Wilkes.
+#import tensorflow as tf
 import torch
 import os.path as osp, time, atexit, os
 import warnings

@@ -7,9 +7,12 @@ Created on Mon Feb 24 17:30:45 2020
 
 import ldpc
 import fileHandler
-import ldpcTF
+#import ldpcTF
 import ldpcCUDA
 import common
+import models
+import utilityFunctions
+
 
 
 
@@ -20,13 +23,28 @@ def test_modulationAndSlicingRoundTrip():
 def test_fileHandler_nearEarth():
     assert fileHandler.testFileHandler() == 'OK'
     
-def test_testModulationAndSlicingRoundtripTFimplementation():
-    assert ldpcTF.testModulationAndSlicingRoundtrip() == 'OK'
+#def test_testModulationAndSlicingRoundtripTFimplementation():
+#    assert ldpcTF.testModulationAndSlicingRoundtrip() == 'OK'
     
-def test_minSumStepTFimplementation():    
-    assert ldpcTF.testMinSumStep == 'OK'
+#def test_minSumStepTFimplementation():    
+#    assert ldpcTF.testMinSumStep == 'OK'
 
 def test_ldpcCUDAdecoder():
     _, status = ldpcCUDA.testNearEarth()
     assert status =='OK'
     
+    
+def test_models():
+    status = models.testActorCritic()
+    assert status == 'OK'
+    
+    
+def test_utilityFunctionLogger():
+    status = utilityFunctions.testLogger()
+    assert status == 'OK'
+
+
+import ldpc_env
+def test_roundtripCompression():
+    status = ldpc_env.testCompressionRoundrip()
+    assert status == 'OK'

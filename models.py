@@ -527,7 +527,7 @@ def testActorCritic():
      print(testVector.size())
      result = testAC.step(torch.rand(2048))
      print(result)
-     return
+     return 'OK'
 
 if __name__ == '__main__':
     print("***You hit play on the wrong file #**hole... modulu ...")
