@@ -133,7 +133,7 @@ class logger():
         
         if  mpiProcessID() == 0:
             if logPath == None:
-                self.logPath = PROJECT_PATH + "/temp/experiments/%i" %int(time.time())
+                self.logPath = str(PROJECT_PATH) + "/temp/experiments/%i" %int(time.time())
             else:
                 self.logPath = logPath
             if os.path.exists(self.logPath):
