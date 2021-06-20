@@ -15,6 +15,8 @@ def postMortem(filePath = None):
         #filePath = "D:/ldpc/temp/experiments/1623248772/experimet.txt"
         filePath = "D:/ldpc/temp/experiments/1623831779/experimet.txt"
         filePath = "D:/ldpc/temp/experiments/1623831779/experiment.txt"
+        filePath = "D:/ldpc/temp/experiments/1624005673/experiment.txt" # First experiment with env.reset() using random seed
+        
     
     df = pd.read_csv(filePath, sep='\t')
     
@@ -38,6 +40,30 @@ def postMortem(filePath = None):
     dfEpochNumber.iAction.plot(ax=ax[2,0])
     dfEpochNumber.jAction.plot(ax=ax[2,1])
     #df.hotBitsAction.plot(ax=ax[3,0])
+    ax[0,0].set_title('Undiscounted reward as a function of actor-environment interaction number')
+    ax[0,0].set_ylabel('Reward')
+    ax[0,0].set_xlabel('Actor-environment interaction number')
+    
+    ax[0,1].set_title('Undiscounted reward as a function of actor-environment interaction number, with colour')
+    ax[0,1].set_ylabel('Reward')
+    ax[0,1].set_xlabel('Actor-environment interaction number')
+    
+    ax[1,0].set_title('Averaged undiscounted reward as a function of epoch number')
+    ax[1,0].set_ylabel('Reward')
+    ax[1,0].set_xlabel('Epoch number')
+    
+    ax[1,1].set_title('Boxplot of undiscounted reward per epoch number')
+    ax[1,1].set_ylabel('Reward')
+    ax[1,1].set_xlabel('Epoch number')
+    
+    ax[2,0].set_title('Choice of i (0 or 1) as a function of actor-environment interaction number')
+    ax[2,0].set_ylabel("i [0 or 1]")
+    ax[2,0].set_xlabel('Actor-environment interaction number')
+    
+    ax[2,1].set_title('Choice of j (0,1..15) as a function of actor-environment interaction number')
+    ax[2,1].set_ylabel("j [0,1..15]")
+    ax[2,1].set_xlabel('Actor-environment interaction number')
+    
     pathBreakdown = os.path.split(filePath)
     imageName = pathBreakdown[0] + "/postProcessing.png"
     plt.savefig(fname = imageName)
