@@ -36,6 +36,7 @@ loggerPath = str(projectDir) + "/temp/"
 MAXIMUM_NUMBER_OF_HOT_BITS = 5
 INTERNAL_ACTION_SPACE_SIZE = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS
 SAVE_MODEL_FREQUENCY = 10
+NUMBER_OF_GPUS_PER_NODE = 2
 
 import models
 
@@ -250,7 +251,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
 
     # Instantiate environment
-    env = env_fn()
+    env = env_fn(gpuDevice = (proc_id() % NUMBER_OF_GPUS_PER_NODE))
     obs_dim = env.observation_space.shape
     act_dim = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS #env.action_space.shape
 
@@ -445,10 +446,11 @@ if __name__ == '__main__':
     parser.add_argument('--l', type=int, default=2)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--seed', '-s', type=int, default=0)
-    #parser.add_argument('--cpu', type=int, default=2) #Omer Sella: was 4 instead of 1
-    parser.add_argument('--cpu', type=int, default=1) #Omer Sella: was 4 instead of 1
-    parser.add_argument('--steps', type=int, default=320)
-    parser.add_argument('--epochs', type=int, default=50)
+    parser.add_argument('--cpu', type=int, default=2) #Omer Sella: was 4 instead of 1
+    #parser.add_argument('--cpu', type=int, default=1) #Omer Sella: was 4 instead of 1
+    parser.add_argument('--steps', type=int, default=160)
+    #parser.add_argument('--epochs', type=int, default=50)
+    parser.add_argument('--epochs', type=int, default=25) #Omer Sella: I have the 25 option for testing
     parser.add_argument('--exp_name', type=str, default='ppo')
     args = parser.parse_args()
     mpi_fork(args.cpu)  # run parallel code with mpi

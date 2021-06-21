@@ -28,7 +28,8 @@ def mpi_fork(n, bind_to_core=False):
             OMP_NUM_THREADS="1",
             IN_MPI="1"
         )
-        args = ["mpirun", "-np", str(n)]
+        #args = ["mpirun", "-np", str(n)] #Omer Sella: 20/06/2021 in microsoft mpi it's mpiexec
+        args = ["mpiexec", "-np", str(n)]
         if bind_to_core:
             args += ["-bind-to", "core"]
         args += [sys.executable] + sys.argv

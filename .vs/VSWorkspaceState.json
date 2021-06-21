@@ -10,6 +10,6 @@
     "\\spinup\\examples\\pytorch",
     "\\spinup\\utils"
   ],
-  "SelectedNode": "\\models.py",
+  "SelectedNode": "\\openAIppo.py",
   "PreviewInSolutionExplorer": false
 }
