@@ -667,7 +667,7 @@ def testNearEarth(numOfTransmissions = 50, graphics = True):
     print("*** in test near earth")
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
     #numOfTransmissions = 50
-    roi = [3.0, 3.2,3.4,3.6]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
+    roi = [3.0, 3.2,3.4,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
     codewordSize = 8176
     messageSize = 7154
     numOfIterations = 50
@@ -682,6 +682,18 @@ def testNearEarth(numOfTransmissions = 50, graphics = True):
     print('Throughput == '+str((8176*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
     a, b, c, d = bStats.getStats(codewordSize)
     scatterSnr, scatterBer, scatterItr, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = bStats.getStatsV2()
+    pConst = np.poly1d([1])
+    
+    p = np.polyfit(scatterSnr, scatterBer, 1)
+            
+    # Omer Sella: 16/06/2021 decided to use np polynomials. Also changed the reward to the area between
+    # the constant 1 and the fitted line.
+    #slope = p[0]
+    #bias = p[1]
+    p1 = np.poly1d(p)
+    pTotalInteg = (pConst - p1).integ()
+    reward = pTotalInteg(roi[-1]) - pTotalInteg(roi[0])
+    print(reward)
     if graphics == True:
         common.plotEvaluationData(scatterSnr, scatterBer)
 

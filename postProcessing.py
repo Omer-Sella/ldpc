@@ -8,16 +8,18 @@ from matplotlib.ticker import LinearLocator, FormatStrFormatter
 from numpy.polynomial import Polynomial
 import os
 
+REWARD_FOR_NEAR_EARTH_3_0_TO_3_8 = 0.7958451612664468
 
 def postMortem(filePath = None):
     
     if filePath == None:
-        #filePath = "D:/ldpc/temp/experiments/1623248772/experimet.txt"
-        filePath = "D:/ldpc/temp/experiments/1623831779/experimet.txt"
+        filePath = "D:/ldpc/temp/experiments/1623248772/experiment.txt"
+        
         filePath = "D:/ldpc/temp/experiments/1623831779/experiment.txt"
         filePath = "D:/ldpc/temp/experiments/1624005673/experiment.txt" # First experiment with env.reset() using random seed
+        filePath = "D:/ldpc/temp/experiments/1623831779/experiment.txt" #Omer Sella: This is an experiment with JUST near earth, i.e.: env.reset() sets the initial state to near earth
         
-    
+        
     df = pd.read_csv(filePath, sep='\t')
     
     keys = df.columns.values
@@ -25,17 +27,31 @@ def postMortem(filePath = None):
     fig, ax = plt.subplots(4,2)
     
     df.Reward.plot(ax=ax[0,0], subplots=True)
+    xmin = 0
+    xmax = len(df) - 1
+    ax[0,0].hlines(REWARD_FOR_NEAR_EARTH_3_0_TO_3_8, xmin, xmax)
     
     dfEpochNumber = df.groupby(["epochNumber"])
     
+    
     dfEpochNumber.Reward.plot(ax=ax[0,1])
+    xmin = 0
+    xmax = len(dfEpochNumber.groups)
+    ax[0,1].hlines(REWARD_FOR_NEAR_EARTH_3_0_TO_3_8, xmin, xmax)
+    
     
     dfRewardAvg = dfEpochNumber.Reward.sum() / dfEpochNumber.stepNumber.max()
     
     dfRewardAvg.plot(ax = ax[1,0], subplots = True)
+    xmin = 0
+    xmax = len(dfEpochNumber.groups)
+    ax[1,0].hlines(REWARD_FOR_NEAR_EARTH_3_0_TO_3_8, xmin, xmax)
     
     df.boxplot(column = 'Reward', by= 'epochNumber', ax=ax[1,1])
-    
+    xmin = 0
+    xmax = len(dfEpochNumber.groups)
+    ax[1,1].hlines(REWARD_FOR_NEAR_EARTH_3_0_TO_3_8, xmin, xmax)
+
     #df.hist(column = 'iAction', by= 'epochNumber', ax=ax[2,0])
     dfEpochNumber.iAction.plot(ax=ax[2,0])
     dfEpochNumber.jAction.plot(ax=ax[2,1])
@@ -43,6 +59,7 @@ def postMortem(filePath = None):
     ax[0,0].set_title('Undiscounted reward as a function of actor-environment interaction number')
     ax[0,0].set_ylabel('Reward')
     ax[0,0].set_xlabel('Actor-environment interaction number')
+    
     
     ax[0,1].set_title('Undiscounted reward as a function of actor-environment interaction number, with colour')
     ax[0,1].set_ylabel('Reward')

@@ -18,6 +18,14 @@ import common
 import hashlib
 import os
 
+projectDir = os.environ.get('LDPC')
+if projectDir == None:
+    import pathlib
+    projectDir = pathlib.Path(__file__).parent.absolute()
+## Omer Sella: added on 01/12/2020, need to make sure this doesn't break anything.
+import sys
+sys.path.insert(1, projectDir)
+
 
 FILE_HANDLER_INT_DATA_TYPE = np.int32
 GENERAL_CODE_MATRIX_DATA_TYPE = np.int32
@@ -192,24 +200,30 @@ def binaryMatrixToHexString(binaryMatrix, circulantSize):
     return hexName
 
 
-def saveCodeInstance(parityMatrix, circulantSize, codewordSize, evaluationData, path, evaluationTime, numberOfNonZero):
+def saveCodeInstance(parityMatrix, circulantSize, codewordSize, evaluationData = None, path = None, evaluationTime = 0, numberOfNonZero = 0, fileName = None):
     print("*** in saveCodeInstance ...")
     m, n = parityMatrix.shape
     M = m // circulantSize
     N = n // circulantSize
-    fileName = binaryMatrixToHexString(parityMatrix, circulantSize)
-    fileNameSHA224 = str(circulantSize) + '_' + str(M) + '_' + str(N) + '_' + str(hashlib.sha224(str(fileName).encode('utf-8')).hexdigest())
-    fileNameWithPath = path + fileNameSHA224
+    if fileName == None:
+        fileName = binaryMatrixToHexString(parityMatrix, circulantSize)
+        fileNameSHA224 = str(circulantSize) + '_' + str(M) + '_' + str(N) + '_' + str(hashlib.sha224(str(fileName).encode('utf-8')).hexdigest())
+        fileNameWithPath = path + fileNameSHA224
+    else:
+        fileNameWithPath = path + fileName
+
+    print("*** " + fileName)
     workspaceDict = {}
     workspaceDict['parityMatrix'] = parityMatrix
     workspaceDict['fileName'] = fileName
-    scatterSNR, scatterBER, scatterITR, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = evaluationData.getStatsV2()
-    workspaceDict['snrData'] = scatterSNR
-    workspaceDict['berData'] = scatterBER
-    workspaceDict['itrData'] = scatterITR
-    workspaceDict['averageSnrAxis'] = averageSnrAxis
-    workspaceDict['averageNumberOfIterations'] = averageNumberOfIterations
-    workspaceDict['evaluationTime'] = evaluationTime
+    if evaluationData != None:
+        scatterSNR, scatterBER, scatterITR, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = evaluationData.getStatsV2()
+        workspaceDict['snrData'] = scatterSNR
+        workspaceDict['berData'] = scatterBER
+        workspaceDict['itrData'] = scatterITR
+        workspaceDict['averageSnrAxis'] = averageSnrAxis
+        workspaceDict['averageNumberOfIterations'] = averageNumberOfIterations
+        workspaceDict['evaluationTime'] = evaluationTime
     workspaceDict['nonZero'] = numberOfNonZero
     scipy.io.savemat((fileNameWithPath + '.mat'), workspaceDict)
     #evaluationData.plotStats(codewordSize, fileNameWithPath)
@@ -217,8 +231,8 @@ def saveCodeInstance(parityMatrix, circulantSize, codewordSize, evaluationData, 
     return fileName
 
 def testFileHandler():
-    nearEarthGenerator = readMatrixFromFile('/codeMatrices/nearEarthGenerator.txt', 7154, 8176, 511, True, True, True)
-    nearEarthParity = readMatrixFromFile('/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False)
+    nearEarthGenerator = readMatrixFromFile(projectDir + '/codeMatrices/nearEarthGenerator.txt', 7154, 8176, 511, True, True, True)
+    nearEarthParity = readMatrixFromFile(projectDir + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False)
     return 'OK'
 
 
