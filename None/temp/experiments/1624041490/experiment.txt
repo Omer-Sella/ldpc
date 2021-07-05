@@ -1,1 +1,0 @@
-Observation	iAction	jAction	hotBitsAction	Reward	epochNumber	stepNumber

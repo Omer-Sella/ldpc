@@ -125,7 +125,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         steps_per_epoch=64,
         epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=32,#max_ep_len=1000,
-        target_kl=0.01, logger_kwargs=dict(), save_freq=10):
+        target_kl=0.01, logger_kwargs=dict(), save_freq=10, envCudaDevice = 0, experimentDataDir = None):
     """
     Proximal Policy Optimization (by clipping), 
 
@@ -239,8 +239,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
 
     # Omer Sella: this is my logger and plotter:
-    simpleKeys = ['Observation', 'iAction', 'jAction', 'hotBitsAction', 'Reward', 'epochNumber', 'stepNumber']
-    myLogger = osslogger(simpleKeys)
+    simpleKeys = ['Observation', 'iAction', 'jAction', 'kAction', 'hotBitsAction', 'Reward', 'epochNumber', 'stepNumber', 'actorEntropy', 'logP', 'logpList', 'logpI', 'logpJ', 'logpK']
+    myLogger = osslogger(keys = simpleKeys, logPath = experimentDataDir)
     #logger.save_config(locals())
     myPlotter = ossplotter(50)
 
@@ -252,7 +252,12 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
     # Instantiate environment
     #env = env_fn(gpuDevice = (proc_id() % NUMBER_OF_GPUS_PER_NODE))
-    env = env_fn()
+    print("*** debugging cuda device")
+    print(envCudaDevice)
+    env = env_fn(x = 7134066, y = envCudaDevice)
+    print(env.gpuDeviceNumber)
+    print(env.gpuDeviceNumber)
+    print(env.gpuDeviceNumber)
     obs_dim = env.observation_space.shape
     act_dim = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS #env.action_space.shape
 
@@ -282,7 +287,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         # Policy loss
         # Omer Sella: This is where we need ac.pi to accept both observations AND actions
         #pi, logp = ac.pi(obs, act)
-        _, _, logp, actorEntropy = ac.step(obs, act)
+        _, _, logp, actorEntropy, _ = ac.step(obs, act)
         ratio = torch.exp(logp - logp_old)
         
         clip_adv = torch.clamp(ratio, 1-clip_ratio, 1+clip_ratio) * adv
@@ -294,7 +299,9 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         clipped = ratio.gt(1+clip_ratio) | ratio.lt(1-clip_ratio)
         clipfrac = torch.as_tensor(clipped, dtype=torch.float32).mean().item()
         pi_info = dict(kl=approx_kl, ent=ent, cf=clipfrac)
-
+        #myLogger.keyValue('kl', kl)
+        #myLogger.keyValue('entropy', ent)
+        #myLogger.keyValue('clippedFrac', clipfrac)
         return loss_pi, pi_info
 
     # Set up function for computing value loss
@@ -353,21 +360,23 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     start_time = time.time()
     o, ep_ret, ep_len = env.reset(), 0, 0
     
-    ## Omer Sella: flatten added
-    #o = o.flatten()
-    #print("*** type debug")
-    #print(o)
-    #print(o.shape)
 
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
         for t in range(local_steps_per_epoch):
             print("*** step number: " + str(t))
             myLogger.keyValue('Observation', o)
-            a, v, logp, actorEntropy = ac.step(torch.as_tensor(o, dtype=torch.float32))
+            a, v, logp, actorEntropy, logpList = ac.step(torch.as_tensor(o, dtype=torch.float32))
+            myLogger.keyValue('actorEntropy', actorEntropy)
+            myLogger.keyValue('logP', logp)
             myLogger.keyValue('iAction', a[0])
             myLogger.keyValue('jAction', a[1])
+            myLogger.keyValue('kAction', a[2])
             myLogger.keyValue('hotBitsAction', a[3])
+            myLogger.keyValue('logpList', logpList)
+            myLogger.keyValue('logpI', logpList[0].item())
+            myLogger.keyValue('logpJ', logpList[1].item())
+            myLogger.keyValue('logpK', logpList[2].item())
                         
             next_o, r, d, _ = env.step(a[-1])
             myLogger.keyValue('Reward', r)
@@ -396,7 +405,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
                     print('Warning: trajectory cut off by epoch at %d steps.'%ep_len, flush=True)
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if timeout or epoch_ended:
-                    _, v, _, _ = ac.step(torch.as_tensor(o, dtype=torch.float32))
+                    _, v, _, _, _ = ac.step(torch.as_tensor(o, dtype=torch.float32))
                 else:
                     v = 0
                 buf.finish_path(v)
@@ -423,7 +432,6 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         # Log info about epoch
         logger.log_tabular('Epoch', epoch)
         logger.log_tabular('VVals', with_min_and_max=True)
-        
         logger.log_tabular('TotalEnvInteracts', (epoch+1)*steps_per_epoch)
         logger.log_tabular('LossPi', average_only=True)
         logger.log_tabular('LossV', average_only=True)
@@ -446,20 +454,28 @@ if __name__ == '__main__':
     parser.add_argument('--hid', type=int, default=64)
     parser.add_argument('--l', type=int, default=2)
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--seed', '-s', type=int, default=0)
+    #parser.add_argument('--seed', '-s', type=int, default=7134066) #Omer Sella: 24/06/2021 changed default seed
+    #parser.add_argument('--seed', '-s', type=int, default=0)
+    #parser.add_argument('--seed', '-s', type=int, default=466555)
+    parser.add_argument('--seed', '-s', type=int, default=61017406)
     #parser.add_argument('--cpu', type=int, default=2) #Omer Sella: was 4 instead of 1
     parser.add_argument('--cpu', type=int, default=1) #Omer Sella: was 4 instead of 1
     parser.add_argument('--steps', type=int, default=160)
     parser.add_argument('--epochs', type=int, default=50)
+    parser.add_argument('--envCudaDevice', type=int, default=0)
     #parser.add_argument('--epochs', type=int, default=25) #Omer Sella: I have the 25 option for testing
     parser.add_argument('--exp_name', type=str, default='ppo')
     args = parser.parse_args()
     mpi_fork(args.cpu)  # run parallel code with mpi
 
     from run_utils import setup_logger_kwargs
-    logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed)
+    import os
+    experimentTime = time.time()
+    PROJECT_PATH = os.environ.get('LDPC')
+    experimentDataDir = PROJECT_PATH + "/temp/experiments/%i" %int(experimentTime)
+    logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, data_dir = experimentDataDir)
 
-    ppo(lambda : gym.make(args.env), #Omer Sella: Actor_Critic is now embedded and thus commented actor_critic=core.MLPActorCritic,
+    ppo(lambda x = 8200, y = 0: gym.make(args.env, seed = x, gpuDevice = y), #Omer Sella: Actor_Critic is now embedded and thus commented actor_critic=core.MLPActorCritic,
         ac_kwargs=dict(hidden_sizes=[args.hid]*args.l), gamma=args.gamma, 
         seed=args.seed, steps_per_epoch=args.steps, epochs=args.epochs,
-        logger_kwargs=logger_kwargs)
+        logger_kwargs=logger_kwargs, envCudaDevice = args.envCudaDevice, experimentDataDir = experimentDataDir)

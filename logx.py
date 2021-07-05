@@ -16,6 +16,9 @@ import os.path as osp, time, atexit, os
 import warnings
 from mpi_tools import proc_id, mpi_statistics_scalar
 from serialization_utils import convert_json
+import time
+import os
+PROJECT_PATH = os.environ.get('LDPC')
 
 color2num = dict(
     gray=30,
@@ -97,7 +100,11 @@ class Logger:
                 should give them all the same ``exp_name``.)
         """
         if proc_id()==0:
-            self.output_dir = output_dir or "/tmp/experiments/%i"%int(time.time())
+            if output_dir == None:
+                self.output_dir = str(PROJECT_PATH) + "/temp/experiments/%i" %int(time.time())
+            
+            else:
+                self.output_dir = output_dir
             if osp.exists(self.output_dir):
                 print("Warning: Log dir %s already exists! Storing info there anyway."%self.output_dir)
             else:

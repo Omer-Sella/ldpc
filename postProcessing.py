@@ -7,10 +7,12 @@ from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 from numpy.polynomial import Polynomial
 import os
+import matplotlib.gridspec as gridspec
 
 REWARD_FOR_NEAR_EARTH_3_0_TO_3_8 = 0.7958451612664468
+REWARD_FOR_NEAR_EARTH_3_0_TO_3_4 = 0.3965108116285836
 
-def postMortem(filePath = None):
+def postMortem(filePath = None, baseline = None):
     
     if filePath == None:
         filePath = "D:/ldpc/temp/experiments/1623248772/experiment.txt"
@@ -18,73 +20,100 @@ def postMortem(filePath = None):
         filePath = "D:/ldpc/temp/experiments/1623831779/experiment.txt"
         filePath = "D:/ldpc/temp/experiments/1624005673/experiment.txt" # First experiment with env.reset() using random seed
         filePath = "D:/ldpc/temp/experiments/1623831779/experiment.txt" #Omer Sella: This is an experiment with JUST near earth, i.e.: env.reset() sets the initial state to near earth
+        #"D:/ldpc/temp/experiments/1624358648/experiment.txt" # smaller region of SNR
+        
+        filePath = "D:/ldpc/temp/experiments/1625381750/experiment.txt" #seed 61017406 160steps 
+        filePath = "D:/ldpc/temp/experiments/1625295633/experiment.txt" #seed 466555 160steps
+        filePath = "D:/ldpc/temp/experiments/1625132296/experiment.txt" #seed 0
         
         
     df = pd.read_csv(filePath, sep='\t')
     
     keys = df.columns.values
     
+    
     fig, ax = plt.subplots(4,2)
     
-    df.Reward.plot(ax=ax[0,0], subplots=True)
-    xmin = 0
-    xmax = len(df) - 1
-    ax[0,0].hlines(REWARD_FOR_NEAR_EARTH_3_0_TO_3_8, xmin, xmax)
+    #df.Reward.plot(ax=ax[0,0], subplots=True)
+    #xmin = 0
+    #xmax = len(df) - 1
+    #if baseline != None: 
+    #    ax[0,0].hlines(baseline, xmin, xmax)
     
     dfEpochNumber = df.groupby(["epochNumber"])
     
     
-    dfEpochNumber.Reward.plot(ax=ax[0,1])
-    xmin = 0
-    xmax = len(dfEpochNumber.groups)
-    ax[0,1].hlines(REWARD_FOR_NEAR_EARTH_3_0_TO_3_8, xmin, xmax)
+    #dfEpochNumber.Reward.plot(ax=ax[0,1])
+    #xmin = 0
+    #xmax = len(dfEpochNumber.groups)
+    #if baseline != None: 
+    #    ax[0,1].hlines(baseline, xmin, xmax)
     
     
     dfRewardAvg = dfEpochNumber.Reward.sum() / dfEpochNumber.stepNumber.max()
     
-    dfRewardAvg.plot(ax = ax[1,0], subplots = True)
+    dfRewardAvg.plot(ax = ax[0,0], subplots = True)
     xmin = 0
     xmax = len(dfEpochNumber.groups)
-    ax[1,0].hlines(REWARD_FOR_NEAR_EARTH_3_0_TO_3_8, xmin, xmax)
+    if baseline != None: 
+        ax[0,0].hlines(baseline, xmin, xmax)
     
-    df.boxplot(column = 'Reward', by= 'epochNumber', ax=ax[1,1])
+    df.boxplot(column = 'Reward', by= 'epochNumber', ax=ax[0,1])
     xmin = 0
     xmax = len(dfEpochNumber.groups)
-    ax[1,1].hlines(REWARD_FOR_NEAR_EARTH_3_0_TO_3_8, xmin, xmax)
+    if baseline != None: 
+        ax[0,1].hlines(baseline, xmin, xmax)
 
     #df.hist(column = 'iAction', by= 'epochNumber', ax=ax[2,0])
-    dfEpochNumber.iAction.plot(ax=ax[2,0])
-    dfEpochNumber.jAction.plot(ax=ax[2,1])
+    dfEpochNumber.iAction.plot(ax=ax[1,0])
+    dfEpochNumber.jAction.plot(ax=ax[1,1])
+    if 'kAction' in df:
+        dfEpochNumber.kAction.plot(ax=ax[2,1])
     #df.hotBitsAction.plot(ax=ax[3,0])
-    ax[0,0].set_title('Undiscounted reward as a function of actor-environment interaction number')
+    
+    
+    #ax[0,0].set_title('Undiscounted reward as a function of actor-environment interaction number')
+    #ax[0,0].set_ylabel('Reward')
+    #ax[0,0].set_xlabel('Actor-environment interaction number')
+    
+    
+    #ax[0,1].set_title('Undiscounted reward as a function of actor-environment interaction number, with colour')
+    #ax[0,1].set_ylabel('Reward')
+    #ax[0,1].set_xlabel('Actor-environment interaction number')
+    
+    ax[0,0].set_title('Averaged undiscounted reward as a function of epoch number')
     ax[0,0].set_ylabel('Reward')
-    ax[0,0].set_xlabel('Actor-environment interaction number')
+    ax[0,0].set_xlabel('Epoch number')
     
-    
-    ax[0,1].set_title('Undiscounted reward as a function of actor-environment interaction number, with colour')
+    ax[0,1].set_title('Boxplot of undiscounted reward per epoch number')
     ax[0,1].set_ylabel('Reward')
-    ax[0,1].set_xlabel('Actor-environment interaction number')
+    ax[0,1].set_xlabel('Epoch number')
     
-    ax[1,0].set_title('Averaged undiscounted reward as a function of epoch number')
-    ax[1,0].set_ylabel('Reward')
-    ax[1,0].set_xlabel('Epoch number')
+    ax[1,0].set_title('Choice of i (0 or 1) as a function of actor-environment interaction number')
+    ax[1,0].set_ylabel("i [0 or 1]")
+    ax[1,0].set_xlabel('Actor-environment interaction number')
     
-    ax[1,1].set_title('Boxplot of undiscounted reward per epoch number')
-    ax[1,1].set_ylabel('Reward')
-    ax[1,1].set_xlabel('Epoch number')
+    ax[1,1].set_title('Choice of j (0,1..15) as a function of actor-environment interaction number')
+    ax[1,1].set_ylabel("j [0,1..15]")
+    ax[1,1].set_xlabel('Actor-environment interaction number')
     
-    ax[2,0].set_title('Choice of i (0 or 1) as a function of actor-environment interaction number')
-    ax[2,0].set_ylabel("i [0 or 1]")
-    ax[2,0].set_xlabel('Actor-environment interaction number')
     
-    ax[2,1].set_title('Choice of j (0,1..15) as a function of actor-environment interaction number')
-    ax[2,1].set_ylabel("j [0,1..15]")
-    ax[2,1].set_xlabel('Actor-environment interaction number')
+    
+    df.logP.plot(ax=ax[3,0])
+    ax[3,0].set_title('log probability')
+    ax[3,0].set_xlabel('Actor-environment interaction number')
+    
+    df.actorEntropy.plot(ax=ax[3,1])
+    ax[3,1].set_title('Actor entropy')
+    ax[3,1].set_xlabel('Actor-environment interaction number')
     
     pathBreakdown = os.path.split(filePath)
     imageName = pathBreakdown[0] + "/postProcessing.png"
     plt.savefig(fname = imageName)
-    return
+    
+       
+    
+    return df
 
 def drawRewardSurface():
     fig = plt.figure()

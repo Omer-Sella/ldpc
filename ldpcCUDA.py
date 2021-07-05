@@ -479,7 +479,6 @@ def addAWGN(vector, length, SNRdb, prng):
     SNR = 10 ** (SNRdb/10)
     ## Now use the definition: SNR = signal^2 / sigma^2
     sigma = np.sqrt(0.5 / SNR)
-    #print(sigma)
     noise = np.float32(prng.normal(0, sigma, length))
     sigmaActual = np.sqrt((np.sum(noise ** 2)) / length)
     noisyVector = vector + noise
@@ -490,7 +489,6 @@ def AWGNarray(dim0, dim1, SNRdb, prng):
     SNR = 10 ** (SNRdb/10)
     ## Now use the definition: SNR = signal^2 / sigma^2
     sigma = np.sqrt(0.5 / SNR)
-    #print(sigma)
     noise = np.float32(prng.normal(0, sigma, (dim0, dim1)))
     sigmaActual = np.sum(noise ** 2, axis = 1) / dim1
     sigmaActual = np.sqrt( sigmaActual )
@@ -667,7 +665,7 @@ def testNearEarth(numOfTransmissions = 50, graphics = True):
     print("*** in test near earth")
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
     #numOfTransmissions = 50
-    roi = [3.0, 3.2,3.4,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
+    roi = [3.0, 3.2,3.4]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
     codewordSize = 8176
     messageSize = 7154
     numOfIterations = 50

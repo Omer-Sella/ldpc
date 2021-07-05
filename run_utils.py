@@ -21,6 +21,8 @@ from tqdm import trange
 import zlib
 
 DIV_LINE_WIDTH = 80
+import os
+PROJECT_PATH = os.environ.get('LDPC')
 
 def setup_logger_kwargs(exp_name, seed=None, data_dir=None, datestamp=False):
     """
@@ -54,7 +56,7 @@ def setup_logger_kwargs(exp_name, seed=None, data_dir=None, datestamp=False):
         seed (int): Seed for random number generators used by experiment.
 
         data_dir (string): Path to folder where results should be saved.
-            Default is the ``DEFAULT_DATA_DIR`` in ``spinup/user_config.py``.
+            Default is PROJECT_DIR + str(PROJECT_PATH) + "/temp/experiments/%i" %int(time.time())
 
         datestamp (bool): Whether to include a date and timestamp in the
             name of the save directory.
