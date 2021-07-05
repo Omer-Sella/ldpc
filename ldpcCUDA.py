@@ -496,7 +496,9 @@ def AWGNarray(dim0, dim1, SNRdb, prng):
     
 
 
-def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' ):
+def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , cudaDeviceNumber = 0):
+    cuda.select_device(cudaDeviceNumber)
+    print(cudaDeviceNumber)
     # Concurrent futures require the seed to be between 0 and 2**32 -1
     #assert (np.dtype(seed) == np.int32)
     assert (seed > 0)

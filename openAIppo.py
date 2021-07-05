@@ -456,8 +456,8 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', type=float, default=0.99)
     #parser.add_argument('--seed', '-s', type=int, default=7134066) #Omer Sella: 24/06/2021 changed default seed
     #parser.add_argument('--seed', '-s', type=int, default=0)
-    #parser.add_argument('--seed', '-s', type=int, default=466555)
-    parser.add_argument('--seed', '-s', type=int, default=61017406)
+    parser.add_argument('--seed', '-s', type=int, default=466555)
+    #parser.add_argument('--seed', '-s', type=int, default=61017406)
     #parser.add_argument('--cpu', type=int, default=2) #Omer Sella: was 4 instead of 1
     parser.add_argument('--cpu', type=int, default=1) #Omer Sella: was 4 instead of 1
     parser.add_argument('--steps', type=int, default=160)
