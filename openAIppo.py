@@ -124,8 +124,11 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         #Omer Sella: I replaced this: steps_per_epoch=4000, with this:
         steps_per_epoch=64,
         epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
-        vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=32,#max_ep_len=1000,
-        target_kl=0.01, logger_kwargs=dict(), save_freq=10, envCudaDevice = 0, experimentDataDir = None):
+        vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, 
+        max_ep_len=32,#max_ep_len=1000,
+        target_kl=0.01, logger_kwargs=dict(), 
+        save_freq=10, envCudaDevice = 0, experimentDataDir = None,
+        entropyCoefficient = 0.0, policyCoefficient = 1.0):
     """
     Proximal Policy Optimization (by clipping), 
 
@@ -239,7 +242,9 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
 
     # Omer Sella: this is my logger and plotter:
-    simpleKeys = ['Observation', 'iAction', 'jAction', 'kAction', 'hotBitsAction', 'Reward', 'epochNumber', 'stepNumber', 'actorEntropy', 'logP', 'logpList', 'logpI', 'logpJ', 'logpK']
+    simpleKeys = ['Observation', 'iAction', 'jAction', 'kAction', 'hotBitsAction', 'Reward', 
+                  'epochNumber', 'stepNumber', 'actorEntropy', 'logP',
+                  'logpI', 'logpJ', 'logpK', 'iEntropy', 'jEntropy', 'kEntropy', 'coordinatesEntropy']
     myLogger = osslogger(keys = simpleKeys, logPath = experimentDataDir)
     #logger.save_config(locals())
     myPlotter = ossplotter(50)
@@ -293,16 +298,22 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         clip_adv = torch.clamp(ratio, 1-clip_ratio, 1+clip_ratio) * adv
         loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
 
+        ent = actorEntropy.mean().item()
+       
+        
         # Useful extra info
         approx_kl = (logp_old - logp).mean().item()
-        ent = actorEntropy.mean().item()
+        
         clipped = ratio.gt(1+clip_ratio) | ratio.lt(1-clip_ratio)
         clipfrac = torch.as_tensor(clipped, dtype=torch.float32).mean().item()
         pi_info = dict(kl=approx_kl, ent=ent, cf=clipfrac)
         #myLogger.keyValue('kl', kl)
         #myLogger.keyValue('entropy', ent)
         #myLogger.keyValue('clippedFrac', clipfrac)
-        return loss_pi, pi_info
+        
+        totalLoss = policyCoefficient * loss_pi + entropyCoefficient * ent
+        
+        return totalLoss, pi_info
 
     # Set up function for computing value loss
     def compute_loss_v(data):
@@ -366,17 +377,20 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         for t in range(local_steps_per_epoch):
             print("*** step number: " + str(t))
             myLogger.keyValue('Observation', o)
-            a, v, logp, actorEntropy, logpList = ac.step(torch.as_tensor(o, dtype=torch.float32))
+            a, v, logp, actorEntropy, logpList, entropyList = ac.step(torch.as_tensor(o, dtype=torch.float32))
             myLogger.keyValue('actorEntropy', actorEntropy)
             myLogger.keyValue('logP', logp)
             myLogger.keyValue('iAction', a[0])
             myLogger.keyValue('jAction', a[1])
             myLogger.keyValue('kAction', a[2])
             myLogger.keyValue('hotBitsAction', a[3])
-            myLogger.keyValue('logpList', logpList)
             myLogger.keyValue('logpI', logpList[0].item())
             myLogger.keyValue('logpJ', logpList[1].item())
             myLogger.keyValue('logpK', logpList[2].item())
+            myLogger.keyValue('iEntropy', entropyList[0].item())
+            myLogger.keyValue('jEntropy', entropyList[1].item())
+            myLogger.keyValue('kEntropy', entropyList[2].item())
+            myLogger.keyValue('coordinatesEntropy', entropyList[2].item())
                         
             next_o, r, d, _ = env.step(a[-1])
             myLogger.keyValue('Reward', r)
@@ -405,7 +419,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
                     print('Warning: trajectory cut off by epoch at %d steps.'%ep_len, flush=True)
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if timeout or epoch_ended:
-                    _, v, _, _, _ = ac.step(torch.as_tensor(o, dtype=torch.float32))
+                    _, v, _, _, _, _ = ac.step(torch.as_tensor(o, dtype=torch.float32))
                 else:
                     v = 0
                 buf.finish_path(v)
@@ -456,14 +470,16 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', type=float, default=0.99)
     #parser.add_argument('--seed', '-s', type=int, default=7134066) #Omer Sella: 24/06/2021 changed default seed
     #parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--seed', '-s', type=int, default=466555)
-    #parser.add_argument('--seed', '-s', type=int, default=61017406)
+    #parser.add_argument('--seed', '-s', type=int, default=466555)
+    parser.add_argument('--seed', '-s', type=int, default=61017406)
     #parser.add_argument('--cpu', type=int, default=2) #Omer Sella: was 4 instead of 1
     parser.add_argument('--cpu', type=int, default=1) #Omer Sella: was 4 instead of 1
     parser.add_argument('--steps', type=int, default=160)
     parser.add_argument('--epochs', type=int, default=50)
-    parser.add_argument('--envCudaDevice', type=int, default=0)
+    parser.add_argument('--envCudaDevice', type=int, default=1)
     #parser.add_argument('--epochs', type=int, default=25) #Omer Sella: I have the 25 option for testing
+    parser.add_argument('--entropyCoefficient', type=float, default = 0.2)
+    parser.add_argument('--policyCoefficient', type=float, default = 0.8)
     parser.add_argument('--exp_name', type=str, default='ppo')
     args = parser.parse_args()
     mpi_fork(args.cpu)  # run parallel code with mpi

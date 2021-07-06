@@ -22,9 +22,9 @@ def postMortem(filePath = None, baseline = None):
         filePath = "D:/ldpc/temp/experiments/1623831779/experiment.txt" #Omer Sella: This is an experiment with JUST near earth, i.e.: env.reset() sets the initial state to near earth
         #"D:/ldpc/temp/experiments/1624358648/experiment.txt" # smaller region of SNR
         
-        filePath = "D:/ldpc/temp/experiments/1625381750/experiment.txt" #seed 61017406 160steps 
-        filePath = "D:/ldpc/temp/experiments/1625295633/experiment.txt" #seed 466555 160steps
-        filePath = "D:/ldpc/temp/experiments/1625132296/experiment.txt" #seed 0
+        filePath = "D:/ldpc/temp/experiments/1625501948/experiment.txt" #seed 61017406 160steps 
+        filePath = "D:/ldpc/temp/experiments/1625502010/experiment.txt" #seed 466555 160steps
+        
         
         
     df = pd.read_csv(filePath, sep='\t')
@@ -32,7 +32,7 @@ def postMortem(filePath = None, baseline = None):
     keys = df.columns.values
     
     
-    fig, ax = plt.subplots(4,2)
+    fig, ax = plt.subplots(6,2, figsize = (16, 16))
     
     #df.Reward.plot(ax=ax[0,0], subplots=True)
     #xmin = 0
@@ -57,18 +57,54 @@ def postMortem(filePath = None, baseline = None):
     xmax = len(dfEpochNumber.groups)
     if baseline != None: 
         ax[0,0].hlines(baseline, xmin, xmax)
+    ax[0,0].set_title('Averaged undiscounted reward as a function of epoch number')
+    ax[0,0].set_ylabel('Reward')
+    ax[0,0].set_xlabel('Epoch number')
+    
+    
     
     df.boxplot(column = 'Reward', by= 'epochNumber', ax=ax[0,1])
     xmin = 0
     xmax = len(dfEpochNumber.groups)
     if baseline != None: 
         ax[0,1].hlines(baseline, xmin, xmax)
-
+    ax[0,1].set_title('Boxplot of undiscounted reward per epoch number')
+    ax[0,1].set_ylabel('Reward')
+    ax[0,1].set_xlabel('Epoch number')
     #df.hist(column = 'iAction', by= 'epochNumber', ax=ax[2,0])
+
     dfEpochNumber.iAction.plot(ax=ax[1,0])
+    if 'logpI' in df:
+        dfEpochNumber.logpI.plot(ax=ax[2,0])
+        ax[2,0].set_title('log probability')
+        ax[2,0].set_ylabel("i")
+        ax[2,0].set_xlabel('Actor-environment interaction number')
+    ax[1,0].set_title('Choice of i (0 or 1) as a function of actor-environment interaction number')
+    ax[1,0].set_ylabel("i [0 or 1]")
+    ax[1,0].set_xlabel('Actor-environment interaction number')
+    
+    
     dfEpochNumber.jAction.plot(ax=ax[1,1])
+    if 'logpJ' in df:
+        dfEpochNumber.logpJ.plot(ax=ax[2,1])
+        ax[2,1].set_title('log probability')
+        ax[2,1].set_ylabel("j")
+        ax[2,1].set_xlabel('Actor-environment interaction number')
+    
     if 'kAction' in df:
-        dfEpochNumber.kAction.plot(ax=ax[2,1])
+        dfEpochNumber.kAction.plot(ax=ax[3,0])
+    if 'logpK' in df:
+        dfEpochNumber.logpK.plot(ax=ax[4,0])
+    
+    
+    df.logP.plot(ax=ax[3,1])
+    ax[3,1].set_title('log probability')
+    ax[3,1].set_xlabel('Actor-environment interaction number')
+    
+    df.actorEntropy.plot(ax=ax[4,1])
+    ax[4,1].set_title('Actor entropy')
+    ax[4,1].set_xlabel('Actor-environment interaction number')
+    
     #df.hotBitsAction.plot(ax=ax[3,0])
     
     
@@ -81,17 +117,11 @@ def postMortem(filePath = None, baseline = None):
     #ax[0,1].set_ylabel('Reward')
     #ax[0,1].set_xlabel('Actor-environment interaction number')
     
-    ax[0,0].set_title('Averaged undiscounted reward as a function of epoch number')
-    ax[0,0].set_ylabel('Reward')
-    ax[0,0].set_xlabel('Epoch number')
     
-    ax[0,1].set_title('Boxplot of undiscounted reward per epoch number')
-    ax[0,1].set_ylabel('Reward')
-    ax[0,1].set_xlabel('Epoch number')
     
-    ax[1,0].set_title('Choice of i (0 or 1) as a function of actor-environment interaction number')
-    ax[1,0].set_ylabel("i [0 or 1]")
-    ax[1,0].set_xlabel('Actor-environment interaction number')
+    
+    
+
     
     ax[1,1].set_title('Choice of j (0,1..15) as a function of actor-environment interaction number')
     ax[1,1].set_ylabel("j [0,1..15]")
@@ -99,16 +129,11 @@ def postMortem(filePath = None, baseline = None):
     
     
     
-    df.logP.plot(ax=ax[3,0])
-    ax[3,0].set_title('log probability')
-    ax[3,0].set_xlabel('Actor-environment interaction number')
     
-    df.actorEntropy.plot(ax=ax[3,1])
-    ax[3,1].set_title('Actor entropy')
-    ax[3,1].set_xlabel('Actor-environment interaction number')
     
     pathBreakdown = os.path.split(filePath)
     imageName = pathBreakdown[0] + "/postProcessing.png"
+    plt.tight_layout()
     plt.savefig(fname = imageName)
     
        
