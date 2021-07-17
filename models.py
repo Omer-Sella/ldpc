@@ -364,8 +364,12 @@ class openAIActor(Actor):
                 k = action[:, 2]
             elif self.training:
                 k = kCategoricalDistribution.sample()
+                #Omer Sella: k can't be 0
+                k = kCategoricalDistribution.sample() + 1
             else:
-                k = torch.argmax(logitsForKChooser)
+                #k = torch.argmax(logitsForKChooser)
+                #Omer Sella: k can't be 0
+                k = torch.argmax(logitsForKChooser) + 1
         
             k = k.float()
             kTensor = k.unsqueeze(-1)
@@ -429,7 +433,8 @@ class openAIActor(Actor):
             #log probs
             logpI = iCategoricalDistribution.log_prob(i).unsqueeze(-1)
             logpJ = jCategoricalDistribution.log_prob(j).unsqueeze(-1)#.sum(axis = -1)
-            logpK = kCategoricalDistribution.log_prob(k).unsqueeze(-1)#.sum(axis = -1)
+            #Omer Sella: remember that you added 1 to k so to get the log prob reduce 1
+            logpK = kCategoricalDistribution.log_prob(k-1).unsqueeze(-1)#.sum(axis = -1)
             
             
             if action is None:

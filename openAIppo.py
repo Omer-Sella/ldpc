@@ -33,7 +33,7 @@ policyTrainIterations = 80
 targetKL = 1.5 * 0.01
 valueFunctionTrainIterations = 80
 loggerPath = str(projectDir) + "/temp/"
-MAXIMUM_NUMBER_OF_HOT_BITS = 5
+MAXIMUM_NUMBER_OF_HOT_BITS = 7
 INTERNAL_ACTION_SPACE_SIZE = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS
 SAVE_MODEL_FREQUENCY = 10
 NUMBER_OF_GPUS_PER_NODE = 2
@@ -257,12 +257,12 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
     # Instantiate environment
     #env = env_fn(gpuDevice = (proc_id() % NUMBER_OF_GPUS_PER_NODE))
-    print("*** debugging cuda device")
-    print(envCudaDevice)
+    #print("*** debugging cuda device")
+    #print(envCudaDevice)
     env = env_fn(x = 7134066, y = envCudaDevice)
-    print(env.gpuDeviceNumber)
-    print(env.gpuDeviceNumber)
-    print(env.gpuDeviceNumber)
+    #print(env.gpuDeviceNumber)
+    #print(env.gpuDeviceNumber)
+    #print(env.gpuDeviceNumber)
     obs_dim = env.observation_space.shape
     act_dim = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS #env.action_space.shape
 
@@ -292,7 +292,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         # Policy loss
         # Omer Sella: This is where we need ac.pi to accept both observations AND actions
         #pi, logp = ac.pi(obs, act)
-        _, _, logp, actorEntropy, _ = ac.step(obs, act)
+        _, _, logp, actorEntropy, _, _ = ac.step(obs, act)
         ratio = torch.exp(logp - logp_old)
         
         clip_adv = torch.clamp(ratio, 1-clip_ratio, 1+clip_ratio) * adv
@@ -468,18 +468,15 @@ if __name__ == '__main__':
     parser.add_argument('--hid', type=int, default=64)
     parser.add_argument('--l', type=int, default=2)
     parser.add_argument('--gamma', type=float, default=0.99)
-    #parser.add_argument('--seed', '-s', type=int, default=7134066) #Omer Sella: 24/06/2021 changed default seed
-    #parser.add_argument('--seed', '-s', type=int, default=0)
-    #parser.add_argument('--seed', '-s', type=int, default=466555)
-    parser.add_argument('--seed', '-s', type=int, default=61017406)
+    parser.add_argument('--seed', '-s', type=int, default=7)
     #parser.add_argument('--cpu', type=int, default=2) #Omer Sella: was 4 instead of 1
     parser.add_argument('--cpu', type=int, default=1) #Omer Sella: was 4 instead of 1
     parser.add_argument('--steps', type=int, default=160)
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--envCudaDevice', type=int, default=1)
     #parser.add_argument('--epochs', type=int, default=25) #Omer Sella: I have the 25 option for testing
-    parser.add_argument('--entropyCoefficient', type=float, default = 0.2)
-    parser.add_argument('--policyCoefficient', type=float, default = 0.8)
+    parser.add_argument('--entropyCoefficient', type=float, default = 0.01)
+    parser.add_argument('--policyCoefficient', type=float, default = 1.0)
     parser.add_argument('--exp_name', type=str, default='ppo')
     args = parser.parse_args()
     mpi_fork(args.cpu)  # run parallel code with mpi

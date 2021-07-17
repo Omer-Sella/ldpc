@@ -245,6 +245,7 @@ def spawnGraphics(matrix, subMatrixDimX, subMatrixDimY):
     return fig, axs
 
 def plotEvaluationData(snr, ber, linearFit = True, fillBetween = True):
+    
 
     p = np.polyfit(snr, ber, 1)
     print(p)

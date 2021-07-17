@@ -16,7 +16,7 @@ import copy
 import operator
 import math
 
-projectDir = os.environ.get('SWIFT')
+projectDir = os.environ.get('LDPC')
 if projectDir == None:
     import pathlib
     projectDir = pathlib.Path(__file__).parent.absolute()
@@ -498,7 +498,7 @@ def AWGNarray(dim0, dim1, SNRdb, prng):
 
 def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , cudaDeviceNumber = 0):
     cuda.select_device(cudaDeviceNumber)
-    print(cudaDeviceNumber)
+    #print(cudaDeviceNumber)
     # Concurrent futures require the seed to be between 0 and 2**32 -1
     #assert (np.dtype(seed) == np.int32)
     assert (seed > 0)
@@ -536,8 +536,6 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
         result_device = cuda.to_device(result_host)
         
         zro_device = cuda.to_device(np.zeros(1))
-        
-        maxNumberOfIterations = 40
         
         # init a new berStatistics object to collect statistics
         berStats = common.berStatistics()#np.zeros(numberOfSNRpoints, dtype = LDPC_DECIMAL_DATA_TYPE)
@@ -581,7 +579,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                     isCodeword = True
                     #print("*** Initial check thinks the input is a codeword.")    
                
-                while (iterator < maxNumberOfIterations and not isCodeword):
+                while (iterator < numberOfIterations and not isCodeword):
                 
                     
                     findMinimaAndNumberOfNegatives[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](parityMatrix_device, matrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device)
@@ -660,14 +658,168 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
             #print("*** t is : " + str(t))
     
     return berStats
-        
 
-def testNearEarth(numOfTransmissions = 50, graphics = True):
+
+
+def evaluateMatrixAndEpsilon(parityMatrix, epsilon, numberOfIterations = 50, cudaDeviceNumber = 0):
+    cuda.select_device(cudaDeviceNumber)
+    print("Using cuda device number: "+ str(cudaDeviceNumber))
+        
+    with cuda.defer_cleanup():
+        
+        ## Create assests
+        softVector_host = np.zeros(MATRIX_DIM1, dtype = np.float32)
+        isCodewordVector_host = np.ones(MATRIX_DIM0, dtype = np.int32)
+        binaryVector_host = np.ones(MATRIX_DIM1, dtype = np.int32)
+        numberOfNegatives_host = np.zeros(MATRIX_DIM0, dtype = np.int32)
+        productOfSigns_host = np.zeros(MATRIX_DIM0, dtype = np.int32)
+        locationOfMinimum_host = np.zeros(MATRIX_DIM0, dtype = np.int32)
+        smallest_host = np.zeros(MATRIX_DIM0, dtype = np.float32)
+        secondSmallest_host = np.zeros(MATRIX_DIM0, dtype = np.float32)
+        newMatrix_host = np.zeros((MATRIX_DIM0,MATRIX_DIM1), dtype = np.float32)
+        matrix_host = np.zeros((MATRIX_DIM0, MATRIX_DIM1), dtype = np.float32)
+        result_host = np.zeros(120, dtype = np.float32)
+        temp_host = np.zeros(2, dtype = np.float)
+        
+        # Move assests to device explicitly
+        isCodewordVector_device = cuda.to_device(isCodewordVector_host)
+        binaryVector_device = cuda.to_device(binaryVector_host)
+        numberOfNegatives_device = cuda.to_device(numberOfNegatives_host)
+        productOfSigns_device = cuda.to_device(productOfSigns_host)
+        locationOfMinimum_device = cuda.to_device(locationOfMinimum_host)
+        smallest_device = cuda.to_device(smallest_host)
+        secondSmallest_device = cuda.to_device(secondSmallest_host)
+        newMatrix_device = cuda.to_device(newMatrix_host)
+        parityMatrix_device = cuda.to_device(parityMatrix)
+        matrix_device = cuda.to_device(matrix_host)
+        result_device = cuda.to_device(result_host)
+        
+        zro_device = cuda.to_device(np.zeros(1))
+        codeword = np.zeros(MATRIX_DIM1, dtype = np.int32)
+        modulatedCodeword = modulate(codeword, MATRIX_DIM1)   
+
+        
+        #####
+        fromChannel_host = modulatedCodeword + epsilon
+        #####        
+        
+        softVector_host = copy.copy(fromChannel_host)
+        fromChannel_device = cuda.to_device(fromChannel_host)    
+        softVector_device = cuda.to_device(softVector_host)
+                
+        senseword = slicer(fromChannel_host)
+        berUncoded = np.count_nonzero(senseword != codeword)
+        berDecoded = MATRIX_DIM1
+            
+        ########################### Decoding happens here #######################
+        totalTime = 0
+        start = time.time()
+        iterator = 0
+        isCodeword = False
+        maskedFanOut[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](parityMatrix_device, softVector_device, matrix_device)
+                
+        # Check if fromChannel makes a codeword    
+        slicerCuda[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device, binaryVector_device)
+        resetVector[1022, 1](isCodewordVector_device)
+        calcBinaryProduct2[BLOCKS_PER_GRID_BINARY_CALC, THREADS_PER_BLOCK_BINARY_CALC](parityMatrix_device, binaryVector_device, isCodewordVector_device)
+        mod2Vector[16, 511](isCodewordVector_device)
+        checkIsCodeword[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](isCodewordVector_device, result_device)
+                
+        if result_device[0] == 0 :
+            isCodeword = True
+            berDecoded = 0
+            #print("*** Initial check thinks the input is a codeword.")    
+               
+        while (iterator < numberOfIterations and not isCodeword):
+                
+                    
+            findMinimaAndNumberOfNegatives[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](parityMatrix_device, matrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device)
+            numberOfNegativesToProductOfSigns[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](numberOfNegatives_device,productOfSigns_device)  
+            locateTwoSmallestHorizontal2DV2[BLOCKS_PER_GRID_LOCATE_TWO_SMALLEST_HORIZONTAL_2D, THREADS_PER_BLOCK_LOCATE_TWO_SMALLEST_HORIZONTAL_2D](matrix_device, parityMatrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device)
+            signReduceHorizontal[1022, 1](matrix_device, productOfSigns_device)  
+            produceNewMatrix2D[BLOCKS_PER_GRID_PRODUCE_NEW_MATRIX_2D, THREADS_PER_BLOCK_PRODUCE_NEW_MATRIX_2D](parityMatrix_device, matrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device, productOfSigns_device, newMatrix_device)
+            matrixSumVertical[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](newMatrix_device, softVector_device)
+            #sumReduction2DVertical[BLOCKS_PER_GRID_VERTICAL_SUM, THREADS_PER_BLOCK_VERTICAL_SUM](newMatrix_device, softVector_device)
+            # Omer Sella: Notice that the result of matrix summation using the cuda 
+            # kernel does not have to be exactly as the numpy sum, 
+            # even if the data types are identical. That's why the following two lines are commented:
+            #testSoftVector = np.sum(newMatrix, axis = 0)
+            #assert ( np.all(testSoftVector == softVector))
+            cudaPlusDim1[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device,fromChannel_device)
+            slicerCuda[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device, binaryVector_device)
+                    
+                    
+                    
+            resetVector[1022, 1](isCodewordVector_device)
+            calcBinaryProduct2[BLOCKS_PER_GRID_BINARY_CALC, THREADS_PER_BLOCK_BINARY_CALC](parityMatrix_device, binaryVector_device, isCodewordVector_device)
+            mod2Vector[16, 511](isCodewordVector_device)
+                    
+            checkIsCodeword[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](isCodewordVector_device, result_device)
+            #temp_host = result_device.copy_to_host()
+            if iterator % 6 == 0:
+                if result_device[0] == 0:
+                    isCodeword = True
+                    #print("Decoding stopped at iteration " + str(iterator))
+                    
+                    
+            maskedFanOut[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](parityMatrix_device, softVector_device, matrix_device)
+                    
+                    
+                    
+            cudaMatrixMinus2D[BLOCKS_PER_GRID_MATRIX_MINUS_2D, THREADS_PER_BLOCK_MATRIX_MINUS_2D](matrix_device, newMatrix_device) # = matrix_device - newMatrix_device
+                    
+            iterator = iterator + 1
+                    
+                    
+                    
+                   
+                
+        print("*** while iterator finished at " + str(iterator))
+        slicerCuda[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device, binaryVector_device)
+        result_device[1] = 0
+        numberOfNonZeros[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](binaryVector_device, result_device)
+        end = time.time()
+        result_host = result_device.copy_to_host()
+        totalTime += (end - start)
+        berDecoded = result_host[1]
+        print(berDecoded)
+            #binaryVector_host = binaryVector_device.copy_to_host()
+                
+            #softVector_host = softVector_device.copy_to_host()
+                
+                
+            #########################################################################
+            
+            
+            #decodedWord = slicer(softVector_host)
+            #print("******** numpy thinks: " + str(np.sum(decodedWord == codeword)) + " and cuda thinks: " + str(result_device[1]))
+            #print(status)
+                
+            
+            
+            #np.count_nonzero(decodedWord != codeword)
+                
+            #berStats.addEntry(SNRpoints[s], sigma, sigmaActual, berUncoded, berDecoded, iterator, numberOfIterations, 'test')
+            #print("Modulated codeword in location %d is %f" % (0, modulatedCodeword[0]))
+            #print("dirtyModulated in location %d after flip is %f" % (0, dirtyModulated[0]))
+            #print("Decoded in location %d after flip is %f" % (0, decodedWord[0]))
+        #print("***Time it took the decoder:")
+        #print(totalTime)
+        #print("***And thr throughput is:")
+        #print(8176 * numOfTransmissions /totalTime)
+        #print("*** s is : " + str(s))
+        #print("*** t is : " + str(t))
+    
+    return berUncoded, berDecoded, iterator, totalTime
+
+
+
+def testNearEarth(numOfTransmissions = 30, graphics = True):
     status = 'Near earth problem'
     print("*** in test near earth")
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
     #numOfTransmissions = 50
-    roi = [3.0, 3.2,3.4]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
+    roi = [3.0, 3.2 ,3.4]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
     codewordSize = 8176
     messageSize = 7154
     numOfIterations = 50
@@ -698,7 +850,8 @@ def testNearEarth(numOfTransmissions = 50, graphics = True):
         common.plotEvaluationData(scatterSnr, scatterBer)
 
     print("berDecoded " + str(c))
-    if (c[2] == 0) and (c[3] == 0):
+    
+    if (c[-1] == 0) and (c[-2] == 0):
         status = 'OK'
     return bStats, status
 
@@ -714,10 +867,13 @@ def main():
     #status = testIntegration()
     #print(status)
     
-    testNearEarth()
+    bStats, status = testNearEarth()
     #print(bStats.getStats())
-    return 
+    return bStats, status
 
+
+
+# We want: A function thta takes a specific H (nearEarth) and an eps (a 8176 noise vectore) and runs F(H,eps)
 
 
 if __name__ == '__main__':

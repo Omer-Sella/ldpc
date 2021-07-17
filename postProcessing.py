@@ -12,6 +12,14 @@ import matplotlib.gridspec as gridspec
 REWARD_FOR_NEAR_EARTH_3_0_TO_3_8 = 0.7958451612664468
 REWARD_FOR_NEAR_EARTH_3_0_TO_3_4 = 0.3965108116285836
 
+def postMortem2(filPath = None, baseline = REWARD_FOR_NEAR_EARTH_3_0_TO_3_4):
+    if filePath == None:
+        filePath = "D:/ldpc/temp/experiments/1625763063/experiment.txt"
+        
+    df = pd.read_csv(filePath, sep = '\t')
+    
+    
+
 def postMortem(filePath = None, baseline = None):
     
     if filePath == None:
