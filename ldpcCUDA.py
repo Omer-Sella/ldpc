@@ -626,7 +626,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                 #print("*** while iterator finished at " + str(iterator))
                 slicerCuda[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device, binaryVector_device)
                 result_device[1] = 0
-                numberOfNonZeros[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](binaryVector_device, result_device)
+                # numberOfNonZeros[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](binaryVector_device, result_device)
                 end = time.time()
                 totalTime += (end - start)
             
@@ -642,9 +642,13 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                 #print("******** numpy thinks: " + str(np.sum(decodedWord == codeword)) + " and cuda thinks: " + str(result_device[1]))
                 #print(status)
                 
-                result_host = result_device.copy_to_host()
-                berDecoded = result_host[1]
+                # result_host = result_device.copy_to_host()
+                # berDecoded = result_host[1]
                 #np.count_nonzero(decodedWord != codeword)
+
+                binaryVector_host = binaryVector_device.copy_to_host()
+                berDecoded = np.sum(binaryVector_host)
+                
                 
                 berStats.addEntry(SNRpoints[s], sigma, sigmaActual, berUncoded, berDecoded, iterator, numberOfIterations, 'test')
                 #print("Modulated codeword in location %d is %f" % (0, modulatedCodeword[0]))
@@ -777,11 +781,14 @@ def evaluateMatrixAndEpsilon(parityMatrix, epsilon, numberOfIterations = 50, cud
         print("*** while iterator finished at " + str(iterator))
         slicerCuda[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device, binaryVector_device)
         result_device[1] = 0
-        numberOfNonZeros[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](binaryVector_device, result_device)
+        # numberOfNonZeros[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](binaryVector_device, result_device)
         end = time.time()
-        result_host = result_device.copy_to_host()
+        # result_host = result_device.copy_to_host()
         totalTime += (end - start)
-        berDecoded = result_host[1]
+        # berDecoded = result_host[1]
+
+        binaryVector_host = binaryVector_device.copy_to_host()
+        berDecoded = np.sum(binaryVector_host)
         print(berDecoded)
             #binaryVector_host = binaryVector_device.copy_to_host()
                 
