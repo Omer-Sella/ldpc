@@ -856,6 +856,7 @@ def testNearEarth(numOfTransmissions = 30, graphics = False):
     return bStats, status
 
 
+        
 def main():
     print("*** In ldpcCUDA.py main function.")
     #status = testFindMinimum()
