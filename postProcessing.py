@@ -40,7 +40,7 @@ def postMortem(filePath = None, baseline = None):
     keys = df.columns.values
     
     
-    fig, ax = plt.subplots(6,2, figsize = (16, 16))
+    fig, ax = plt.subplots(4,6, figsize = (16, 16))
     
     #df.Reward.plot(ax=ax[0,0], subplots=True)
     #xmin = 0
@@ -57,7 +57,7 @@ def postMortem(filePath = None, baseline = None):
     #if baseline != None: 
     #    ax[0,1].hlines(baseline, xmin, xmax)
     
-    
+### general actor information
     dfRewardAvg = dfEpochNumber.Reward.sum() / dfEpochNumber.stepNumber.max()
     
     dfRewardAvg.plot(ax = ax[0,0], subplots = True)
@@ -70,48 +70,60 @@ def postMortem(filePath = None, baseline = None):
     ax[0,0].set_xlabel('Epoch number')
     
     
+    df.logP.plot(ax=ax[1,0])
+    ax[1,0].set_title('log probability')
+    ax[1,0].set_xlabel('Actor-environment interaction number')
     
-    df.boxplot(column = 'Reward', by= 'epochNumber', ax=ax[0,1])
+    df.actorEntropy.plot(ax=ax[2,0])
+    ax[2,0].set_title('Actor entropy')
+    ax[2,0].set_xlabel('Actor-environment interaction number')
+    
+    
+    df.boxplot(column = 'Reward', by= 'epochNumber', ax=ax[3,0])
     xmin = 0
     xmax = len(dfEpochNumber.groups)
     if baseline != None: 
-        ax[0,1].hlines(baseline, xmin, xmax)
-    ax[0,1].set_title('Boxplot of undiscounted reward per epoch number')
-    ax[0,1].set_ylabel('Reward')
-    ax[0,1].set_xlabel('Epoch number')
+        ax[3,0].hlines(baseline, xmin, xmax)
+    ax[3,0].set_title('Boxplot of undiscounted reward per epoch number')
+    ax[3,0].set_ylabel('Reward')
+    ax[3,0].set_xlabel('Epoch number')
     #df.hist(column = 'iAction', by= 'epochNumber', ax=ax[2,0])
 
-    dfEpochNumber.iAction.plot(ax=ax[1,0])
+
+### i information
+    dfEpochNumber.iAction.plot(ax=ax[0,1])
     if 'logpI' in df:
-        dfEpochNumber.logpI.plot(ax=ax[2,0])
-        ax[2,0].set_title('log probability')
-        ax[2,0].set_ylabel("i")
-        ax[2,0].set_xlabel('Actor-environment interaction number')
-    ax[1,0].set_title('Choice of i (0 or 1) as a function of actor-environment interaction number')
-    ax[1,0].set_ylabel("i [0 or 1]")
-    ax[1,0].set_xlabel('Actor-environment interaction number')
+        dfEpochNumber.logpI.plot(ax=ax[1,1])
+        ax[1,1].set_title('log probability')
+        ax[1,1].set_ylabel("i")
+        ax[1,1].set_xlabel('Actor-environment interaction number')
+    ax[0,1].set_title('Choice of i (0 or 1) as a function of actor-environment interaction number')
+    ax[0,1].set_ylabel("i [0 or 1]")
+    ax[0,1].set_xlabel('Actor-environment interaction number')
+    if 'iEntropy' in df:
+        dfEpochNumber.iEntropy.plot(ax=ax[2,1])
     
-    
-    dfEpochNumber.jAction.plot(ax=ax[1,1])
+### j information   
+    dfEpochNumber.jAction.plot(ax=ax[0,2])
+    ax[0,2].set_title('Choice of j (0,1..15) as a function of actor-environment interaction number')
+    ax[0,2].set_ylabel("j [0,1..15]")
+    ax[0,2].set_xlabel('Actor-environment interaction number')
     if 'logpJ' in df:
-        dfEpochNumber.logpJ.plot(ax=ax[2,1])
-        ax[2,1].set_title('log probability')
-        ax[2,1].set_ylabel("j")
-        ax[2,1].set_xlabel('Actor-environment interaction number')
+        dfEpochNumber.logpJ.plot(ax=ax[1,2])
+        ax[1,2].set_title('log probability')
+        ax[1,2].set_ylabel("j")
+        ax[1,2].set_xlabel('Actor-environment interaction number')
+    if 'jEntropy' in df:
+        dfEpochNumber.jEntropy.plot(ax=ax[2,2])
     
+### k information   
     if 'kAction' in df:
-        dfEpochNumber.kAction.plot(ax=ax[3,0])
+        dfEpochNumber.kAction.plot(ax=ax[0,3])
     if 'logpK' in df:
-        dfEpochNumber.logpK.plot(ax=ax[4,0])
+        dfEpochNumber.logpK.plot(ax=ax[1,3])
+    if 'kEntropy' in df:
+        dfEpochNumber.kEntropy.plot(ax=ax[2,3])
     
-    
-    df.logP.plot(ax=ax[3,1])
-    ax[3,1].set_title('log probability')
-    ax[3,1].set_xlabel('Actor-environment interaction number')
-    
-    df.actorEntropy.plot(ax=ax[4,1])
-    ax[4,1].set_title('Actor entropy')
-    ax[4,1].set_xlabel('Actor-environment interaction number')
     
     #df.hotBitsAction.plot(ax=ax[3,0])
     
@@ -131,9 +143,7 @@ def postMortem(filePath = None, baseline = None):
     
 
     
-    ax[1,1].set_title('Choice of j (0,1..15) as a function of actor-environment interaction number')
-    ax[1,1].set_ylabel("j [0,1..15]")
-    ax[1,1].set_xlabel('Actor-environment interaction number')
+  
     
     
     
