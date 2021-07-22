@@ -245,16 +245,16 @@ def spawnGraphics(matrix, subMatrixDimX, subMatrixDimY):
     return fig, axs
 
 def pieceWiseLinear(X,slope0, bias0, cutoff):
-    return (X < cutoff) * (slope0 * X + bias0) + 0.0
+    return np.where(X < cutoff, slope0 * X + bias0, 0.0)
 
 def pieceWiseFit(snrData, berData):
     from scipy.optimize import curve_fit
-    optimalParameters, parametersCovariance = curve_fit(pieceWiseLinear, snrData, berData)
+    optimalParameters, parametersCovariance = curve_fit(pieceWiseLinear, snrData, berData, p0 = [-0.049, 0.16, 3.4])
     return optimalParameters, parametersCovariance
 
 def plotEvaluationData(snr, ber, linearFit = True, fillBetween = True):
     
-    optimalParameters, _ = pieceWiseFit(snr, ber)
+    optimalParameters, _ = pieceWiseFit(snr, ber )
     p = np.polyfit(snr, ber, 1)
     print(p)
     trendP = np.poly1d(p)
@@ -264,7 +264,7 @@ def plotEvaluationData(snr, ber, linearFit = True, fillBetween = True):
     fig, ax = plt.subplots()
     ax.scatter(snr, ber)
     ax.plot(snr, trendP(snr), color = 'g')
-    ax.plot(snr, pieceWiseLinear(snr, *optimalParameters), color = '--o')
+    ax.plot(snr, pieceWiseLinear(snr, *optimalParameters), color = 'r')
     ax.set_ylabel('Bit error rate', size = 18)
     ax.set_xlabel('Signal to noise ratio', size = 18)
     ax.set_title('Evaluation data', size = 18)

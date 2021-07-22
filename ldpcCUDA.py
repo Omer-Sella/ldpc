@@ -814,7 +814,7 @@ def evaluateMatrixAndEpsilon(parityMatrix, epsilon, numberOfIterations = 50, cud
 
 
 
-def testNearEarth(numOfTransmissions = 30, graphics = False):
+def testNearEarth(numOfTransmissions = 30, graphics = True):
     status = 'Near earth problem'
     print("*** in test near earth")
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
