@@ -5,11 +5,9 @@
     "\\spinup",
     "\\spinup\\algos",
     "\\spinup\\algos\\pytorch",
-    "\\spinup\\algos\\pytorch\\ppo",
     "\\spinup\\examples",
     "\\spinup\\examples\\pytorch",
     "\\spinup\\utils"
   ],
-  "SelectedNode": "\\ldpcCUDA.py",
   "PreviewInSolutionExplorer": false
 }

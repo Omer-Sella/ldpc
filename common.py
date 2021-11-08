@@ -6,6 +6,7 @@ Created on Wed Jan 29 16:20:51 2020
 """
 import matplotlib.pyplot as plt
 import numpy as np
+import copy
 
 COMMON_DATA_TYPE = np.int32
 COMMON_INT_DATA_TYPE = np.int32
@@ -254,6 +255,20 @@ def pieceWiseFit(snrData, berData):
     from scipy.optimize import curve_fit
     optimalParameters, parametersCovariance = curve_fit(pieceWiseLinear, snrData, berData, p0 = [-0.049, 0.16, 3.4])
     return optimalParameters, parametersCovariance
+
+def recursiveLinearFit(xData, yData, numberOfIterations = 10, earlyStopping = False):
+    ber = copy.copy(yData)
+    snr = copy.copy(xData)
+    itr = 0 #Omer Sella: place holder - in the future we may want to return the iteration at which earlyStopping happened
+    while itr < 20:
+        p = np.polyfit(snr, ber, 1)
+        trendP = np.poly1d(p)
+        ber = ber[trendP(snr) > 0]
+        snr = snr[trendP(snr) > 0]
+        itr = itr + 1
+    return snr, ber, p, trendP, itr
+            
+
 
 def plotEvaluationData(snr, ber, linearFit = True, fillBetween = True):
     
