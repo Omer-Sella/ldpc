@@ -38,8 +38,8 @@ INTERNAL_ACTION_SPACE_SIZE = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS
 SAVE_MODEL_FREQUENCY = 10
 NUMBER_OF_GPUS_PER_NODE = 2
 
-# Number of entropy elements is depends on the model. At the this time we have i,j,k and number of coordinates selection.
-NUMBER_OF_ENTROPY_ELEMENTS = 4 
+# Number of entropy elements is depends on the model. At the this time we have i,j,k and we don't include entropy for number of coordinates selection.
+NUMBER_OF_ENTROPY_ELEMENTS = 3 
 
 import models
 
@@ -65,7 +65,7 @@ class PPOBuffer:
         self.gamma, self.lam = gamma, lam
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
 
-    def store(self, obs, act, rew, val, logp, ent, entropyList):
+    def store(self, obs, act, rew, val, logp, ent, entropyArray):
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
@@ -76,7 +76,7 @@ class PPOBuffer:
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
         self.ent_buf[self.ptr] = ent
-        self.entropyList_buf[self.ptr] = np.array(entropyList)
+        self.entropyList_buf[self.ptr] = entropyArray
         self.ptr += 1
 
     def finish_path(self, last_val=0):
@@ -297,13 +297,19 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         # Policy loss
         # Omer Sella: This is where we need ac.pi to accept both observations AND actions
         #pi, logp = ac.pi(obs, act)
-        _, _, logp, actorEntropy, _, _ = ac.step(obs, act)
+        _, _, logp, actorEntropy, _, actorEntropyList = ac.step(obs, act)
         ratio = torch.exp(logp - logp_old)
         
         clip_adv = torch.clamp(ratio, 1-clip_ratio, 1+clip_ratio) * adv
         loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
 
+        
         ent = actorEntropy.mean().item()
+        #print(actorEntropyList[0])
+        #print(actorEntropyList[0].mean())
+        #print(actorEntropyList[0].mean().item())
+        
+        iEntropy = actorEntropyList[0].mean().item()
        
         
         # Useful extra info
@@ -316,7 +322,10 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         #myLogger.keyValue('entropy', ent)
         #myLogger.keyValue('clippedFrac', clipfrac)
         
-        totalLoss = policyCoefficient * loss_pi + entropyCoefficient * ent
+        #########
+        #OSS: we are testing a hypothesis, that the entropy for choice of i collapses too fast. So I'm replacing ent with iEntropy and let's see what happens
+        #totalLoss = policyCoefficient * loss_pi + entropyCoefficient * ent
+        totalLoss = policyCoefficient * loss_pi + entropyCoefficient * iEntropy
         
         return totalLoss, pi_info
 
@@ -408,7 +417,9 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             ep_len += 1
 
             # save and log
-            buf.store(o, a[-2], r, v, logp, actorEntropy, entropyList)
+            entropyArray = np.array([entropyList[0].item(), entropyList[1].item(), entropyList[2].item()])
+            #entropyArray = np.hstack((entropyArray, entropyList[3]].detach().numpy()))
+            buf.store(o, a[-2], r, v, logp, actorEntropy, entropyArray)
             logger.store(VVals=v)
             
             # Update obs (critical!)

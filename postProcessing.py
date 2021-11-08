@@ -8,13 +8,48 @@ from matplotlib.ticker import LinearLocator, FormatStrFormatter
 from numpy.polynomial import Polynomial
 import os
 import matplotlib.gridspec as gridspec
-
+import ldpcCUDA
 import seaborn as sns
+import copy
+import common
 
 
 
 REWARD_FOR_NEAR_EARTH_3_0_TO_3_8 = 0.7958451612664468
 REWARD_FOR_NEAR_EARTH_3_0_TO_3_4 = 0.3965108116285836
+MAXIMAL_NUMBER_OF_BEST_CODES = 20
+POST_MORTEM_SEED = 42 + 61017406 + 1
+POST_MORTEM_SNR_POINTS = [3.0, 3.2,3.4,3.6]
+POST_MORTEM_NUMBER_OF_TRANSMISSIONS = 30
+POST_MORTEM_NUMBER_OF_ITERATIONS = 50
+
+
+def postMortemBestCodes(filePath = None, baseline = REWARD_FOR_NEAR_EARTH_3_0_TO_3_4):
+    if filePath == None:
+        filePath = "D:/ldpc/temp/experiments/1625763063/experiment.txt"    
+    df = pd.read_csv(filePath, sep = '\t')
+    
+    
+    # Extract all rows that have the maximum reward (return)
+    dfBest = df[df['Reward'] >=max(df.Reward)]
+    bestCodes = dfBest.Observation.unique()
+    evaluationResults = []
+    for i in range(len(bestCodes)):
+        print(i)
+        compressedMatrix = bestCodes[i]
+        compressedMatrix = compressedMatrix.strip('[')
+        compressedMatrix = compressedMatrix.strip(']')
+        compressedMatrix = compressedMatrix.split()
+        compressedMatrix = np.asarray(compressedMatrix)
+        compressedMatrix = compressedMatrix.astype(np.uint8)
+        parityMatrix = common.uncompress(compressedMatrix)
+        
+        berStats =  ldpcCUDA.evaluateCodeCuda(POST_MORTEM_SEED, POST_MORTEM_SNR_POINTS, POST_MORTEM_NUMBER_OF_ITERATIONS, parityMatrix, POST_MORTEM_NUMBER_OF_TRANSMISSIONS, G = 'None', cudaDeviceNumber = 1 )
+        evaluationResults.append(copy.deepcopy(berStats))
+    return evaluationResults
+        
+        
+
 
 def postMortemHeatMaps(filePath = None, baseline = REWARD_FOR_NEAR_EARTH_3_0_TO_3_4):
     plt.style.use("seaborn")
@@ -38,6 +73,22 @@ def postMortemHeatMaps(filePath = None, baseline = REWARD_FOR_NEAR_EARTH_3_0_TO_
     # For getting the infor from the dataframes - https://stackoverflow.com/questions/39250504/count-occurrences-in-dataframe
     # For heatmaps - https://www.askpython.com/python/examples/heatmaps-in-python
     
+    
+    #####
+    #iAction heat map
+    
+    # Group data frame by epoch number and then jAction
+    gb2 = df.groupby(['epochNumber', 'iAction']) 
+    
+    # Pad with 0s where jAction type did not occur
+    gb3 = gb2.size().unstack(fill_value = 0)
+    iActionHeatMapArray = gb3.to_numpy().T
+    
+    ax2, fig2 = plt.subplots(figsize = iActionHeatMapArray.shape)
+    ax2 = sns.heatmap( iActionHeatMapArray / epochLength, linewidth = 1 , annot = True)
+    ax2.set_title( "HeatMap of choices of i (row number in the parity matrix)" )
+    
+    
     #####
     #jAction heat map
     
@@ -53,19 +104,6 @@ def postMortemHeatMaps(filePath = None, baseline = REWARD_FOR_NEAR_EARTH_3_0_TO_
     ax1.set_title( "HeatMap of choices of j (column number in the parity matrix)" )
     
     
-    #####
-    #iAction heat map
-    
-    # Group data frame by epoch number and then jAction
-    gb2 = df.groupby(['epochNumber', 'iAction']) 
-    
-    # Pad with 0s where jAction type did not occur
-    gb3 = gb2.size().unstack(fill_value = 0)
-    iActionHeatMapArray = gb3.to_numpy().T
-    
-    ax2, fig2 = plt.subplots(figsize = iActionHeatMapArray.shape)
-    ax2 = sns.heatmap( iActionHeatMapArray / epochLength, linewidth = 1 , annot = True)
-    ax2.set_title( "HeatMap of choices of i (row number in the parity matrix)" )
     
     #####
     #kAction heat map
