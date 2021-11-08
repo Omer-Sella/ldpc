@@ -38,6 +38,9 @@ INTERNAL_ACTION_SPACE_SIZE = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS
 SAVE_MODEL_FREQUENCY = 10
 NUMBER_OF_GPUS_PER_NODE = 2
 
+# Number of entropy elements is depends on the model. At the this time we have i,j,k and number of coordinates selection.
+NUMBER_OF_ENTROPY_ELEMENTS = 4 
+
 import models
 
 
@@ -56,12 +59,13 @@ class PPOBuffer:
         self.ret_buf = np.zeros(size, dtype=np.float32)
         self.val_buf = np.zeros(size, dtype=np.float32)
         self.ent_buf = np.zeros(size, dtype=np.float32)
+        self.entropyList_buf = np.zeros((size, NUMBER_OF_ENTROPY_ELEMENTS), dtype=np.float32)
         
         self.logp_buf = np.zeros(size, dtype=np.float32)
         self.gamma, self.lam = gamma, lam
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
 
-    def store(self, obs, act, rew, val, logp, ent):
+    def store(self, obs, act, rew, val, logp, ent, entropyList):
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
@@ -72,6 +76,7 @@ class PPOBuffer:
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
         self.ent_buf[self.ptr] = ent
+        self.entropyList_buf[self.ptr] = np.array(entropyList)
         self.ptr += 1
 
     def finish_path(self, last_val=0):
@@ -403,7 +408,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             ep_len += 1
 
             # save and log
-            buf.store(o, a[-2], r, v, logp, actorEntropy)
+            buf.store(o, a[-2], r, v, logp, actorEntropy, entropyList)
             logger.store(VVals=v)
             
             # Update obs (critical!)
@@ -468,12 +473,12 @@ if __name__ == '__main__':
     parser.add_argument('--hid', type=int, default=64)
     parser.add_argument('--l', type=int, default=2)
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--seed', '-s', type=int, default=7)
+    parser.add_argument('--seed', '-s', type=int, default=39)
     #parser.add_argument('--cpu', type=int, default=2) #Omer Sella: was 4 instead of 1
     parser.add_argument('--cpu', type=int, default=1) #Omer Sella: was 4 instead of 1
     parser.add_argument('--steps', type=int, default=160)
     parser.add_argument('--epochs', type=int, default=50)
-    parser.add_argument('--envCudaDevice', type=int, default=1)
+    parser.add_argument('--envCudaDevice', type=int, default=0)
     #parser.add_argument('--epochs', type=int, default=25) #Omer Sella: I have the 25 option for testing
     parser.add_argument('--entropyCoefficient', type=float, default = 0.01)
     parser.add_argument('--policyCoefficient', type=float, default = 1.0)

@@ -11,6 +11,9 @@ COMMON_DATA_TYPE = np.int32
 COMMON_INT_DATA_TYPE = np.int32
 COMMON_DECIMAL_DATA_TYPE = np.float32
 TEST_COORDINATE = 11
+COMMON_MATRIX_DATA_TYPE = np.int32
+COMMON_PARITY_MATRIX_DIM_1 = 8192
+COMMON_PARITY_MATRIX_DIM_0 = 1022
 
 def autolabel(rects, ax):
     """Attach a text label above each bar in *rects*, displaying its height."""
@@ -293,6 +296,24 @@ def testGraphics():
     updateBerVSnr(ax, fig, 1, 16, snrBaseline, berPam2)
     fig.show()
     return fig, ax
+
+def uncompress(compressedMatrix):
+    from scipy.linalg import circulant
+    circulantSize = 511
+    paddingLocations = (np.arange(16) + 1) * (circulantSize + 1 ) - 1
+    compressionMask = np.ones(COMMON_PARITY_MATRIX_DIM_1, dtype = bool)
+    compressionMask[paddingLocations] = False
+    firstRow = np.unpackbits(compressedMatrix[0 : len(compressedMatrix) // 2 ])
+    secondRow = np.unpackbits(compressedMatrix[len(compressedMatrix) // 2 : ])
+    unpaddedFirstRow = firstRow[compressionMask]
+    unpaddedSecondRow = secondRow[compressionMask]
+    topRows = np.vstack(unpaddedFirstRow, unpaddedSecondRow)
+    newMatrix = np.zeros((8192,1022), dtype = COMMON_MATRIX_DATA_TYPE)
+    # So by now we have row 0 and row 512 of the parity matrix, and now we need to make circulants out of them.
+    for j in range(COMMON_PARITY_MATRIX_DIM_0 // circulantSize):
+        for i in range(8192 // circulantSize):
+            newMatrix[j * circulantSize, i * circulantSize : circulantSize * (i + 1)] = circulant(topRows[j, i * circulantSize : circulantSize * (i + 1)])
+    return newMatrix
 
 def main():
     fig, ax = testGraphics()
