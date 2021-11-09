@@ -506,6 +506,8 @@ class openAIActorCritic(nn.Module):
         #print(ppoBufferAction)
         entropy_list = [iDistributionEntropy, jDistributionEntropy, kDistributionEntropy, coordinateEntropies]
         entropy = torch.cat(entropy_list, dim = -1)
+        
+        
         entropySummed = entropy.sum(dim = -1, keepdim = False)
         a = [i, j, k, coordinates, ppoBufferAction, envAction]
         return a, v.detach().numpy(), logPSummed, entropySummed, logp_list, entropy_list

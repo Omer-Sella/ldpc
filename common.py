@@ -6,11 +6,15 @@ Created on Wed Jan 29 16:20:51 2020
 """
 import matplotlib.pyplot as plt
 import numpy as np
+import copy
 
 COMMON_DATA_TYPE = np.int32
 COMMON_INT_DATA_TYPE = np.int32
 COMMON_DECIMAL_DATA_TYPE = np.float32
 TEST_COORDINATE = 11
+COMMON_MATRIX_DATA_TYPE = np.int32
+COMMON_PARITY_MATRIX_DIM_1 = 8176
+COMMON_PARITY_MATRIX_DIM_0 = 1022
 
 def autolabel(rects, ax):
     """Attach a text label above each bar in *rects*, displaying its height."""
@@ -252,6 +256,20 @@ def pieceWiseFit(snrData, berData):
     optimalParameters, parametersCovariance = curve_fit(pieceWiseLinear, snrData, berData, p0 = [-0.049, 0.16, 3.4])
     return optimalParameters, parametersCovariance
 
+def recursiveLinearFit(xData, yData, numberOfIterations = 10, earlyStopping = False):
+    ber = copy.copy(yData)
+    snr = copy.copy(xData)
+    itr = 0 #Omer Sella: place holder - in the future we may want to return the iteration at which earlyStopping happened
+    while itr < 20:
+        p = np.polyfit(snr, ber, 1)
+        trendP = np.poly1d(p)
+        ber = ber[trendP(snr) > 0]
+        snr = snr[trendP(snr) > 0]
+        itr = itr + 1
+    return snr, ber, p, trendP, itr
+            
+
+
 def plotEvaluationData(snr, ber, linearFit = True, fillBetween = True):
     
     optimalParameters, _ = pieceWiseFit(snr, ber )
@@ -294,7 +312,38 @@ def testGraphics():
     fig.show()
     return fig, ax
 
+def uncompress(compressedMatrix):
+    from scipy.linalg import circulant
+    circulantSize = 511
+    paddingLocations = (np.arange(16) + 1) * (circulantSize + 1 ) - 1
+    compressionMask = np.ones(np.int32(2 ** np.ceil(np.log2(COMMON_PARITY_MATRIX_DIM_1))), dtype = bool)
+    compressionMask[paddingLocations] = False
+    firstRow = np.unpackbits(compressedMatrix[0 : len(compressedMatrix) // 2 ])
+    secondRow = np.unpackbits(compressedMatrix[len(compressedMatrix) // 2 : ])
+    unpaddedFirstRow = firstRow[compressionMask]
+    unpaddedSecondRow = secondRow[compressionMask]
+    topRows = np.vstack((unpaddedFirstRow, unpaddedSecondRow))
+    newMatrix = np.zeros((COMMON_PARITY_MATRIX_DIM_0,COMMON_PARITY_MATRIX_DIM_1), dtype = COMMON_MATRIX_DATA_TYPE)
+    # So by now we have row 0 and row 512 of the parity matrix, and now we need to make circulants out of them.
+    for j in range(COMMON_PARITY_MATRIX_DIM_0 // circulantSize):
+        for i in range(8192 // circulantSize):
+            newMatrix[j * circulantSize : (j + 1) * circulantSize, i * circulantSize :  (i + 1) * circulantSize] = circulant(topRows[j, i * circulantSize : circulantSize * (i + 1)])
+    return newMatrix
+
+
+def test_uncompress():
+    compressedExample = '[128   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 128   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   8   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 128   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 128   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 128   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0 128   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 128   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  64   0   0   0   0   0   0   0   0   0   0   0   0 128   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  64   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 128   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  16   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   4   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  64   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   2   0   0   0   0   8   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  32   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  64   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 128   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  32   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  64   0   0   0   0   0   0 128   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   8   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   4   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  16   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  32   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  64   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   2   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  16   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   8   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   2   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   8   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  32   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  64   0   0   0   0   0   0   0   0   0 128   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   8   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  64   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   4   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  64   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   2   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   2   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  16   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 128   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  16   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 128   0   0   0  64   0   0   2   0   0   0  32   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  32   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   8   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  16   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   8   0   0   0   0   0   0   0   0   0   0   0   0   2   0   0   0   0   0   0   0   0   0   0   0  16   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   2   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 128   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   2   0   0   0   0   0   0   0   0   0   0   0   0]'
+    compressedMatrix = compressedExample
+    compressedMatrix = compressedMatrix.strip('[')
+    compressedMatrix = compressedMatrix.strip(']')
+    compressedMatrix = compressedMatrix.split()
+    compressedMatrix = np.asarray(compressedMatrix)
+    compressedMatrix = compressedMatrix.astype(np.uint8)
+    parityMatrix = uncompress(compressedMatrix)
+    return parityMatrix
+
 def main():
+    test_uncompress()
     fig, ax = testGraphics()
     return fig, ax
 

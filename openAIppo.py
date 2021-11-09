@@ -38,6 +38,9 @@ INTERNAL_ACTION_SPACE_SIZE = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS
 SAVE_MODEL_FREQUENCY = 10
 NUMBER_OF_GPUS_PER_NODE = 2
 
+# Number of entropy elements is depends on the model. At the this time we have i,j,k and we don't include entropy for number of coordinates selection.
+NUMBER_OF_ENTROPY_ELEMENTS = 3 
+
 import models
 
 
@@ -56,12 +59,13 @@ class PPOBuffer:
         self.ret_buf = np.zeros(size, dtype=np.float32)
         self.val_buf = np.zeros(size, dtype=np.float32)
         self.ent_buf = np.zeros(size, dtype=np.float32)
+        self.entropyList_buf = np.zeros((size, NUMBER_OF_ENTROPY_ELEMENTS), dtype=np.float32)
         
         self.logp_buf = np.zeros(size, dtype=np.float32)
         self.gamma, self.lam = gamma, lam
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
 
-    def store(self, obs, act, rew, val, logp, ent):
+    def store(self, obs, act, rew, val, logp, ent, entropyArray):
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
@@ -72,6 +76,7 @@ class PPOBuffer:
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
         self.ent_buf[self.ptr] = ent
+        self.entropyList_buf[self.ptr] = entropyArray
         self.ptr += 1
 
     def finish_path(self, last_val=0):
@@ -292,13 +297,19 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         # Policy loss
         # Omer Sella: This is where we need ac.pi to accept both observations AND actions
         #pi, logp = ac.pi(obs, act)
-        _, _, logp, actorEntropy, _, _ = ac.step(obs, act)
+        _, _, logp, actorEntropy, _, actorEntropyList = ac.step(obs, act)
         ratio = torch.exp(logp - logp_old)
         
         clip_adv = torch.clamp(ratio, 1-clip_ratio, 1+clip_ratio) * adv
         loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
 
+        
         ent = actorEntropy.mean().item()
+        #print(actorEntropyList[0])
+        #print(actorEntropyList[0].mean())
+        #print(actorEntropyList[0].mean().item())
+        
+        iEntropy = actorEntropyList[0].mean().item()
        
         
         # Useful extra info
@@ -311,7 +322,10 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         #myLogger.keyValue('entropy', ent)
         #myLogger.keyValue('clippedFrac', clipfrac)
         
-        totalLoss = policyCoefficient * loss_pi + entropyCoefficient * ent
+        #########
+        #OSS: we are testing a hypothesis, that the entropy for choice of i collapses too fast. So I'm replacing ent with iEntropy and let's see what happens
+        #totalLoss = policyCoefficient * loss_pi + entropyCoefficient * ent
+        totalLoss = policyCoefficient * loss_pi + entropyCoefficient * iEntropy
         
         return totalLoss, pi_info
 
@@ -403,7 +417,9 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             ep_len += 1
 
             # save and log
-            buf.store(o, a[-2], r, v, logp, actorEntropy)
+            entropyArray = np.array([entropyList[0].item(), entropyList[1].item(), entropyList[2].item()])
+            #entropyArray = np.hstack((entropyArray, entropyList[3]].detach().numpy()))
+            buf.store(o, a[-2], r, v, logp, actorEntropy, entropyArray)
             logger.store(VVals=v)
             
             # Update obs (critical!)
@@ -468,12 +484,12 @@ if __name__ == '__main__':
     parser.add_argument('--hid', type=int, default=64)
     parser.add_argument('--l', type=int, default=2)
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--seed', '-s', type=int, default=7)
+    parser.add_argument('--seed', '-s', type=int, default=39)
     #parser.add_argument('--cpu', type=int, default=2) #Omer Sella: was 4 instead of 1
     parser.add_argument('--cpu', type=int, default=1) #Omer Sella: was 4 instead of 1
     parser.add_argument('--steps', type=int, default=160)
     parser.add_argument('--epochs', type=int, default=50)
-    parser.add_argument('--envCudaDevice', type=int, default=1)
+    parser.add_argument('--envCudaDevice', type=int, default=0)
     #parser.add_argument('--epochs', type=int, default=25) #Omer Sella: I have the 25 option for testing
     parser.add_argument('--entropyCoefficient', type=float, default = 0.01)
     parser.add_argument('--policyCoefficient', type=float, default = 1.0)
