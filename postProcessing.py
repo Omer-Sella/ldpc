@@ -44,6 +44,7 @@ def postMortemBestCodes(filePath = None, baseline = REWARD_FOR_NEAR_EARTH_3_0_TO
         compressedMatrix = compressedMatrix.astype(np.uint8)
         parityMatrix = common.uncompress(compressedMatrix)
         
+        print(parityMatrix.shape)
         berStats =  ldpcCUDA.evaluateCodeCuda(POST_MORTEM_SEED, POST_MORTEM_SNR_POINTS, POST_MORTEM_NUMBER_OF_ITERATIONS, parityMatrix, POST_MORTEM_NUMBER_OF_TRANSMISSIONS, G = 'None', cudaDeviceNumber = 1 )
         evaluationResults.append(copy.deepcopy(berStats))
     return evaluationResults
