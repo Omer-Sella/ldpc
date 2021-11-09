@@ -6,18 +6,14 @@ Created on Mon Feb 24 17:30:45 2020
 """
 
 import ldpc
-import fileHandler
-#import ldpcTF
-import ldpcCUDA
-import common
-import models
-import utilityFunctions
 
 
 
 
 def test_modulationAndSlicingRoundTrip():
     assert ldpc.testModulationAndSlicingRoundTrip() == 'OK'
+import fileHandler
+#import ldpcTF
 
   
 def test_fileHandler_nearEarth():
@@ -29,15 +25,20 @@ def test_fileHandler_nearEarth():
 #def test_minSumStepTFimplementation():    
 #    assert ldpcTF.testMinSumStep == 'OK'
 
+import ldpcCUDA
+
+
 def test_ldpcCUDAdecoder():
     _, status = ldpcCUDA.testNearEarth(graphics = False)
     assert status =='OK'
+import models
+
     
     
 def test_models():
     status = models.testActorCritic()
     assert status == 'OK'
-    
+import utilityFunctions    
     
 def test_utilityFunctionLogger():
     status = utilityFunctions.testLogger()
