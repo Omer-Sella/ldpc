@@ -394,6 +394,9 @@ def calcBinaryProduct2(parityMatrix, binaryVector, resultVector):
 @cuda.jit        
 def mod2Vector(v):
     k = cuda.grid(1)
+    ## OSS 10/11/2021 added a boundary check, there seems to have been a bug caused by access to uncharted memory at v[MATRIX_DIM0]
+    if k >= MATRIX_DIM0:
+        return
     v[k] = v[k] % 2
     
 
@@ -544,10 +547,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
         
         numberOfSNRpoints_device = cuda.to_device(numberOfSNRpoints)
         numOfTransmissions_device = cuda.to_device(numOfTransmissions)
-        #s = 0
-        #t = 0
-        #s_device = cuda.to_device(s)
-        #t_device = cuda.to_device(t)
+
         for s in range(numberOfSNRpoints):
             start = 0
             end = 0
@@ -570,14 +570,22 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                 
                 # Check if fromChannel makes a codeword    
                 slicerCuda[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device, binaryVector_device)
+                
                 resetVector[1022, 1](isCodewordVector_device)
+                
                 calcBinaryProduct2[BLOCKS_PER_GRID_BINARY_CALC, THREADS_PER_BLOCK_BINARY_CALC](parityMatrix_device, binaryVector_device, isCodewordVector_device)
+                
                 mod2Vector[16, 511](isCodewordVector_device)
+                
+                #OSS 10/11/2021 temporarily disable the following kernel: OSS 12/11/2021 re-instated this kernel after memory boundary bug fix to mod2Vector
                 checkIsCodeword[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](isCodewordVector_device, result_device)
                 
+                #OSS: the syntax "if result_device[0] == 0" casuses a cuMemcpyDtoH error. I', replacing it with a numpy operation for debug
+                #OSS: 12/11/2021 it wasn't the syntax, the bug occured before it in mod2Vector, but was only raised after the == check.
+                #if np.sum(isCodewordVector_device) == 0 :
                 if result_device[0] == 0 :
                     isCodeword = True
-                    #print("*** Initial check thinks the input is a codeword.")    
+                    
                
                 while (iterator < numberOfIterations and not isCodeword):
                 
@@ -618,11 +626,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                     cudaMatrixMinus2D[BLOCKS_PER_GRID_MATRIX_MINUS_2D, THREADS_PER_BLOCK_MATRIX_MINUS_2D](matrix_device, newMatrix_device) # = matrix_device - newMatrix_device
                     
                     iterator = iterator + 1
-                    
-                    
-                    
-                   
-                
+                 
                 #print("*** while iterator finished at " + str(iterator))
                 slicerCuda[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device, binaryVector_device)
                 result_device[1] = 0

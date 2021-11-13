@@ -43,9 +43,8 @@ def postMortemBestCodes(filePath = None, baseline = REWARD_FOR_NEAR_EARTH_3_0_TO
         compressedMatrix = np.asarray(compressedMatrix)
         compressedMatrix = compressedMatrix.astype(np.uint8)
         parityMatrix = common.uncompress(compressedMatrix)
-        
         print(parityMatrix.shape)
-        berStats =  ldpcCUDA.evaluateCodeCuda(POST_MORTEM_SEED, POST_MORTEM_SNR_POINTS, POST_MORTEM_NUMBER_OF_ITERATIONS, parityMatrix, POST_MORTEM_NUMBER_OF_TRANSMISSIONS, G = 'None', cudaDeviceNumber = 1 )
+        berStats =  ldpcCUDA.evaluateCodeCuda(POST_MORTEM_SEED, POST_MORTEM_SNR_POINTS, POST_MORTEM_NUMBER_OF_ITERATIONS, parityMatrix, POST_MORTEM_NUMBER_OF_TRANSMISSIONS, G = 'None', cudaDeviceNumber = 0 )
         evaluationResults.append(copy.deepcopy(berStats))
     return evaluationResults
         
@@ -88,6 +87,10 @@ def postMortemHeatMaps(filePath = None, baseline = REWARD_FOR_NEAR_EARTH_3_0_TO_
     ax2, fig2 = plt.subplots(figsize = iActionHeatMapArray.shape)
     ax2 = sns.heatmap( iActionHeatMapArray / epochLength, linewidth = 1 , annot = True)
     ax2.set_title( "HeatMap of choices of i (row number in the parity matrix)" )
+    pathBreakdown = os.path.split(filePath)
+    imageName = pathBreakdown[0] + "/heatMapI.png"
+    plt.tight_layout()
+    plt.savefig(fname = imageName)
     
     
     #####
@@ -103,6 +106,9 @@ def postMortemHeatMaps(filePath = None, baseline = REWARD_FOR_NEAR_EARTH_3_0_TO_
     ax1, fig1 = plt.subplots(figsize = jActionHeatMapArray.shape)
     ax1 = sns.heatmap( jActionHeatMapArray / epochLength, linewidth = 1 , annot = True)
     ax1.set_title( "HeatMap of choices of j (column number in the parity matrix)" )
+    imageName = pathBreakdown[0] + "/heatMapJ.png"
+    plt.tight_layout()
+    plt.savefig(fname = imageName)
     
     
     
@@ -118,7 +124,10 @@ def postMortemHeatMaps(filePath = None, baseline = REWARD_FOR_NEAR_EARTH_3_0_TO_
     
     ax3, fig3 = plt.subplots(figsize = kActionHeatMapArray.shape)
     ax3 = sns.heatmap( kActionHeatMapArray / epochLength, linewidth = 1 , annot = True)
-    ax3.set_title( "HeatMap of choices of i (row number in the parity matrix)" )
+    ax3.set_title( "HeatMap of choices of k (number of hot bits)" )
+    imageName = pathBreakdown[0] + "/heatMapK.png"
+    plt.tight_layout()
+    plt.savefig(fname = imageName)
     
     
     return iActionHeatMapArray, jActionHeatMapArray, kActionHeatMapArray, df
