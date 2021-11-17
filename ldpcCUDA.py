@@ -29,6 +29,8 @@ sys.path.insert(1, projectDir)
 import fileHandler
 import common
 LDPC_LOCAL_PRNG = np.random.RandomState(7134066)
+LDPC_MAX_SEED = 2**31 - 1
+LDPC_SEED_DATA_TYPE = np.int64
 
 
 
@@ -860,6 +862,28 @@ def testNearEarth(numOfTransmissions = 30, graphics = True):
     return bStats, status
 
 
+def testConcurrentFutures(numberOfCudaDevices = 1):
+    
+    import concurrent.futures
+    nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
+    numOfTransmissions = 50
+    roi = [3.0, 3.2 ,3.4]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
+    numOfIterations = 50
+    seeds = LDPC_LOCAL_PRNG.randint(0, LDPC_MAX_SEED, numberOfCudaDevices, dtype = LDPC_SEED_DATA_TYPE) 
+    snrXnumberOfCudaDevices = [roi] * numberOfCudaDevices
+    numberOfIterationsXnumberOfCudaDevices = [numOfIterations] * numberOfCudaDevices
+    parityMatrices = [nearEarthParity] * numberOfCudaDevices
+    numberOfTransmissionsXnumberOfCudaDevices = [numOfTransmissions] * numberOfCudaDevices
+    noneXnumberOfCudaDevices = ['None'] * numberOfCudaDevices
+    cudaDeviceList = list(range(numberOfCudaDevices))
+    # evaluate code cuda function arguments: seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , cudaDeviceNumber = 0
+    with concurrent.futures.ProcessPoolExecutor() as executor:    
+        #evaluateCodeCuda(460101, roi, numOfIterations, nearEarthParity, numOfTransmissions)
+            results = executor.map(evaluateCodeCuda, seeds, snrXnumberOfCudaDevices, numberOfIterationsXnumberOfCudaDevices, parityMatrices, numberOfTransmissionsXnumberOfCudaDevices, noneXnumberOfCudaDevices, cudaDeviceList)
+            for r in results:
+                print(r)
+
+
         
 def main():
     print("*** In ldpcCUDA.py main function.")
@@ -872,7 +896,9 @@ def main():
     #status = testIntegration()
     #print(status)
     
-    bStats, status = testNearEarth()
+    #bStats, status = testNearEarth()
+    testConcurrentFutures(numberOfCudaDevices = 2)
+    bStats, status = 0, 1
     #print(bStats.getStats())
     return bStats, status
 

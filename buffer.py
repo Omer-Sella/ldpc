@@ -11,12 +11,209 @@ It is similar to the code in openAI spinningup and I re-implemented it to unders
 """
 
 import numpy as np
+import openAIcore as core
+from mpi_pytorch import setup_pytorch_for_mpi, sync_params, mpi_avg_grads
+from mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
+import torch
 
-OBSERVATION_DATA_TYPE = np.float32
+### Constants
+# Number of entropy elements is depends on the model. At the this time we have i,j,k and we don't include entropy for number of coordinates selection.
+NUMBER_OF_ENTROPY_ELEMENTS = 3 
 
-class ppoBuffer:
-    
-    def __init__(self, observationDimension, internalActionDimensions, size, gamma = 0.99, lambda = 0.95):
+
+class PPOBuffer:
+    """
+    A buffer for storing trajectories experienced by a PPO agent interacting
+    with the environment, and using Generalized Advantage Estimation (GAE-Lambda)
+    for calculating the advantages of state-action pairs.
+    """
+
+    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95):
+        self.obs_buf = np.zeros(core.combined_shape(size, obs_dim), dtype=np.float32)
+        self.act_buf = np.zeros(core.combined_shape(size, act_dim), dtype=np.float32)
+        self.adv_buf = np.zeros(size, dtype=np.float32)
+        self.rew_buf = np.zeros(size, dtype=np.float32)
+        self.ret_buf = np.zeros(size, dtype=np.float32)
+        self.val_buf = np.zeros(size, dtype=np.float32)
+        self.ent_buf = np.zeros(size, dtype=np.float32)
+        self.entropyList_buf = np.zeros((size, NUMBER_OF_ENTROPY_ELEMENTS), dtype=np.float32)
         
-        self.observationBuffer = np.zeros(observationDimension, dtype = OBSERVATION_DATA_TYPE)
-        self.
+        self.logp_buf = np.zeros(size, dtype=np.float32)
+        self.gamma, self.lam = gamma, lam
+        self.ptr, self.path_start_idx, self.max_size = 0, 0, size
+
+    def store(self, obs, act, rew, val, logp, ent, entropyArray):
+        """
+        Append one timestep of agent-environment interaction to the buffer.
+        """
+        assert self.ptr < self.max_size     # buffer has to have room so you can store
+        self.obs_buf[self.ptr] = obs
+        self.act_buf[self.ptr] = act
+        self.rew_buf[self.ptr] = rew
+        self.val_buf[self.ptr] = val
+        self.logp_buf[self.ptr] = logp
+        self.ent_buf[self.ptr] = ent
+        self.entropyList_buf[self.ptr] = entropyArray
+        self.ptr += 1
+
+    def finish_path(self, last_val=0):
+        """
+        Call this at the end of a trajectory, or when one gets cut off
+        by an epoch ending. This looks back in the buffer to where the
+        trajectory started, and uses rewards and value estimates from
+        the whole trajectory to compute advantage estimates with GAE-Lambda,
+        as well as compute the rewards-to-go for each state, to use as
+        the targets for the value function.
+
+        The "last_val" argument should be 0 if the trajectory ended
+        because the agent reached a terminal state (died), and otherwise
+        should be V(s_T), the value function estimated for the last state.
+        This allows us to bootstrap the reward-to-go calculation to account
+        for timesteps beyond the arbitrary episode horizon (or epoch cutoff).
+        """
+
+        path_slice = slice(self.path_start_idx, self.ptr)
+        rews = np.append(self.rew_buf[path_slice], last_val)
+        vals = np.append(self.val_buf[path_slice], last_val)
+        
+        # the next two lines implement GAE-Lambda advantage calculation
+        deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
+        self.adv_buf[path_slice] = core.discount_cumsum(deltas, self.gamma * self.lam)
+        
+        # the next line computes rewards-to-go, to be targets for the value function
+        self.ret_buf[path_slice] = core.discount_cumsum(rews, self.gamma)[:-1]
+        
+        self.path_start_idx = self.ptr
+
+    def get(self):
+        """
+        Call this at the end of an epoch to get all of the data from
+        the buffer, with advantages appropriately normalized (shifted to have
+        mean zero and std one). Also, resets some pointers in the buffer.
+        """
+        assert self.ptr == self.max_size    # buffer has to be full before you can get
+        self.ptr, self.path_start_idx = 0, 0
+        # the next two lines implement the advantage normalization trick
+        adv_mean, adv_std = mpi_statistics_scalar(self.adv_buf)
+        self.adv_buf = (self.adv_buf - adv_mean) / adv_std
+        data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
+                    adv=self.adv_buf, logp=self.logp_buf, ent=self.ent_buf)
+        return {k: torch.as_tensor(v, dtype=torch.float32) for k,v in data.items()}
+    
+    
+##############################################################################
+# Now that we have a buffer class, we'll implement a buffer wrapper / container
+# A buffer container is lice a vector of beffures, except eventually it has a merge function
+##############################################################################
+
+
+class PPOBufferContainer:
+    def __init__(self, obs_dim, act_dim, singleBufferSize, numberOfBuffers, gamma=0.99, lam=0.95):
+        
+        self.obs_dim = obs_dim
+        self.act_dim = act_dim
+        self.singleBufferSize = singleBufferSize
+        self.numberOfBuffers = numberOfBuffers
+        self.gamma = gamma
+        self.lam = lam
+        self.bufferList = [PPOBuffer(self.obs_dim, self.act_dim, self.singleBufferSize, self.gamma, self.lam) for i in range(self.numberOfBuffers)]
+        
+    def store(self, observations, actions, rewards, vals, logPs, entropies, entropyArrays):
+        assert len(observations) == self.numberOfBuffers
+        assert len(actions) == self.numberOfBuffers
+        assert len(rewards) == self.numberOfBuffers
+        assert len(vals) == self.numberOfBuffers
+        assert len(logPs) == self.numberOfBuffers
+        assert len(entropies) == self.numberOfBuffers
+        assert len(entropyArrays) == self.numberOfBuffers
+        
+        for i in range(self.numberOfBuffers):
+            self.bufferList[i].store(observations[i], acrtions[i], rewards[i], vals[i], logPs[i], entropies[i], entropyArrays[i])
+    
+    def finishPaths(self, lastValues):
+        assert values.shape[0] == self.numberOfBuffers
+
+        for i in range(self.numberOfBuffers):
+            beffures[i].finish_path(lastValues[i])
+
+
+            # OSS: 17/11/2021 I didn't understand the importance of the following lines from molgym so for now they are commented.
+            # the buffer could be already finished so we have to check
+            # if not buffer.is_finished():
+                # Don't record unfinished paths
+            #    buffer.finish_path(value)
+    
+    def flattenBuffer(self):
+        # merge the list of buffers into a single buffer, and return a new buffer
+        
+        # First we need to find out the size of the new buffer, since the buffer I implented is NOT dynamic.
+        newBufferSize = 0
+        for i in range(self.numberOfBuffers):
+            newBufferSize = newBufferSize + self.bufferList[i].ptr
+        
+        # Allocate new buffer that will fit all buffers
+        newBuffer = PPOBuffer(self.obs_dim, self.act_dim, newBufferSize, self.gamma, self.lam)
+        
+        # Now we need to tediously fill the new buffer
+        for i in range(self.numberOfBuffers):
+            currentBuffer = self.bufferList[i]
+            startIndex = newBuffer.ptr
+            endIndex = newBuffer.ptr + currentBuffer.ptr
+            newBuffer.obs_buf[startIndex : endIndex, :] = currentBuffer.obs_buf
+            newBuffer.act_buf[startIndex : endIndex, :] = currentBuffer.act_buf
+            newBuffer.adv_buf[startIndex : endIndex] =    currentBuffer.adv_buf
+            newBuffer.rew_buf[startIndex : endIndex] = currentBuffer.rew_buf #np.zeros(size, dtype=np.float32)
+            newBuffer.ret_buf[startIndex : endIndex] = currentBuffer.ret_buf #np.zeros(size, dtype=np.float32)
+            newBuffer.val_buf[startIndex : endIndex] = currentBuffer.val_buf #np.zeros(size, dtype=np.float32)
+            newBuffer.ent_buf[startIndex : endIndex] = currentBuffer.ent_buf #np.zeros(size, dtype=np.float32)
+            newBuffer.entropyList_buf[startIndex : endIndex, :] = currentBuffer.entropyList_buf #np.zeros((size, NUMBER_OF_ENTROPY_ELEMENTS), dtype=np.float32)
+            newBuffer.logp_buf[startIndex : endIndex] = currentBuffer.logp_buf #np.zeros(size, dtype=np.float32)
+            # Finally add the currentBuffer pointer to the newBuffer pointer
+            # This is important for two reasons: 1. to make sure we don't overrun data and 2. to "get" data from the new buffer, it has to be full.
+            newBuffer.ptr = newBuffer.ptr + currentBuffer.ptr
+        return newBuffer
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
