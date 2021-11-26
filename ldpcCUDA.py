@@ -7,6 +7,7 @@ Created on Fri Mar  20 16:53 2020
 ### New encoder / decoder implementation using numba + cuda
 #if you uncomment the next line the world will end
 
+from typing import Iterator
 from numba import cuda, float32, int32
 import numpy as np
 import os
@@ -296,6 +297,7 @@ def maskedFanOut(mask, vector, matrix):
     
     pos = cuda.grid(1)
     
+    #if pos >= MATRIX_DIM1:
     if pos > MATRIX_DIM1:
         return
     localValue = vector[pos]
@@ -464,7 +466,7 @@ def numberOfNonZeros(vector, result):
     
     if vector[pos] != 0:
         cuda.atomic.add(result, 1 , 1)
-        cuda.syncthreads()
+        #oss 25/11/2021 I removed cuda.syncthreads() from this line this it caused the kernel to halt the GPU when moving to cuda 10.1
     cuda.syncthreads()
 
 def slicer(vector):
@@ -579,7 +581,6 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                 
                 mod2Vector[16, 511](isCodewordVector_device)
                 
-                #OSS 10/11/2021 temporarily disable the following kernel: OSS 12/11/2021 re-instated this kernel after memory boundary bug fix to mod2Vector
                 checkIsCodeword[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](isCodewordVector_device, result_device)
                 
                 #OSS: the syntax "if result_device[0] == 0" casuses a cuMemcpyDtoH error. I', replacing it with a numpy operation for debug
@@ -591,7 +592,6 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                
                 while (iterator < numberOfIterations and not isCodeword):
                 
-                    
                     findMinimaAndNumberOfNegatives[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](parityMatrix_device, matrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device)
                     numberOfNegativesToProductOfSigns[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](numberOfNegatives_device,productOfSigns_device)  
                     locateTwoSmallestHorizontal2DV2[BLOCKS_PER_GRID_LOCATE_TWO_SMALLEST_HORIZONTAL_2D, THREADS_PER_BLOCK_LOCATE_TWO_SMALLEST_HORIZONTAL_2D](matrix_device, parityMatrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device)
@@ -607,29 +607,22 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                     cudaPlusDim1[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device,fromChannel_device)
                     slicerCuda[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device, binaryVector_device)
                     
-                    
-                    
                     resetVector[1022, 1](isCodewordVector_device)
                     calcBinaryProduct2[BLOCKS_PER_GRID_BINARY_CALC, THREADS_PER_BLOCK_BINARY_CALC](parityMatrix_device, binaryVector_device, isCodewordVector_device)
                     mod2Vector[16, 511](isCodewordVector_device)
                     
                     checkIsCodeword[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](isCodewordVector_device, result_device)
-                    #temp_host = result_device.copy_to_host()
+                    
                     if iterator % 6 == 0:
                         if result_device[0] == 0:
                             isCodeword = True
-                            #print("Decoding stopped at iteration " + str(iterator))
-                    
-                    
+                            
                     maskedFanOut[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](parityMatrix_device, softVector_device, matrix_device)
-                    
-                    
-                    
                     cudaMatrixMinus2D[BLOCKS_PER_GRID_MATRIX_MINUS_2D, THREADS_PER_BLOCK_MATRIX_MINUS_2D](matrix_device, newMatrix_device) # = matrix_device - newMatrix_device
                     
                     iterator = iterator + 1
                  
-                #print("*** while iterator finished at " + str(iterator))
+                
                 slicerCuda[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device, binaryVector_device)
                 result_device[1] = 0
                 numberOfNonZeros[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](binaryVector_device, result_device)
@@ -642,21 +635,13 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                 
                 
                 #########################################################################
-            
-            
-                #decodedWord = slicer(softVector_host)
-                #print("******** numpy thinks: " + str(np.sum(decodedWord == codeword)) + " and cuda thinks: " + str(result_device[1]))
-                #print(status)
                 
                 result_host = result_device.copy_to_host()
                 berDecoded = result_host[1]
-                #np.count_nonzero(decodedWord != codeword)
                 
                 berStats.addEntry(SNRpoints[s], sigma, sigmaActual, berUncoded, berDecoded, iterator, numberOfIterations, 'test')
-                #print("Modulated codeword in location %d is %f" % (0, modulatedCodeword[0]))
-                #print("dirtyModulated in location %d after flip is %f" % (0, dirtyModulated[0]))
-                #print("Decoded in location %d after flip is %f" % (0, decodedWord[0]))
-            #print("***Time it took the decoder:")
+                
+            # print("***Time it took the decoder:")
             #print(totalTime)
             #print("***And thr throughput is:")
             #print(8176 * numOfTransmissions /totalTime)
@@ -738,13 +723,15 @@ def evaluateMatrixAndEpsilon(parityMatrix, epsilon, numberOfIterations = 50, cud
                
         while (iterator < numberOfIterations and not isCodeword):
                 
-                    
+            
             findMinimaAndNumberOfNegatives[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](parityMatrix_device, matrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device)
             numberOfNegativesToProductOfSigns[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](numberOfNegatives_device,productOfSigns_device)  
             locateTwoSmallestHorizontal2DV2[BLOCKS_PER_GRID_LOCATE_TWO_SMALLEST_HORIZONTAL_2D, THREADS_PER_BLOCK_LOCATE_TWO_SMALLEST_HORIZONTAL_2D](matrix_device, parityMatrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device)
             signReduceHorizontal[1022, 1](matrix_device, productOfSigns_device)  
             produceNewMatrix2D[BLOCKS_PER_GRID_PRODUCE_NEW_MATRIX_2D, THREADS_PER_BLOCK_PRODUCE_NEW_MATRIX_2D](parityMatrix_device, matrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device, productOfSigns_device, newMatrix_device)
             matrixSumVertical[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](newMatrix_device, softVector_device)
+            
+            
             #sumReduction2DVertical[BLOCKS_PER_GRID_VERTICAL_SUM, THREADS_PER_BLOCK_VERTICAL_SUM](newMatrix_device, softVector_device)
             # Omer Sella: Notice that the result of matrix summation using the cuda 
             # kernel does not have to be exactly as the numpy sum, 
@@ -896,8 +883,8 @@ def main():
     #status = testIntegration()
     #print(status)
     
-    #bStats, status = testNearEarth()
-    testConcurrentFutures(numberOfCudaDevices = 2)
+    bStats, status = testNearEarth()
+    #testConcurrentFutures(numberOfCudaDevices = 2)
     bStats, status = 0, 1
     #print(bStats.getStats())
     return bStats, status
