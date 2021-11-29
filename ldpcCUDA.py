@@ -812,7 +812,7 @@ def testNearEarth(numOfTransmissions = 30, graphics = True):
     print("*** in test near earth")
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
     #numOfTransmissions = 50
-    roi = [3.0, 3.2 ,3.4]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
+    roi = [3.0, 3.2 ,3.4, 3.6]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
     codewordSize = 8176
     messageSize = 7154
     numOfIterations = 50
@@ -885,7 +885,6 @@ def main():
     
     bStats, status = testNearEarth()
     #testConcurrentFutures(numberOfCudaDevices = 2)
-    bStats, status = 0, 1
     #print(bStats.getStats())
     return bStats, status
 

@@ -117,6 +117,7 @@ class PPOBufferContainer:
         self.gamma = gamma
         self.lam = lam
         self.bufferList = [PPOBuffer(self.obs_dim, self.act_dim, self.singleBufferSize, self.gamma, self.lam) for i in range(self.numberOfBuffers)]
+        return
         
     def store(self, observations, actions, rewards, vals, logPs, entropies, entropyArrays):
         assert len(observations) == self.numberOfBuffers
@@ -128,24 +129,24 @@ class PPOBufferContainer:
         assert len(entropyArrays) == self.numberOfBuffers
         
         for i in range(self.numberOfBuffers):
-            self.bufferList[i].store(observations[i], acrtions[i], rewards[i], vals[i], logPs[i], entropies[i], entropyArrays[i])
+            self.bufferList[i].store(observations[i], actions[i], rewards[i], vals[i], logPs[i], entropies[i], entropyArrays[i])
+        
+        return
     
-    def finishPaths(self, lastValues):
-        assert values.shape[0] == self.numberOfBuffers
+    def finish_path(self, lastValues):
+        assert len(lastValues) == self.numberOfBuffers
 
         for i in range(self.numberOfBuffers):
-            beffures[i].finish_path(lastValues[i])
-
-
+            self.bufferList[i].finish_path(lastValues[i])
             # OSS: 17/11/2021 I didn't understand the importance of the following lines from molgym so for now they are commented.
             # the buffer could be already finished so we have to check
             # if not buffer.is_finished():
                 # Don't record unfinished paths
             #    buffer.finish_path(value)
+        return
     
     def flattenBuffer(self):
         # merge the list of buffers into a single buffer, and return a new buffer
-        
         # First we need to find out the size of the new buffer, since the buffer I implented is NOT dynamic.
         newBufferSize = 0
         for i in range(self.numberOfBuffers):
@@ -171,6 +172,12 @@ class PPOBufferContainer:
             # Finally add the currentBuffer pointer to the newBuffer pointer
             # This is important for two reasons: 1. to make sure we don't overrun data and 2. to "get" data from the new buffer, it has to be full.
             newBuffer.ptr = newBuffer.ptr + currentBuffer.ptr
+
+        #Note that a flattened buffer has self.ptr == newBufferSize, i.e.: it is full by construction.
+
+        #Finally we erase all former buffers and install new ones (logically identical to ressetting their pointers, but someone has OCD)
+        self.bufferList = [PPOBuffer(self.obs_dim, self.act_dim, self.singleBufferSize, self.gamma, self.lam) for i in range(self.numberOfBuffers)]
+
         return newBuffer
         
 

@@ -1,4 +1,7 @@
 import numpy as np
+
+
+
 import torch
 from torch.optim import Adam
 import gym
@@ -15,6 +18,8 @@ from mpi_pytorch import setup_pytorch_for_mpi, sync_params, mpi_avg_grads
 from mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
 from utilityFunctions import plotter as ossplotter
 from utilityFunctions import logger as osslogger
+#OSS 26/11/2021 moved beffur to a separate module so importing everything from there.
+from buffer import *
 
 
 OBSERVATION_DATA_TYPE = np.float32
@@ -40,88 +45,90 @@ NUMBER_OF_GPUS_PER_NODE = 2
 
 # Number of entropy elements is depends on the model. At the this time we have i,j,k and we don't include entropy for number of coordinates selection.
 NUMBER_OF_ENTROPY_ELEMENTS = 3 
+OPEN_AI_PPO_NUMBER_OF_BUFFERS = 1
 
 import models
 
 
-class PPOBuffer:
-    """
-    A buffer for storing trajectories experienced by a PPO agent interacting
-    with the environment, and using Generalized Advantage Estimation (GAE-Lambda)
-    for calculating the advantages of state-action pairs.
-    """
+# OSS 26/11/2021 I'm temporarily placin the buffer function under comment, since I'm migrating it to a separate module
+#class PPOBuffer:
+#    """
+#    A buffer for storing trajectories experienced by a PPO agent interacting
+#    with the environment, and using Generalized Advantage Estimation (GAE-Lambda)
+#    for calculating the advantages of state-action pairs.
+#    """
 
-    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95):
-        self.obs_buf = np.zeros(core.combined_shape(size, obs_dim), dtype=np.float32)
-        self.act_buf = np.zeros(core.combined_shape(size, act_dim), dtype=np.float32)
-        self.adv_buf = np.zeros(size, dtype=np.float32)
-        self.rew_buf = np.zeros(size, dtype=np.float32)
-        self.ret_buf = np.zeros(size, dtype=np.float32)
-        self.val_buf = np.zeros(size, dtype=np.float32)
-        self.ent_buf = np.zeros(size, dtype=np.float32)
-        self.entropyList_buf = np.zeros((size, NUMBER_OF_ENTROPY_ELEMENTS), dtype=np.float32)
+#    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95):
+#        self.obs_buf = np.zeros(core.combined_shape(size, obs_dim), dtype=np.float32)
+#        self.act_buf = np.zeros(core.combined_shape(size, act_dim), dtype=np.float32)
+#        self.adv_buf = np.zeros(size, dtype=np.float32)
+#        self.rew_buf = np.zeros(size, dtype=np.float32)
+#        self.ret_buf = np.zeros(size, dtype=np.float32)
+#        self.val_buf = np.zeros(size, dtype=np.float32)
+#        self.ent_buf = np.zeros(size, dtype=np.float32)
+#        self.entropyList_buf = np.zeros((size, NUMBER_OF_ENTROPY_ELEMENTS), dtype=np.float32)
         
-        self.logp_buf = np.zeros(size, dtype=np.float32)
-        self.gamma, self.lam = gamma, lam
-        self.ptr, self.path_start_idx, self.max_size = 0, 0, size
+#        self.logp_buf = np.zeros(size, dtype=np.float32)
+#        self.gamma, self.lam = gamma, lam
+#        self.ptr, self.path_start_idx, self.max_size = 0, 0, size
 
-    def store(self, obs, act, rew, val, logp, ent, entropyArray):
-        """
-        Append one timestep of agent-environment interaction to the buffer.
-        """
-        assert self.ptr < self.max_size     # buffer has to have room so you can store
-        self.obs_buf[self.ptr] = obs
-        self.act_buf[self.ptr] = act
-        self.rew_buf[self.ptr] = rew
-        self.val_buf[self.ptr] = val
-        self.logp_buf[self.ptr] = logp
-        self.ent_buf[self.ptr] = ent
-        self.entropyList_buf[self.ptr] = entropyArray
-        self.ptr += 1
+#    def store(self, obs, act, rew, val, logp, ent, entropyArray):
+#        """
+#        Append one timestep of agent-environment interaction to the buffer.
+#        """
+#        assert self.ptr < self.max_size     # buffer has to have room so you can store
+#        self.obs_buf[self.ptr] = obs
+#        self.act_buf[self.ptr] = act
+#        self.rew_buf[self.ptr] = rew
+#        self.val_buf[self.ptr] = val
+#        self.logp_buf[self.ptr] = logp
+#        self.ent_buf[self.ptr] = ent
+#        self.entropyList_buf[self.ptr] = entropyArray
+#        self.ptr += 1
 
-    def finish_path(self, last_val=0):
-        """
-        Call this at the end of a trajectory, or when one gets cut off
-        by an epoch ending. This looks back in the buffer to where the
-        trajectory started, and uses rewards and value estimates from
-        the whole trajectory to compute advantage estimates with GAE-Lambda,
-        as well as compute the rewards-to-go for each state, to use as
-        the targets for the value function.
+#    def finish_path(self, last_val=0):
+#        """
+#        Call this at the end of a trajectory, or when one gets cut off
+#        by an epoch ending. This looks back in the buffer to where the
+#        trajectory started, and uses rewards and value estimates from
+#        the whole trajectory to compute advantage estimates with GAE-Lambda,
+#        as well as compute the rewards-to-go for each state, to use as
+#        the targets for the value function.
 
-        The "last_val" argument should be 0 if the trajectory ended
-        because the agent reached a terminal state (died), and otherwise
-        should be V(s_T), the value function estimated for the last state.
-        This allows us to bootstrap the reward-to-go calculation to account
-        for timesteps beyond the arbitrary episode horizon (or epoch cutoff).
-        """
+#        The "last_val" argument should be 0 if the trajectory ended
+#        because the agent reached a terminal state (died), and otherwise
+#        should be V(s_T), the value function estimated for the last state.
+#        This allows us to bootstrap the reward-to-go calculation to account
+#        for timesteps beyond the arbitrary episode horizon (or epoch cutoff).
+#        """
 
-        path_slice = slice(self.path_start_idx, self.ptr)
-        rews = np.append(self.rew_buf[path_slice], last_val)
-        vals = np.append(self.val_buf[path_slice], last_val)
+#        path_slice = slice(self.path_start_idx, self.ptr)
+#        rews = np.append(self.rew_buf[path_slice], last_val)
+#        vals = np.append(self.val_buf[path_slice], last_val)
         
-        # the next two lines implement GAE-Lambda advantage calculation
-        deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
-        self.adv_buf[path_slice] = core.discount_cumsum(deltas, self.gamma * self.lam)
+#        # the next two lines implement GAE-Lambda advantage calculation
+#        deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
+#        self.adv_buf[path_slice] = core.discount_cumsum(deltas, self.gamma * self.lam)
         
-        # the next line computes rewards-to-go, to be targets for the value function
-        self.ret_buf[path_slice] = core.discount_cumsum(rews, self.gamma)[:-1]
+#        # the next line computes rewards-to-go, to be targets for the value function
+#        self.ret_buf[path_slice] = core.discount_cumsum(rews, self.gamma)[:-1]
         
-        self.path_start_idx = self.ptr
+#        self.path_start_idx = self.ptr
 
-    def get(self):
-        """
-        Call this at the end of an epoch to get all of the data from
-        the buffer, with advantages appropriately normalized (shifted to have
-        mean zero and std one). Also, resets some pointers in the buffer.
-        """
-        assert self.ptr == self.max_size    # buffer has to be full before you can get
-        self.ptr, self.path_start_idx = 0, 0
-        # the next two lines implement the advantage normalization trick
-        adv_mean, adv_std = mpi_statistics_scalar(self.adv_buf)
-        self.adv_buf = (self.adv_buf - adv_mean) / adv_std
-        data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
-                    adv=self.adv_buf, logp=self.logp_buf, ent=self.ent_buf)
-        return {k: torch.as_tensor(v, dtype=torch.float32) for k,v in data.items()}
+#    def get(self):
+#        """
+#        Call this at the end of an epoch to get all of the data from
+#        the buffer, with advantages appropriately normalized (shifted to have
+#        mean zero and std one). Also, resets some pointers in the buffer.
+#        """
+#        assert self.ptr == self.max_size    # buffer has to be full before you can get
+#        self.ptr, self.path_start_idx = 0, 0
+#        # the next two lines implement the advantage normalization trick
+#        adv_mean, adv_std = mpi_statistics_scalar(self.adv_buf)
+#        self.adv_buf = (self.adv_buf - adv_mean) / adv_std
+#        data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
+#                    adv=self.adv_buf, logp=self.logp_buf, ent=self.ent_buf)
+#        return {k: torch.as_tensor(v, dtype=torch.float32) for k,v in data.items()}
 
 
 
@@ -288,8 +295,9 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
     # Set up experience buffer
     local_steps_per_epoch = int(steps_per_epoch / num_procs())
-    buf = PPOBuffer(obs_dim, act_dim, local_steps_per_epoch, gamma, lam)
-
+    #OSS 29/11/2021 commented the buffer and switched to buffer container
+    #buf = PPOBuffer(obs_dim, act_dim, local_steps_per_epoch, gamma, lam)
+    buf = PPOBufferContainer(obs_dim, act_dim, local_steps_per_epoch, OPEN_AI_PPO_NUMBER_OF_BUFFERS, gamma, lam)
     # Set up function for computing PPO policy loss
     def compute_loss_pi(data):
         obs, act, adv, logp_old, entropy_old = data['obs'], data['act'], data['adv'], data['logp'], data['ent']
@@ -342,7 +350,9 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     logger.setup_pytorch_saver(ac)
 
     def update():
-        data = buf.get()
+        #OSS 29/11/2021 I'm moving the code from buffer to buffer container, so updtae() merges the buffers into a single one and resets the bufferContainer.
+        flatBuffer = buf.flattenBuffer()
+        data = flatBuffer.get()
 
         pi_l_old, pi_info_old = compute_loss_pi(data)
         pi_l_old = pi_l_old.item()
@@ -419,7 +429,10 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             # save and log
             entropyArray = np.array([entropyList[0].item(), entropyList[1].item(), entropyList[2].item()])
             #entropyArray = np.hstack((entropyArray, entropyList[3]].detach().numpy()))
-            buf.store(o, a[-2], r, v, logp, actorEntropy, entropyArray)
+            if  OPEN_AI_PPO_NUMBER_OF_BUFFERS == 1:
+                buf.store([o], [a[-2]], [r], [v], [logp], [actorEntropy], [entropyArray])
+            else:
+                buf.store(o, a[-2], r, v, logp, actorEntropy, entropyArray)
             logger.store(VVals=v)
             
             # Update obs (critical!)
@@ -438,7 +451,10 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
                     _, v, _, _, _, _ = ac.step(torch.as_tensor(o, dtype=torch.float32))
                 else:
                     v = 0
-                buf.finish_path(v)
+                if OPEN_AI_PPO_NUMBER_OF_BUFFERS == 1:
+                    buf.finish_path([v])
+                else:
+                    buf.finish_path(v)
                 if terminal:
                     # only save EpRet / EpLen if trajectory finished
                     print("*** PPO acknowledges that the episode terminated")
@@ -484,7 +500,7 @@ if __name__ == '__main__':
     parser.add_argument('--hid', type=int, default=64)
     parser.add_argument('--l', type=int, default=2)
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--seed', '-s', type=int, default=55)
+    parser.add_argument('--seed', '-s', type=int, default=90211)
     #parser.add_argument('--cpu', type=int, default=2) #Omer Sella: was 4 instead of 1
     parser.add_argument('--cpu', type=int, default=1) #Omer Sella: was 4 instead of 1
     parser.add_argument('--steps', type=int, default=160)
