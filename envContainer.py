@@ -77,4 +77,6 @@ def testEnvironmentVector():
     
 
     
-    
+if __name__ == '__main__':
+    print("*** Testing environmentVector...")
+    testEnvironmentVector()
