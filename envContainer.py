@@ -31,15 +31,15 @@ class multiDeviceEnvironment():
 
     def reset(self):
         with concurrent.futures.ProcessPoolExecutor() as executor:    
-            results = executor.map(self.environmentVector.reset, self.indexList)
+            results = executor.map(self.environmentVector.singleReset, self.indexList)
         for r in results:
             print(r)
         
     def step(self, actions):
         with concurrent.futures.ProcessPoolExecutor() as executor:    
-            results = executor.map(self.environmentVector.step, actions, self.indexList)
-        for r in results:
-            print(r)
+            stepResults = executor.map(self.environmentVector.singleStep, actions, self.indexList)
+            for r in stepResults:
+                print(r)
 
 
 def testEnvironmentVector():
@@ -77,7 +77,41 @@ def testEnvironmentVector():
     return
     
 
+def testMultiDeviceEnvironment():
+    from utilityFunctions import numToBits
+    from numba import cuda
+    assert (len(cuda.gpus) > 0 ), "Omer Sella: either importing cuda from numba didn't work, or there are 0 cuda devices detectable."
+    environmentGenerationFunction = lambda x = 8200, y = 0: gym.make('gym_ldpc:ldpc-v0', seed = x, gpuDevice = y)
+    seeds = [61017406, 7134066, 90210, 42]
+    # Make sure we have enough seeds for the insane case where there are more than 4 devices on a machine
+    if len(cuda.gpus) > len(seeds):
+        seeds = list(range(len(cuda.gpus)))
+    multiDevEnv = multiDeviceEnvironment(environmentGenerationFunction, seeds, list(range(len(cuda.gpus))))
+
+    print("*** testing multi device environment reset function")
+    multiDevEnv.reset()
+    
+    ### Preparing an action
+    NUMBER_OF_HOT_BITS = 7
+    localRandom = np.random.RandomState(0)
+    [i] = localRandom.choice(2, 1)
+    [j] = localRandom.choice(16, 1)
+    vector = np.zeros(511, dtype = int)
+    xCoordinate = numToBits(i, 1)
+    yCoordinate = numToBits(j, 4)
+    hotBits = localRandom.choice(511, NUMBER_OF_HOT_BITS, replace = False)
+    vector[hotBits] = 1
+    action = np.hstack((np.hstack((xCoordinate, yCoordinate)), vector))
+    # Now we need to make it into a list of actions:
+    actions = [action] * len(cuda.gpus)
+    print("*** testing multi device environment step function")
+    print("*** actions are:")
+    print(actions)
+    multiDevEnv.step(actions)
+
     
 if __name__ == '__main__':
-    print("*** Testing environmentVector...")
-    testEnvironmentVector()
+    #print("*** Testing environmentVector...")
+    #testEnvironmentVector()
+    print("*** Testing multi device environment...")
+    testMultiDeviceEnvironment()
