@@ -884,7 +884,7 @@ def main():
     #print(status)
     
     bStats, status = testNearEarth()
-    testConcurrentFutures(numberOfCudaDevices = 4)
+    testConcurrentFutures(numberOfCudaDevices = 2)
     #print(bStats.getStats())
     return bStats, status
 
