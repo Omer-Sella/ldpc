@@ -2,6 +2,7 @@
 import gym
 import concurrent.futures
 import numpy as np
+import time
 
 class environmentVector():
     def __init__(self, environmentGenerationFunction, seeds, cudaDeviceList):
@@ -36,10 +37,14 @@ class multiDeviceEnvironment():
             print(r)
         
     def step(self, actions):
+        start = time.time()
         with concurrent.futures.ProcessPoolExecutor() as executor:    
             stepResults = executor.map(self.environmentVector.singleStep, actions, self.indexList)
+            end = time.time()
             for r in stepResults:
                 print(r)
+        print("*** Time it took concurrently: " +str(end-start))
+
 
 
 def testEnvironmentVector():
