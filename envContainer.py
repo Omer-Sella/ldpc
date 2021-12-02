@@ -96,23 +96,23 @@ def testMultiDeviceEnvironment():
     print("*** testing multi device environment reset function")
     multiDevEnv.reset()
     
-    ### Preparing an action
-    NUMBER_OF_HOT_BITS = 7
-    localRandom = np.random.RandomState(0)
-    [i] = localRandom.choice(2, 1)
-    [j] = localRandom.choice(16, 1)
-    vector = np.zeros(511, dtype = int)
-    xCoordinate = numToBits(i, 1)
-    yCoordinate = numToBits(j, 4)
-    hotBits = localRandom.choice(511, NUMBER_OF_HOT_BITS, replace = False)
-    vector[hotBits] = 1
-    action = np.hstack((np.hstack((xCoordinate, yCoordinate)), vector))
-    # Now we need to make it into a list of actions:
-    actions = [action] * len(cuda.gpus)
-    print("*** testing multi device environment step function")
-    print("*** actions are:")
-    print(actions)
-    multiDevEnv.step(actions)
+    #### Preparing an action
+    #NUMBER_OF_HOT_BITS = 7
+    #localRandom = np.random.RandomState(0)
+    #[i] = localRandom.choice(2, 1)
+    #[j] = localRandom.choice(16, 1)
+    #vector = np.zeros(511, dtype = int)
+    #xCoordinate = numToBits(i, 1)
+    #yCoordinate = numToBits(j, 4)
+    #hotBits = localRandom.choice(511, NUMBER_OF_HOT_BITS, replace = False)
+    #vector[hotBits] = 1
+    #action = np.hstack((np.hstack((xCoordinate, yCoordinate)), vector))
+    ## Now we need to make it into a list of actions:
+    #actions = [action] * len(cuda.gpus)
+    #print("*** testing multi device environment step function")
+    #print("*** actions are:")
+    #print(actions)
+    #multiDevEnv.step(actions)
 
     
 if __name__ == '__main__':
