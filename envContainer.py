@@ -3,6 +3,8 @@ import gym
 import concurrent.futures
 import numpy as np
 import time
+from utilityFunctions import numToBits
+from numba import cuda
 
 class environmentVector():
     def __init__(self, environmentGenerationFunction, seeds, cudaDeviceList):
@@ -50,8 +52,6 @@ class multiDeviceEnvironment():
 def testEnvironmentVector():
     # Init an environmentVector containing as many environments as there are cuda devices
     # Check some parameters and functionality
-    from utilityFunctions import numToBits
-    from numba import cuda
     assert (len(cuda.gpus) > 0 ), "Omer Sella: either importing cuda from numba didn't work, or there are 0 cuda devices detectable."
     environmentGenerationFunction = lambda x = 8200, y = 0: gym.make('gym_ldpc:ldpc-v0', seed = x, gpuDevice = y)
     seeds = [61017406, 7134066, 90210, 42]
@@ -83,8 +83,8 @@ def testEnvironmentVector():
     
 
 def testMultiDeviceEnvironment():
-    from utilityFunctions import numToBits
-    from numba import cuda
+    #from utilityFunctions import numToBits
+    #from numba import cuda
     assert (len(cuda.gpus) > 0 ), "Omer Sella: either importing cuda from numba didn't work, or there are 0 cuda devices detectable."
     environmentGenerationFunction = lambda x = 8200, y = 0: gym.make('gym_ldpc:ldpc-v0', seed = x, gpuDevice = y)
     seeds = [61017406, 7134066, 90210, 42]
