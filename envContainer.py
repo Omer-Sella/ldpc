@@ -22,7 +22,7 @@ class environmentVector():
 
     def singleStep(self, action, index):
         observedState, reward, done, flags = self.environmentList[index].step(action)
-        return observedState, reward, done, {}
+        return [observedState, reward, done, {}]
 
  
 
