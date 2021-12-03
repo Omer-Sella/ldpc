@@ -871,7 +871,7 @@ def testConcurrentFutures(numberOfCudaDevices = 1):
                 print(r)
 
 
-async def asyncExec(numberOfCudaDevices = 2):
+async def asyncExec(numberOfCudaDevices = 4):
     
     
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
@@ -887,7 +887,10 @@ async def asyncExec(numberOfCudaDevices = 2):
         print(results)
 def testAsyncExec():
     loop = asyncio.get_event_loop()
+    start = time.time()
     loop.run_until_complete(asyncExec())
+    end = time.time()
+    print("***Time to run 4 evaluations == " + str(end-start))
     loop.close()
 
 
