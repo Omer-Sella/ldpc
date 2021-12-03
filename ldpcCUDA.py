@@ -879,6 +879,8 @@ async def asyncExec(numberOfCudaDevices = 2):
     roi = [3.0, 3.2 ,3.4]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
     numOfIterations = 50
     seeds = LDPC_LOCAL_PRNG.randint(0, LDPC_MAX_SEED, numberOfCudaDevices, dtype = LDPC_SEED_DATA_TYPE) 
+    numberOfIterations = 50
+    numberOfTransmissions = 50
     for i in range(numberOfCudaDevices):
         #evaluateCodeCuda(460101, roi, numOfIterations, nearEarthParity, numOfTransmissions)
         results = evaluateCodeCuda(seeds[i], roi, numberOfIterations, nearEarthParity, numberOfTransmissions, 'None', i)
