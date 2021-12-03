@@ -871,7 +871,7 @@ def testConcurrentFutures(numberOfCudaDevices = 1):
                 print(r)
 
 
-async def asyncExec(numberOfCudaDevices = 1):
+async def asyncExec(numberOfCudaDevices = 2):
     
     
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
@@ -902,8 +902,9 @@ def main():
     #print(status)
     
     bStats, status = testNearEarth()
-    testConcurrentFutures(numberOfCudaDevices = 2)
+    #testConcurrentFutures(numberOfCudaDevices = 2)
     #print(bStats.getStats())
+    testAsyncExec()
     return bStats, status
 
 
