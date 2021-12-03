@@ -16,7 +16,7 @@ import time
 import copy
 import operator
 import math
-
+import concurrent.futures
 projectDir = os.environ.get('LDPC')
 if projectDir == None:
     import pathlib
@@ -33,7 +33,7 @@ LDPC_LOCAL_PRNG = np.random.RandomState(7134066)
 LDPC_MAX_SEED = 2**31 - 1
 LDPC_SEED_DATA_TYPE = np.int64
 
-
+import asyncio
 
 # Omer Sella: in an ideal world, the value written in BIG_NUMBER would be the maximal value of float32, where float32 is on the GPU.
 BIG_NUMBER = float32(10000)
@@ -851,7 +851,7 @@ def testNearEarth(numOfTransmissions = 30, graphics = True):
 
 def testConcurrentFutures(numberOfCudaDevices = 1):
     
-    import concurrent.futures
+    
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
     numOfTransmissions = 50
     roi = [3.0, 3.2 ,3.4]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
@@ -869,6 +869,24 @@ def testConcurrentFutures(numberOfCudaDevices = 1):
             results = executor.map(evaluateCodeCuda, seeds, snrXnumberOfCudaDevices, numberOfIterationsXnumberOfCudaDevices, parityMatrices, numberOfTransmissionsXnumberOfCudaDevices, noneXnumberOfCudaDevices, cudaDeviceList)
             for r in results:
                 print(r)
+
+
+async def asyncExec(numberOfCudaDevices = 1):
+    
+    
+    nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
+    numOfTransmissions = 50
+    roi = [3.0, 3.2 ,3.4]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
+    numOfIterations = 50
+    seeds = LDPC_LOCAL_PRNG.randint(0, LDPC_MAX_SEED, numberOfCudaDevices, dtype = LDPC_SEED_DATA_TYPE) 
+    for i in range(numberOfCudaDevices):
+        #evaluateCodeCuda(460101, roi, numOfIterations, nearEarthParity, numOfTransmissions)
+        results = evaluateCodeCuda(seeds[i], roi, numberOfIterations, nearEarthParity, numberOfTransmissions, 'None', i)
+        print(results)
+def testAsyncExec():
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(asyncExec())
+    loop.close()
 
 
         
@@ -895,8 +913,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
