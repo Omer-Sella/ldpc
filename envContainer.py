@@ -42,7 +42,7 @@ class multiDeviceEnvironment():
         start = time.time()
         with concurrent.futures.ProcessPoolExecutor() as executor:    
             stepResults = executor.map(self.environmentVector.singleStep, actions, self.indexList)
-            end = time.time()
+        end = time.time()   
         #for r in stepResults:
         #    print(r)
         print("*** Time it took concurrently: " +str(end-start))
