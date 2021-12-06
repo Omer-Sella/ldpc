@@ -906,9 +906,10 @@ def main():
     #status = testIntegration()
     #print(status)
     
-    bStats, status = testNearEarth()
-    #testConcurrentFutures(numberOfCudaDevices = 2)
+    #bStats, status = testNearEarth()
+    testConcurrentFutures(numberOfCudaDevices = 2)
     #print(bStats.getStats())
+    bStat, status = 0, 0
     testAsyncExec()
     return bStats, status
 
