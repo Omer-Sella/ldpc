@@ -912,7 +912,8 @@ def main():
     end =  time.time()
     print("*** total running time == " + str(end - start))
     #print(bStats.getStats())
-    bStat, status = 0, 0
+    bStats = 0
+    status = 0
     #testAsyncExec()
     return bStats, status
 
