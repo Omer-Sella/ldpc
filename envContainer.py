@@ -46,6 +46,7 @@ class multiDeviceEnvironment():
         #for r in stepResults:
         #    print(r)
         print("*** Time it took concurrently: " +str(end-start))
+        return stepResults
 
 
 
@@ -113,7 +114,8 @@ def testMultiDeviceEnvironment():
     print("*** testing multi device environment step function")
     #print("*** actions are:")
     #print(actions)
-    multiDevEnv.step(actions)
+    results = multiDevEnv.step(actions)
+    print(results)
 
     
 if __name__ == '__main__':
