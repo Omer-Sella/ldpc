@@ -907,7 +907,10 @@ def main():
     #print(status)
     
     #bStats, status = testNearEarth()
-    testConcurrentFutures(numberOfCudaDevices = 2)
+    start = time.time()
+    testConcurrentFutures(numberOfCudaDevices = 4)
+    end =  time.time()
+    print("*** total running time == " + str(end - start))
     #print(bStats.getStats())
     bStat, status = 0, 0
     #testAsyncExec()
