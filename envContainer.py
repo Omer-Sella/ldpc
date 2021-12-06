@@ -115,7 +115,9 @@ def testMultiDeviceEnvironment():
     #print("*** actions are:")
     #print(actions)
     results = multiDevEnv.step(actions)
-    print(results)
+    for r in results:
+        print(r)
+    #print(results)
 
     
 if __name__ == '__main__':
