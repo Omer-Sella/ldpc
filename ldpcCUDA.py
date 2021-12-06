@@ -910,7 +910,7 @@ def main():
     testConcurrentFutures(numberOfCudaDevices = 2)
     #print(bStats.getStats())
     bStat, status = 0, 0
-    testAsyncExec()
+    #testAsyncExec()
     return bStats, status
 
 
