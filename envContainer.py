@@ -85,13 +85,14 @@ def testEnvironmentVector():
 def testMultiDeviceEnvironment():
     #from utilityFunctions import numToBits
     #from numba import cuda
-    assert (len(cuda.gpus) > 0 ), "Omer Sella: either importing cuda from numba didn't work, or there are 0 cuda devices detectable."
+    #assert (len(cuda.gpus) > 0 ), "Omer Sella: either importing cuda from numba didn't work, or there are 0 cuda devices detectable."
     environmentGenerationFunction = lambda x = 8200, y = 0: gym.make('gym_ldpc:ldpc-v0', seed = x, gpuDevice = y)
+    numberOfCudaDevices = 4
     seeds = [61017406, 7134066, 90210, 42]
     # Make sure we have enough seeds for the insane case where there are more than 4 devices on a machine
-    if len(cuda.gpus) > len(seeds):
-        seeds = list(range(len(cuda.gpus)))
-    multiDevEnv = multiDeviceEnvironment(environmentGenerationFunction, seeds, list(range(len(cuda.gpus))))
+    #if len(cuda.gpus) > len(seeds):
+    #    seeds = list(range(len(cuda.gpus)))
+    multiDevEnv = multiDeviceEnvironment(environmentGenerationFunction, seeds, list(range(numberOfCudaDevices)))#len(cuda.gpus))))
 
     #print("*** testing multi device environment reset function")
     #multiDevEnv.reset()
