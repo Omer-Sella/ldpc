@@ -808,7 +808,7 @@ def evaluateMatrixAndEpsilon(parityMatrix, epsilon, numberOfIterations = 50, cud
 
 
 
-def testNearEarth(numOfTransmissions = 200, graphics = True):
+def testNearEarth(numOfTransmissions = 60, graphics = True):
     status = 'Near earth problem'
     print("*** in test near earth")
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
@@ -819,10 +819,7 @@ def testNearEarth(numOfTransmissions = 200, graphics = True):
     numOfIterations = 50
 
     start = time.time()
-    
     bStats = evaluateCodeCuda(460101, roi, numOfIterations, nearEarthParity, numOfTransmissions)    
-        
-    #bStats = testCodeUsingMultiprocessing(460101, roi, messageSize, codewordSize, numOfIterations, numOfTransmissions, nearEarthParity)
     end = time.time()
     print('Time it took for code evaluation == %d' % (end-start))
     print('Throughput == '+str((8176*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
