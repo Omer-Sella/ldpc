@@ -884,8 +884,9 @@ async def asyncExec(numberOfCudaDevices = 4):
     numberOfTransmissions = 50
     for i in range(numberOfCudaDevices):
         #evaluateCodeCuda(460101, roi, numOfIterations, nearEarthParity, numOfTransmissions)
-        results = evaluateCodeCuda(seeds[i], roi, numberOfIterations, nearEarthParity, numberOfTransmissions, 'None', i)
+        results = evaluateCodeCuda(seeds[i], roi[i], numberOfIterations, nearEarthParity, numberOfTransmissions, 'None', i)
         print(results)
+
 def testAsyncExec():
     loop = asyncio.get_event_loop()
     start = time.time()
