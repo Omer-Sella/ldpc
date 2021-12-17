@@ -5,6 +5,7 @@ import numpy as np
 import time
 from utilityFunctions import numToBits
 from numba import cuda
+import gym
 
 class environmentVector():
     def __init__(self, environmentGenerationFunction, seeds, cudaDeviceList):

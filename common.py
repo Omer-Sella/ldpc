@@ -28,16 +28,39 @@ def autolabel(rects, ax):
         
 def plotDecoderThroughput():
     SNRaxis = ['3.0', '3.2','3.4','3.6']
-    throughput50iterations = [1505.682, 2333.213, 4578.976, 7521.208]
-    throughput50iterationsCUDA = [24437.661, 48682.219, 148195.171, 192762.540]
-    #women_means = [25, 32, 34, 20, 25]
+    throughput50iterations = [1505.682, 2333.213, 4578.976, 7521.208] #
+    throughput50iterationsCUDA = [24437.661, 48682.219, 148195.171, 192762.540] #GTX1060Ti
+    
+    throughput50iterationsCUDARTX3080 = [17069.332, 25092.035, 42335.236, 48736.194] #RTX3080 3.0 3.2 3.4 3.6 200 transmisions iterator frequency check == 6
+    ldpcMyImplementation200Iterations = [80.905, 713.747, 3462.618, 6923.815] #Intel Xeon single core
+    #   D:\ldpc\ldpc.py:105: NumbaDeprecationWarning: ←[1mThe 'numba.jitclass' decorator has moved to 'numba.experimental.jitclass' to better reflect the experimental nature of the functionality. Please update your imports to accommodate this change and see https://numba.pydata.org/numba-doc/latest/reference/deprecation.html#change-of-jitclass-location for the time frame.←[0m
+  # *** In ldpc.py main function.
+  # *** in test near earth
+  # Time it took the decoder:
+  #     5052.834857702255
+  #     And the throughput is:
+  #         80.90507833970636
+  #         Time it took the decoder:
+  #             572.751580953598
+  #             And the throughput is:
+  #                 713.7474842398022
+  #                 Time it took the decoder:
+  #                     118.06094360351562
+  #                     And the throughput is:
+  #                         3462.6184369055536
+  #                         Time it took the decoder:
+  #                             59.04259371757507
+  #                             And the throughput is:
+  #                                 6923.815067397919
+  #                                 ****Time it took for code evaluation == 5807
+  #                                 ****Throughput == 281.57104700395854bits per second.
 
     x = np.arange(len(SNRaxis))  # the label locations
     width = 0.35  # the width of the bars
 
     fig, ax = plt.subplots()
-    rects1 = ax.bar(x - width/2, throughput50iterations, width, label='ldpc.py @ maximum 50 iterations')
-    rects2 = ax.bar(x + width/2, throughput50iterationsCUDA, width, label='ldpcCUDA.py @ maximum 50 iterations')
+    rects1 = ax.bar(x - width/2, ldpcMyImplementation200Iterations, width, label='ldpc.py @ maximum 50 iterations')
+    rects2 = ax.bar(x + width/2, throughput50iterationsCUDARTX3080, width, label='ldpcCUDA.py @ maximum 50 iterations')
 
     # Add some text for labels, title and custom x-axis tick labels, etc.
     ax.set_ylabel('Throughput [bits / second]', size = 16)
@@ -55,7 +78,7 @@ def plotDecoderThroughput():
     plt.tick_params(axis='both',  labelsize=16)
     
     fig.tight_layout()
-    plt.savefig('decoderThroughput.png', format='png', dpi=2000)
+    plt.savefig('d:/pythonArt/decoderThroughput.png', format='png', dpi=300)
     plt.show()
     
     return

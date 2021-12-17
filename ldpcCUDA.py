@@ -616,7 +616,8 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                     if iterator % 6 == 0:
                         if result_device[0] == 0:
                             isCodeword = True
-                            
+                    #if result_device[0] == 0:
+                    #    isCodeword = True
                     maskedFanOut[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](parityMatrix_device, softVector_device, matrix_device)
                     cudaMatrixMinus2D[BLOCKS_PER_GRID_MATRIX_MINUS_2D, THREADS_PER_BLOCK_MATRIX_MINUS_2D](matrix_device, newMatrix_device) # = matrix_device - newMatrix_device
                     
@@ -641,10 +642,10 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                 
                 berStats.addEntry(SNRpoints[s], sigma, sigmaActual, berUncoded, berDecoded, iterator, numberOfIterations, 'test')
                 
-            # print("***Time it took the decoder:")
-            #print(totalTime)
-            #print("***And thr throughput is:")
-            #print(8176 * numOfTransmissions /totalTime)
+            print("***At SNR == " + str(SNRpoints[s]) + "Time it took the decoder:")
+            print(totalTime)
+            print("***And thr throughput is:")
+            print(8176 * numOfTransmissions /totalTime)
             #print("*** s is : " + str(s))
             #print("*** t is : " + str(t))
     
@@ -807,7 +808,7 @@ def evaluateMatrixAndEpsilon(parityMatrix, epsilon, numberOfIterations = 50, cud
 
 
 
-def testNearEarth(numOfTransmissions = 30, graphics = True):
+def testNearEarth(numOfTransmissions = 200, graphics = True):
     status = 'Near earth problem'
     print("*** in test near earth")
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
@@ -854,7 +855,7 @@ def testConcurrentFutures(numberOfCudaDevices = 1):
     
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
     numOfTransmissions = 50
-    roi = [3.0, 3.2 ,3.4]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
+    roi = [3.0, 3.2 ,3.4, 3.6]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
     numOfIterations = 50
     seeds = LDPC_LOCAL_PRNG.randint(0, LDPC_MAX_SEED, numberOfCudaDevices, dtype = LDPC_SEED_DATA_TYPE) 
     snrXnumberOfCudaDevices = [roi] * numberOfCudaDevices
@@ -906,9 +907,9 @@ def main():
     #status = testIntegration()
     #print(status)
     
-    #bStats, status = testNearEarth()
+    bStats, status = testNearEarth()
     start = time.time()
-    testConcurrentFutures(numberOfCudaDevices = 4)
+    #testConcurrentFutures(numberOfCudaDevices = 4)
     end =  time.time()
     print("*** total running time == " + str(end - start))
     #print(bStats.getStats())

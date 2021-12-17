@@ -423,7 +423,7 @@ def evaluateCodeAtSingleTransmission(seed, SNRpoints, messageSize, codewordSize,
         start = time.time()
         status, decodedWord, softVector, iterationStoppedAt = decoder.decoderMainLoop(dirtyModulated, numberOfIterations)
         end = time.time()
-        print("******** " + str(np.sum(decodedWord == codeword)))
+        #print("******** " + str(np.sum(decodedWord == codeword)))
         berDecoded = np.count_nonzero(decodedWord != codeword)
         berStats.addEntry(SNR, sigma, sigmaActual, berUncoded, berDecoded, iterationStoppedAt, numberOfIterations, status)
         
@@ -435,7 +435,7 @@ def constantFunction(const):
     return g
 
 
-def testCodeUsingMultiprocessing(seed, SNRpoints, messageSize, codewordSize, numberOfIterations, numberOfTransmissions, H, method = None, reference = None, G = 'None'):
+def testCodeUsingMultiprocessing(seed, SNRpoints, messageSize, codewordSize, numberOf                                                                                                Iterations, numberOfTransmissions, H, method = None, reference = None, G = 'None'):
     bStats = common.berStatistics()
     seeds = LDPC_LOCAL_PRNG.randint(0, LDPC_MAX_SEED, numberOfTransmissions, dtype = LDPC_SEED_DATA_TYPE) 
     
@@ -448,11 +448,19 @@ def testCodeUsingMultiprocessing(seed, SNRpoints, messageSize, codewordSize, num
         #g = constantFunction(reference)
         
         snrL = [SNRpoints] * numberOfTransmissions
-        with concurrent.futures.ProcessPoolExecutor() as executor:
-        # Omer Sella: we are using multiprocessing and distributing over TRANSMISSIONS (which we expect to have O(50)) rather than SNR points (which we expect to have O(3)).
-            results = executor.map(evaluateCodeAtSingleTransmission, seeds, snrL, mesL, cwsL, itrL, hL)
-            for r in results:
-                bStats = bStats.union(r)
+        for s in SNRpoints:
+            sL = [[s]] * numberOfTransmissions
+            start = time.time()
+            with concurrent.futures.ProcessPoolExecutor(max_workers=2) as executor:
+            # Omer Sella: we are using multiprocessing and distributing over TRANSMISSIONS (which we expect to have O(numberOfTransmissions)) rather than SNR points (which we expect to have O(3)).
+                results = executor.map(evaluateCodeAtSingleTransmission, seeds, sL, mesL, cwsL, itrL, hL)
+                for r in results:
+                    bStats = bStats.union(r)
+            end = time.time()
+            print(" Time it took the decoder at snr "+ str(s) + " is:")
+            print(end-start)
+            print("And the throughput is: ")
+            print(numberOfTransmissions * codewordSize / (end-start))
     else:
         for s in SNRpoints:
             snrL = [[s]] * numberOfTransmissions
@@ -473,28 +481,28 @@ def testNearEarth(numOfTransmissions = 50):
     print("*** in test near earth")
     nearEarthParity = fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False)
     #numOfTransmissions = 50
-    roi = [3.0, 3.2,3.4,3.6]#np.arange(3, 3.8, 0.2)
+    roi = [3.0, 3.2, 3.4,3.6]#np.arange(3, 3.8, 0.2)
     codewordSize = 8176
     messageSize = 7154
-    numOfIterations = 40
+    numOfIterations = 50
 
     start = time.time()
     
-    bStats = evaluateCode(numOfTransmissions, 460101, roi, messageSize, codewordSize, numOfIterations, nearEarthParity)    
+    #bStats = evaluateCode(numOfTransmissions, 460101, roi, messageSize, codewordSize, numOfIterations, nearEarthParity)    
     #for i in range(numOfTransmissions):
     #    bStats = evaluateCodeAtSingleTransmission(460101, roi, messageSize, codewordSize, numOfIterations, nearEarthParity)    
         
-    #bStats = testCodeUsingMultiprocessing(460101, roi, messageSize, codewordSize, numOfIterations, numOfTransmissions, nearEarthParity)
+    bStats = testCodeUsingMultiprocessing(460101, roi, messageSize, codewordSize, numOfIterations, numOfTransmissions, nearEarthParity)
     end = time.time()
-    print('Time it took for code evaluation == %d' % (end-start))
-    print('Throughput == '+str((8176*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
+    print('****Time it took for code evaluation == %d' % (end-start))
+    print('****Throughput == '+str((8176*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
     #a, b, c, d = bStats.getStats(codewordSize)
     #print("berDecoded " + str(c))
     return bStats
 
 
 def testWifi(numOfTransmissions = 50):
-    print("*** in test wifi")
+    print("*** test wifi is decomissioned !!!!")
     wifiParity = wifiMatrices.getWifiParityMatrix()
     #numOfTransmissions = 50
     roi = [3.0, 3.2,3.4,3.6]#np.arange(3, 3.8, 0.2)
@@ -504,7 +512,7 @@ def testWifi(numOfTransmissions = 50):
 
     start = time.time()
     
-    bStats = evaluateCode(numOfTransmissions, 460101, roi, messageSize, codewordSize, numOfIterations, wifiParity)    
+    #bStats = evaluateCode(numOfTransmissions, 460101, roi, messageSize, codewordSize, numOfIterations, wifiParity)    
     #for i in range(numOfTransmissions):
     #    bStats = evaluateCodeAtSingleTransmission(460101, roi, messageSize, codewordSize, numOfIterations, nearEarthParity)    
         
