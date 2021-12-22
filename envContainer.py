@@ -53,7 +53,7 @@ class multiDeviceEnvironment():
         #for r in stepResults:
         #    print(r)
         print("*** Time it took concurrently: " +str(end-start))
-        return stepResults
+        return results
 
 
 
