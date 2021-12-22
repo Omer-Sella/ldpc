@@ -31,6 +31,7 @@ class multiDeviceEnvironment():
     def __init__(self, environmentGenerationFunction, seeds, cudaDeviceList):
         self.environmentVector = environmentVector(environmentGenerationFunction, seeds, cudaDeviceList)
         self.indexList = self.environmentVector.environmentIndecies
+        self.cudaDeviceList = cudaDeviceList
         return
 
     def reset(self):
@@ -41,8 +42,13 @@ class multiDeviceEnvironment():
         
     def step(self, actions):
         start = time.time()
-        with concurrent.futures.ProcessPoolExecutor() as executor:    
-            stepResults = executor.map(self.environmentVector.singleStep, actions, self.indexList)
+        
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+        results = {executor.submit(self.environmentVector.singleStep, actions[deviceNumber], deviceNumber): deviceNumber for deviceNumber in self.cudaDeviceList}
+        for result in concurrent.futures.as_completed(results):
+            print(result)
+        #with concurrent.futures.ProcessPoolExecutor() as executor:    
+        #    stepResults = executor.map(self.environmentVector.singleStep, actions, self.indexList)
         end = time.time()   
         #for r in stepResults:
         #    print(r)
@@ -94,7 +100,7 @@ def testMultiDeviceEnvironment():
     # Make sure we have enough seeds for the insane case where there are more than 4 devices on a machine
     #if len(cuda.gpus) > len(seeds):
     #    seeds = list(range(len(cuda.gpus)))
-    multiDevEnv = multiDeviceEnvironment(environmentGenerationFunction, seeds, list(range(numberOfCudaDevices)))#len(cuda.gpus))))
+    multiDevEnv = multiDeviceEnvironment(environmentGenerationFunction, seeds, list(range(numberOfCudaDevices)))
 
     #print("*** testing multi device environment reset function")
     #multiDevEnv.reset()
