@@ -649,6 +649,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
             #print("*** s is : " + str(s))
             #print("*** t is : " + str(t))
     
+    cuda.close()
     return berStats
 
 
