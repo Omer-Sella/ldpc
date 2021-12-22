@@ -648,8 +648,8 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
             print(8176 * numOfTransmissions /totalTime)
             #print("*** s is : " + str(s))
             #print("*** t is : " + str(t))
-    
-    cuda.close()
+    # OSS: I tried cloding the context thinking it would help run multiprocessing from envContainer, but there is still an issue of initialization before forking.
+    #cuda.close()
     return berStats
 
 
@@ -856,23 +856,30 @@ def testConcurrentFutures(numberOfCudaDevices = 1):
     roi = [3.0, 3.2 ,3.4, 3.6]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
     numOfIterations = 50
     seeds = LDPC_LOCAL_PRNG.randint(0, LDPC_MAX_SEED, numberOfCudaDevices, dtype = LDPC_SEED_DATA_TYPE) 
-    snrXnumberOfCudaDevices = [roi] * numberOfCudaDevices
-    numberOfIterationsXnumberOfCudaDevices = [numOfIterations] * numberOfCudaDevices
-    parityMatrices = [nearEarthParity] * numberOfCudaDevices
-    numberOfTransmissionsXnumberOfCudaDevices = [numOfTransmissions] * numberOfCudaDevices
-    noneXnumberOfCudaDevices = ['None'] * numberOfCudaDevices
-    cudaDeviceList = list(range(numberOfCudaDevices))
-    # evaluate code cuda function arguments: seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , cudaDeviceNumber = 0
-    with concurrent.futures.ProcessPoolExecutor() as executor:    
+
+    #################
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], snr, numOfIterations, nearEarthParity, numOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
+        for result in concurrent.futures.as_completed(results):
+            print(r)
+    ##################
+
+    # OSS: disabling the "map" approach
+    #snrXnumberOfCudaDevices = [roi] * numberOfCudaDevices
+    #numberOfIterationsXnumberOfCudaDevices = [numOfIterations] * numberOfCudaDevices
+    #parityMatrices = [nearEarthParity] * numberOfCudaDevices
+    #numberOfTransmissionsXnumberOfCudaDevices = [numOfTransmissions] * numberOfCudaDevices
+    #noneXnumberOfCudaDevices = ['None'] * numberOfCudaDevices
+    #cudaDeviceList = list(range(numberOfCudaDevices))
+    ## evaluate code cuda function arguments: seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , cudaDeviceNumber = 0
+    #with concurrent.futures.ProcessPoolExecutor() as executor:    
         #evaluateCodeCuda(460101, roi, numOfIterations, nearEarthParity, numOfTransmissions)
-            results = executor.map(evaluateCodeCuda, seeds, snrXnumberOfCudaDevices, numberOfIterationsXnumberOfCudaDevices, parityMatrices, numberOfTransmissionsXnumberOfCudaDevices, noneXnumberOfCudaDevices, cudaDeviceList)
-            for r in results:
-                print(r)
+    #        results = executor.map(evaluateCodeCuda, seeds, snrXnumberOfCudaDevices, numberOfIterationsXnumberOfCudaDevices, parityMatrices, numberOfTransmissionsXnumberOfCudaDevices, noneXnumberOfCudaDevices, cudaDeviceList)
+    #        for r in results:
+    #            print(r)
 
 
 async def asyncExec(numberOfCudaDevices = 4):
-    
-    
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
     numOfTransmissions = 50
     roi = [3.0, 3.2 ,3.4]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
@@ -892,6 +899,8 @@ def testAsyncExec():
     end = time.time()
     print("***Time to run 4 evaluations == " + str(end-start))
     loop.close()
+
+
 
 
         
