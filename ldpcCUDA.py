@@ -861,7 +861,7 @@ def testConcurrentFutures(numberOfCudaDevices = 1):
     with concurrent.futures.ProcessPoolExecutor() as executor:
         results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], roi, numOfIterations, nearEarthParity, numOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
         for result in concurrent.futures.as_completed(results):
-            print(r)
+            print(result)
     ##################
 
     # OSS: disabling the "map" approach
