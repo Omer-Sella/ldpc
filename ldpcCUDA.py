@@ -905,7 +905,7 @@ def main():
     #status = testIntegration()
     #print(status)
     
-    bStats, status = testNearEarth()
+    #bStats, status = testNearEarth()
     start = time.time()
     testConcurrentFutures(numberOfCudaDevices = 4)
     end =  time.time()
