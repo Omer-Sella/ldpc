@@ -40,7 +40,7 @@ sys.path.insert(1, projectDir)
 ## Omer Sella: end added.
 
 import fileHandler
-#import ldpcCUDA
+import ldpcCUDA
 import time
 from binarySpace import binarySpace
 from uint8Space import uint8Space
