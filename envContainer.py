@@ -45,7 +45,7 @@ class multiDeviceEnvironment():
         
         with concurrent.futures.ProcessPoolExecutor() as executor:
             results = {executor.submit(self.environmentVector.singleStep, actions[deviceNumber], deviceNumber): deviceNumber for deviceNumber in self.cudaDeviceList}
-            for result in concurrent.futures.as_completed(results):
+            for result in results:#concurrent.futures.as_completed(results):
                 print(result)
         #with concurrent.futures.ProcessPoolExecutor() as executor:    
         #    stepResults = executor.map(self.environmentVector.singleStep, actions, self.indexList)
