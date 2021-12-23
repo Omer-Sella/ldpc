@@ -859,15 +859,16 @@ def testConcurrentFutures(numberOfCudaDevices = 1):
     ##################
     return berStats
 
-    
+
 def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , numberOfCudaDevices):
     # This is a multiprocessing wrapper for evaluateCodeCuda.
     # No safety of len(seeds) == numberOfCudaDevices
     # No safety of cuda devices exist
     # Number of iterations must be divisible by numberOfCudaDevices
     berStats = common.berStatistics()
+    newNumOfTransmissions = numOfTransmissions // numberOfCudaDevices
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], roi, numOfIterations, nearEarthParity, numOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
+        results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], SNRpoints, numberOfIterations, nearEarthParity, newNumOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
         for result in concurrent.futures.as_completed(results):
             berStats = berStats.add(result)
     return berStats
