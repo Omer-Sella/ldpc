@@ -856,6 +856,8 @@ def testConcurrentFutures(numberOfCudaDevices = 1):
         print(results)
         for result in concurrent.futures.as_completed(results):
             print(result)
+            a = result.berStatistics
+            print(a)
             berStats = berStats.add(result)
     ##################
     return berStats
@@ -872,6 +874,7 @@ def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, 
         results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], SNRpoints, numberOfIterations, nearEarthParity, newNumOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
         print(results)
         for result in concurrent.futures.as_completed(results):
+            print()
             berStats = berStats.add(result)
     return berStats
             
