@@ -852,7 +852,7 @@ def testConcurrentFutures(numberOfCudaDevices = 1):
     
     
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
-    numOfTransmissions = 60
+    numOfTransmissions = 13
     roi = [3.0, 3.2 ,3.4, 3.6]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
     numOfIterations = 50
     seeds = LDPC_LOCAL_PRNG.randint(0, LDPC_MAX_SEED, numberOfCudaDevices, dtype = LDPC_SEED_DATA_TYPE) 
