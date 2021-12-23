@@ -890,7 +890,7 @@ def main():
     bStats = testConcurrentFutures(numberOfCudaDevices = 4)
     end =  time.time()
     print("*** total running time == " + str(end - start))
-    print(bStats.getStats()
+    print(bStats.getStats())
     status = 0
     #testAsyncExec()
     return bStats, status
