@@ -505,7 +505,6 @@ def AWGNarray(dim0, dim1, SNRdb, prng):
 
 def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , cudaDeviceNumber = 0):
     cuda.select_device(cudaDeviceNumber)
-    #print(cudaDeviceNumber)
     # Concurrent futures require the seed to be between 0 and 2**32 -1
     #assert (np.dtype(seed) == np.int32)
     assert (seed > 0)
@@ -567,7 +566,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
             
             
                 ########################### Decoding happens here #######################
-                start = time.time()
+                #start = time.time()
                 iterator = 0
                 isCodeword = False
                 maskedFanOut[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](parityMatrix_device, softVector_device, matrix_device)
@@ -627,8 +626,8 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                 slicerCuda[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device, binaryVector_device)
                 result_device[1] = 0
                 numberOfNonZeros[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](binaryVector_device, result_device)
-                end = time.time()
-                totalTime += (end - start)
+                #end = time.time()
+                #totalTime += (end - start)
             
                 #binaryVector_host = binaryVector_device.copy_to_host()
                 
@@ -642,14 +641,10 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                 
                 berStats.addEntry(SNRpoints[s], sigma, sigmaActual, berUncoded, berDecoded, iterator, numberOfIterations, 'test')
                 
-            print("***At SNR == " + str(SNRpoints[s]) + "Time it took the decoder:")
-            print(totalTime)
-            print("***And thr throughput is:")
-            print(8176 * numOfTransmissions /totalTime)
-            #print("*** s is : " + str(s))
-            #print("*** t is : " + str(t))
-    # OSS: I tried cloding the context thinking it would help run multiprocessing from envContainer, but there is still an issue of initialization before forking.
-    #cuda.close()
+            #print("***At SNR == " + str(SNRpoints[s]) + "Time it took the decoder:")
+            #print(totalTime)
+            #print("***And thr throughput is:")
+            #print(8176 * numOfTransmissions /totalTime)
     return berStats
 
 
@@ -849,59 +844,32 @@ def testNearEarth(numOfTransmissions = 60, graphics = True):
 
 
 def testConcurrentFutures(numberOfCudaDevices = 1):
-    
-    
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
-    numOfTransmissions = 13
+    numOfTransmissions = 15
     roi = [3.0, 3.2 ,3.4, 3.6]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
     numOfIterations = 50
     seeds = LDPC_LOCAL_PRNG.randint(0, LDPC_MAX_SEED, numberOfCudaDevices, dtype = LDPC_SEED_DATA_TYPE) 
-
+    berStats = common.berStatistics()
     #################
     with concurrent.futures.ProcessPoolExecutor() as executor:
         results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], roi, numOfIterations, nearEarthParity, numOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
         for result in concurrent.futures.as_completed(results):
-            print(result)
+            #print(result)
+            berStats = berStats.add(result)
     ##################
+    return berStats
 
-    # OSS: disabling the "map" approach
-    #snrXnumberOfCudaDevices = [roi] * numberOfCudaDevices
-    #numberOfIterationsXnumberOfCudaDevices = [numOfIterations] * numberOfCudaDevices
-    #parityMatrices = [nearEarthParity] * numberOfCudaDevices
-    #numberOfTransmissionsXnumberOfCudaDevices = [numOfTransmissions] * numberOfCudaDevices
-    #noneXnumberOfCudaDevices = ['None'] * numberOfCudaDevices
-    #cudaDeviceList = list(range(numberOfCudaDevices))
-    ## evaluate code cuda function arguments: seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , cudaDeviceNumber = 0
-    #with concurrent.futures.ProcessPoolExecutor() as executor:    
-        #evaluateCodeCuda(460101, roi, numOfIterations, nearEarthParity, numOfTransmissions)
-    #        results = executor.map(evaluateCodeCuda, seeds, snrXnumberOfCudaDevices, numberOfIterationsXnumberOfCudaDevices, parityMatrices, numberOfTransmissionsXnumberOfCudaDevices, noneXnumberOfCudaDevices, cudaDeviceList)
-    #        for r in results:
-    #            print(r)
+    
+def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , numberOfCudaDevices):
+    # This is a multiprocessing wrapper for evaluateCodeCuda.
+    # No safety of len(seeds) == numberOfCudaDevices
+    # No safety of cuda devices exist
+    # Number of iterations must be divisible by numberOfCudaDevices
 
-
-async def asyncExec(numberOfCudaDevices = 4):
-    nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
-    numOfTransmissions = 50
-    roi = [3.0, 3.2 ,3.4]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
-    numOfIterations = 50
-    seeds = LDPC_LOCAL_PRNG.randint(0, LDPC_MAX_SEED, numberOfCudaDevices, dtype = LDPC_SEED_DATA_TYPE) 
-    numberOfIterations = 50
-    numberOfTransmissions = 50
-    for i in range(numberOfCudaDevices):
-        #evaluateCodeCuda(460101, roi, numOfIterations, nearEarthParity, numOfTransmissions)
-        results = evaluateCodeCuda(seeds[i], roi[i], numberOfIterations, nearEarthParity, numberOfTransmissions, 'None', i)
-        print(results)
-
-def testAsyncExec():
-    loop = asyncio.get_event_loop()
-    start = time.time()
-    loop.run_until_complete(asyncExec())
-    end = time.time()
-    print("***Time to run 4 evaluations == " + str(end-start))
-    loop.close()
-
-
-
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], roi, numOfIterations, nearEarthParity, numOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
+        for result in concurrent.futures.as_completed(results):
+            
 
         
 def main():
@@ -917,11 +885,10 @@ def main():
     
     #bStats, status = testNearEarth()
     start = time.time()
-    testConcurrentFutures(numberOfCudaDevices = 4)
+    bStats = testConcurrentFutures(numberOfCudaDevices = 4)
     end =  time.time()
     print("*** total running time == " + str(end - start))
-    #print(bStats.getStats())
-    bStats = 0
+    print(bStats.getStats()
     status = 0
     #testAsyncExec()
     return bStats, status

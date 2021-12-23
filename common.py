@@ -165,10 +165,21 @@ class berStatistics:
         return snrAxis, averageSnrAxis, berData, averageNumberOfIterations
     
     def union(self, rhs):
+        # Notice no codeword length safety
         result = berStatistics()
         result.stats = sorted(self.stats + rhs.stats)
         result.snrAxis = self.snrAxis.union(rhs.snrAxis)
         return result
+    
+    def add(self, rhs):
+        # Notice no codeword length safety
+        #Union sorts out the stats using sorted
+        result = berStatistics()
+        result.stats = self.stats + rhs.stats
+        result.snrAxis = self.snrAxis.union(rhs.snrAxis)
+        return result
+
+
     
     def plotStats(self, codewordSize, fileAndPathName = None):
         snrAxis, averageSnrAxis, berData, averageNumberOfIterations = self.getStats(codewordSize)
