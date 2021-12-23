@@ -860,7 +860,7 @@ def testConcurrentFutures(numberOfCudaDevices = 1):
     return berStats
 
 
-def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , numberOfCudaDevices):
+def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , numberOfCudaDevices = 4):
     # This is a multiprocessing wrapper for evaluateCodeCuda.
     # No safety of len(seeds) == numberOfCudaDevices
     # No safety of cuda devices exist
