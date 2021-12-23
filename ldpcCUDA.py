@@ -865,10 +865,12 @@ def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, 
     # No safety of len(seeds) == numberOfCudaDevices
     # No safety of cuda devices exist
     # Number of iterations must be divisible by numberOfCudaDevices
-
+    berStats = common.berStatistics()
     with concurrent.futures.ProcessPoolExecutor() as executor:
         results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], roi, numOfIterations, nearEarthParity, numOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
         for result in concurrent.futures.as_completed(results):
+            berStats = berStats.add(result)
+    return berStats
             
 
         
