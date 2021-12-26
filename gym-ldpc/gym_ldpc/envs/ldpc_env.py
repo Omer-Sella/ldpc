@@ -325,14 +325,18 @@ class LdpcEnv(gym.Env):
             # You need at least two points to fit a line
             reward = self.rewardForBadCandidate
         else:
-            # Fit a line through the data
-            p = np.polyfit(self.scatterSnr, self.scatterBer, LDPC_POLYNOMIAL_ORDER)
+            # OSS 26/12/2021 adjusted the reward function to be less sensitive to 0 BER data points
+            snr, ber, p1, trendP, itr = recursiveLinearFit(xData, yData)
+            
+            # Fit a line through the data #OSS 26/12/2021 this is now proivided by a function from common
+            #p = np.polyfit(self.scatterSnr, self.scatterBer, LDPC_POLYNOMIAL_ORDER)
             
             # Omer Sella: 16/06/2021 decided to use np polynomials. Also changed the reward to the area between
             # the constant 1 and the fitted line.
             #slope = p[0]
             #bias = p[1]
-            p1 = np.poly1d(p)
+            # OSS: p1 is now an output of a function from common.py
+            #p1 = np.poly1d(p)
             pTotalInteg = (self.pConst - p1).integ()
             reward = pTotalInteg(self.SNRpoints[-1]) - pTotalInteg(self.SNRpoints[0])
             #reward =  0.5 * slope * (self.SNRpoints[-1] ** 2)  + bias * self.SNRpoints[-1] - ( 0.5 * slope * (self.SNRpoints[0] ** 2)  + bias * self.SNRpoints[0])

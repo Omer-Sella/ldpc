@@ -294,7 +294,7 @@ def recursiveLinearFit(xData, yData, numberOfIterations = 10, earlyStopping = Fa
     ber = copy.copy(yData)
     snr = copy.copy(xData)
     itr = 0 #Omer Sella: place holder - in the future we may want to return the iteration at which earlyStopping happened
-    while itr < 20:
+    while itr < numberOfIterations:
         p = np.polyfit(snr, ber, 1)
         trendP = np.poly1d(p)
         ber = ber[trendP(snr) > 0]
