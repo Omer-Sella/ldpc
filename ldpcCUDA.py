@@ -858,7 +858,7 @@ def testConcurrentFutures(numberOfCudaDevices = 1):
             print(result.result())
             a = result.result()
             print(a)
-            berStats = berStats.add(result)
+            berStats = berStats.add(result.result())
     ##################
     return berStats
 
@@ -893,7 +893,7 @@ def main():
     
     #bStats, status = testNearEarth()
     start = time.time()
-    bStats = testConcurrentFutures(numberOfCudaDevices = 4)
+    bStats = testConcurrentFutures(numberOfCudaDevices = 1)
     end =  time.time()
     print("*** total running time == " + str(end - start))
     print(bStats.getStats())
