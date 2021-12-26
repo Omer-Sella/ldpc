@@ -874,8 +874,8 @@ def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, 
         results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], SNRpoints, numberOfIterations, nearEarthParity, newNumOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
         print(results)
         for result in concurrent.futures.as_completed(results):
-            print()
-            berStats = berStats.add(result)
+            print(result.result())
+            berStats = berStats.add(result.result())
     return berStats
             
 
