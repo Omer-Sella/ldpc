@@ -856,7 +856,7 @@ def testConcurrentFutures(numberOfCudaDevices = 1):
         print(results)
         for result in concurrent.futures.as_completed(results):
             print(result.result())
-            a = result.result())
+            a = result.result()
             print(a)
             berStats = berStats.add(result)
     ##################
