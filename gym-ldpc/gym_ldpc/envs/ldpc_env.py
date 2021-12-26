@@ -326,7 +326,7 @@ class LdpcEnv(gym.Env):
             reward = self.rewardForBadCandidate
         else:
             # OSS 26/12/2021 adjusted the reward function to be less sensitive to 0 BER data points
-            snr, ber, p1, trendP, itr = recursiveLinearFit(xData, yData)
+            snr, ber, p1, trendP, itr = common.recursiveLinearFit(xData, yData)
             
             # Fit a line through the data #OSS 26/12/2021 this is now proivided by a function from common
             #p = np.polyfit(self.scatterSnr, self.scatterBer, LDPC_POLYNOMIAL_ORDER)
