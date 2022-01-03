@@ -139,7 +139,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, 
         max_ep_len=32,#max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), 
-        save_freq=10, envCudaDevice = 0, experimentDataDir = None,
+        save_freq=10, envCudaDevice = 4, experimentDataDir = None,
         entropyCoefficient = 0.0, policyCoefficient = 1.0):
     """
     Proximal Policy Optimization (by clipping), 
@@ -271,7 +271,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     #env = env_fn(gpuDevice = (proc_id() % NUMBER_OF_GPUS_PER_NODE))
     #print("*** debugging cuda device")
     #print(envCudaDevice)
-    env = env_fn(x = 7134066, y = envCudaDevice)
+    env = env_fn(x = 7134066, y = envCudaDevices)
     #print(env.gpuDeviceNumber)
     #print(env.gpuDeviceNumber)
     #print(env.gpuDeviceNumber)
@@ -505,7 +505,7 @@ if __name__ == '__main__':
     parser.add_argument('--cpu', type=int, default=1) #Omer Sella: was 4 instead of 1
     parser.add_argument('--steps', type=int, default=32)
     parser.add_argument('--epochs', type=int, default=50)
-    parser.add_argument('--envCudaDevice', type=int, default=0)
+    parser.add_argument('--envCudaDevices', type=int, default=4)
     #parser.add_argument('--epochs', type=int, default=25) #Omer Sella: I have the 25 option for testing
     parser.add_argument('--entropyCoefficient', type=float, default = 0.01)
     parser.add_argument('--policyCoefficient', type=float, default = 1.0)
@@ -520,7 +520,7 @@ if __name__ == '__main__':
     experimentDataDir = PROJECT_PATH + "/temp/experiments/%i" %int(experimentTime)
     logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, data_dir = experimentDataDir)
 
-    ppo(lambda x = 8200, y = 0: gym.make(args.env, seed = x, gpuDevice = y), #Omer Sella: Actor_Critic is now embedded and thus commented actor_critic=core.MLPActorCritic,
+    ppo(lambda x = 8200, y = 0: gym.make(args.env, seed = x, numberOfCudaDevices = y), #Omer Sella: Actor_Critic is now embedded and thus commented actor_critic=core.MLPActorCritic,
         ac_kwargs=dict(hidden_sizes=[args.hid]*args.l), gamma=args.gamma, 
         seed=args.seed, steps_per_epoch=args.steps, epochs=args.epochs,
-        logger_kwargs=logger_kwargs, envCudaDevice = args.envCudaDevice, experimentDataDir = experimentDataDir)
+        logger_kwargs=logger_kwargs, envCudaDevices = args.envCudaDevices, experimentDataDir = experimentDataDir)
