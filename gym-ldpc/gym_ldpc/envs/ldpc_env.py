@@ -351,8 +351,8 @@ class LdpcEnv(gym.Env):
     
 
     def evaluateCode(self):
-        #seeds = localPRNG.randint(0, LDPC_ENV_MAX_SEED, self.ldpcDecoderNumOfTransmissions, dtype = LDPC_ENV_SEED_DATA_TYPE)
-        seed = np.random.randint(0, LDPC_ENV_MAX_SEED, 1, dtype = LDPC_ENV_SEED_DATA_TYPE)
+        seeds = localPRNG.randint(0, LDPC_ENV_MAX_SEED, self.cudaDevices, dtype = LDPC_ENV_SEED_DATA_TYPE)
+        #seed = np.random.randint(0, LDPC_ENV_MAX_SEED, 1, dtype = LDPC_ENV_SEED_DATA_TYPE)
         #transmissions = np.arange(0, self.ldpcDecoderNumOfTransmissions, 1, dtype = LDPC_ENV_INT_DATA_TYPE)
         
         #SNR_iterable = list([self.SNRpoints])  * self.ldpcDecoderNumOfTransmissions
@@ -366,7 +366,7 @@ class LdpcEnv(gym.Env):
         berStats = common.berStatistics(self.codewordSize)
         # OSS: I'm commenting out evaluateCodeCuda in order to use the wrapper that utilises multiple GPUs
         #berStats = ldpcCUDA.evaluateCodeCuda(seed, self.SNRpoints, self.ldpcDecoderNumOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None', cudaDeviceNumber = self.gpuDeviceNumber)
-        berStats = ldpcCUDA.evaluateCodeCudaWrapper(seeds, self.SNRpoints, self.ldpcDecoderNumberOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None' , numberOfCudaDevices = self.cudaDevices):
+        berStats = ldpcCUDA.evaluateCodeCudaWrapper(seeds, self.SNRpoints, self.ldpcDecoderNumberOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None' , numberOfCudaDevices = self.cudaDevices)
         snrAxis, averageSnrAxis, berData, averageNumberOfIterations = berStats.getStats()
         #end = time.time()
         #print('Time it took for code evaluation == %d' % (end-start))
