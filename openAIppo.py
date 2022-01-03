@@ -139,7 +139,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, 
         max_ep_len=32,#max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), 
-        save_freq=10, envCudaDevice = 4, experimentDataDir = None,
+        save_freq=10, envCudaDevices = 4, experimentDataDir = None,
         entropyCoefficient = 0.0, policyCoefficient = 1.0):
     """
     Proximal Policy Optimization (by clipping), 
