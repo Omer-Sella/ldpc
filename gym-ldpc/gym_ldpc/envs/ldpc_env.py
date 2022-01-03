@@ -351,7 +351,7 @@ class LdpcEnv(gym.Env):
     
 
     def evaluateCode(self):
-        seeds = localPRNG.randint(0, LDPC_ENV_MAX_SEED, self.cudaDevices, dtype = LDPC_ENV_SEED_DATA_TYPE)
+        seeds = self.localPRNG.randint(0, LDPC_ENV_MAX_SEED, self.cudaDevices, dtype = LDPC_ENV_SEED_DATA_TYPE)
         #seed = np.random.randint(0, LDPC_ENV_MAX_SEED, 1, dtype = LDPC_ENV_SEED_DATA_TYPE)
         #transmissions = np.arange(0, self.ldpcDecoderNumOfTransmissions, 1, dtype = LDPC_ENV_INT_DATA_TYPE)
         
