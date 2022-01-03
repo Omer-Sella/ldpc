@@ -366,7 +366,7 @@ class LdpcEnv(gym.Env):
         berStats = common.berStatistics(self.codewordSize)
         # OSS: I'm commenting out evaluateCodeCuda in order to use the wrapper that utilises multiple GPUs
         #berStats = ldpcCUDA.evaluateCodeCuda(seed, self.SNRpoints, self.ldpcDecoderNumOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None', cudaDeviceNumber = self.gpuDeviceNumber)
-        berStats = ldpc.CUDA.evaluateCodeCudaWrapper(seeds, self.SNRpoints, self.ldpcDecoderNumberOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None' , numberOfCudaDevices = self.cudaDevices):
+        berStats = ldpcCUDA.evaluateCodeCudaWrapper(seeds, self.SNRpoints, self.ldpcDecoderNumberOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None' , numberOfCudaDevices = self.cudaDevices):
         snrAxis, averageSnrAxis, berData, averageNumberOfIterations = berStats.getStats()
         #end = time.time()
         #print('Time it took for code evaluation == %d' % (end-start))
