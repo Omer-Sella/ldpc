@@ -19,10 +19,10 @@ GENERAL_LDPC_ENV_TYPE = np.float32
 LDPC_ENV_INT_DATA_TYPE = np.int32
 LDPC_ENV_SEED_DATA_TYPE = np.int32
 LDPC_ENV_NUMBER_OF_ITERATIONS = 50
-LDPC_ENV_NUMBER_OF_TRANSMISSIONS = 10
+LDPC_ENV_NUMBER_OF_TRANSMISSIONS = 60
 # How many seconds is a batch. Should be tested with number of iterations as well.
 #This is a way to limit the entire training process on cluster use 
-LDPC_ENV_MAXIMUM_ACCUMULATED_DECODING_TIME = 16*40 
+LDPC_ENV_MAXIMUM_ACCUMULATED_DECODING_TIME = 64 * LDPC_ENV_NUMBER_OF_TRANSMISSIONS
 # Omer Sella: seeds are required by concurrent futures to be between 0 and 2**32 - 1 
 LDPC_ENV_MAX_SEED = 2**31 - 1
 #seed = 7134066
@@ -77,7 +77,7 @@ class LdpcEnv(gym.Env):
     metadata = {'render.modes': ['rgb']}
 
   #def __init__(self, SNRpointsOfInterest = [5, 10, 15], H, xLimit, yLimit, circulantSize):
-    def __init__(self, replacementOnly=False, seed=7134066, gpuDevice = None, resetHammingDistance = 'MAXIMUM'):
+    def __init__(self, replacementOnly=False, seed=7134066, numberOfCudaDevices = 4, resetHammingDistance = 'MAXIMUM'):
         
         H = fileHandler.readMatrixFromFile(projectDir + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False)
         self.replacementOnly = replacementOnly
@@ -139,10 +139,7 @@ class LdpcEnv(gym.Env):
         #assert np.all(unpaddedSecondRow == self.state[511,:])
         self.localPRNG = np.random.RandomState(seed)
         self.hotBitsRange = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]
-        if gpuDevice == None:
-            self.gpuDeviceNumber = 0
-        else:
-            self.gpuDeviceNumber = gpuDevice
+        self.cudaDevices = numberOfCudaDevices
         self.counter = 0
         self.resetHammingDistance = resetHammingDistance
 
@@ -325,14 +322,19 @@ class LdpcEnv(gym.Env):
             # You need at least two points to fit a line
             reward = self.rewardForBadCandidate
         else:
-            # Fit a line through the data
-            p = np.polyfit(self.scatterSnr, self.scatterBer, LDPC_POLYNOMIAL_ORDER)
-            
+                        
+            # Fit a line through the data #OSS 26/12/2021 this is now proivided by a function from common
+            #p = np.polyfit(self.scatterSnr, self.scatterBer, LDPC_POLYNOMIAL_ORDER)
+            # OSS 26/12/2021 adjusted the reward function to be less sensitive to 0 BER data points
+            snr, ber, p1, trendP, itr = common.recursiveLinearFit(self.scatterSnr, self.scatterBer)
+
+
             # Omer Sella: 16/06/2021 decided to use np polynomials. Also changed the reward to the area between
             # the constant 1 and the fitted line.
             #slope = p[0]
             #bias = p[1]
-            p1 = np.poly1d(p)
+            # OSS: p1 is now an output of a function from common.py
+            #p1 = np.poly1d(p)
             pTotalInteg = (self.pConst - p1).integ()
             reward = pTotalInteg(self.SNRpoints[-1]) - pTotalInteg(self.SNRpoints[0])
             #reward =  0.5 * slope * (self.SNRpoints[-1] ** 2)  + bias * self.SNRpoints[-1] - ( 0.5 * slope * (self.SNRpoints[0] ** 2)  + bias * self.SNRpoints[0])
@@ -362,21 +364,14 @@ class LdpcEnv(gym.Env):
         
         start = time.time()        
         berStats = common.berStatistics(self.codewordSize)
-        # with concurrent.futures.ProcessPoolExecutor() as executor:
-        #     # Omer Sella: we are using multiprocessing and distributing over TRANSMISSIONS (which we expect to have O(50)) rather than SNR points (which we expect to have O(3)).
-        #     # Omer Sella: bellow is the function signature for the single transmission function:
-        #     #evaluateCodeAtSingleTransmission(transmission, seed, SNRpoints, messageSize, codewordSize, numberOfIterations, H, G = 'None', )
-        #     results = executor.map(self.evaluateCodeSingleTransmissionUsingSeed, seeds)#, SNR_iterable, messageSize_iterable, codewordSize_iterable, numberOfIterations_iterable, H_iterable)
-        #     for r in results:
-        #         berStats = berStats.union(r)
-        #print(seeds[0])
-        print("*** debugging concurrent futures. gpuDeviceNumber == " + str(self.gpuDeviceNumber))
-        berStats = ldpcCUDA.evaluateCodeCuda(seed, self.SNRpoints, self.ldpcDecoderNumOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None', cudaDeviceNumber = self.gpuDeviceNumber)
+        # OSS: I'm commenting out evaluateCodeCuda in order to use the wrapper that utilises multiple GPUs
+        #berStats = ldpcCUDA.evaluateCodeCuda(seed, self.SNRpoints, self.ldpcDecoderNumOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None', cudaDeviceNumber = self.gpuDeviceNumber)
+        berStats = ldpc.CUDA.evaluateCodeCudaWrapper(seeds, self.SNRpoints, self.ldpcDecoderNumberOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None' , numberOfCudaDevices = self.cudaDevices):
         snrAxis, averageSnrAxis, berData, averageNumberOfIterations = berStats.getStats()
-        end = time.time()
-        print('Time it took for code evaluation == %d' % (end-start))
-        print("berDecoded " + str(berData))
-        self.accumulatedEvaluationTime = self.accumulatedEvaluationTime + (end-start)
+        #end = time.time()
+        #print('Time it took for code evaluation == %d' % (end-start))
+        #print("berDecoded " + str(berData))
+        #self.accumulatedEvaluationTime = self.accumulatedEvaluationTime + (end-start)
 
         return berStats
     
