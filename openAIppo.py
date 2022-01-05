@@ -505,7 +505,7 @@ if __name__ == '__main__':
     parser.add_argument('--cpu', type=int, default=1) #Omer Sella: was 4 instead of 1
     parser.add_argument('--steps', type=int, default=32)
     parser.add_argument('--epochs', type=int, default=50)
-    parser.add_argument('--envCudaDevices', type=int, default=4)
+    parser.add_argument('--envCudaDevices', type=int, default=1)
     #parser.add_argument('--epochs', type=int, default=25) #Omer Sella: I have the 25 option for testing
     parser.add_argument('--entropyCoefficient', type=float, default = 0.01)
     parser.add_argument('--policyCoefficient', type=float, default = 1.0)
