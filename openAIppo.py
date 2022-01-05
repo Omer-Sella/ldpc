@@ -364,6 +364,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             pi_optimizer.zero_grad()
             loss_pi, pi_info = compute_loss_pi(data)
             kl = mpi_avg(pi_info['kl'])
+            assert(kl == pi_info['kl'])
             #print("*** Understanding early stopping to due kl:")
             #print(kl)
             if kl > 1.5 * target_kl:
