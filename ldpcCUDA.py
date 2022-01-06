@@ -352,18 +352,18 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
     
             while (s >= 1):
 
-            if (cuda.threadIdx.x < s):
-                partial_sum[cuda.threadIdx.x] += partial_sum[cuda.threadIdx.x + s]
+                if (cuda.threadIdx.x < s):
+                    partial_sum[cuda.threadIdx.x] += partial_sum[cuda.threadIdx.x + s]
 
-            s = s // 2
-            cuda.syncthreads()
+                s = s // 2
+                cuda.syncthreads()
         
 
             #// Let the thread 0 for this block write it's result to main memory
             #// Result is inexed by this block
             if (cuda.threadIdx.x == 0):
-            v_r[col] = partial_sum[0]
-            cuda.syncthreads()
+                v_r[col] = partial_sum[0]
+                cuda.syncthreads()
             
             return
 
@@ -371,14 +371,15 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
         def matrixSumVertical(matrix, result):
             pos = cuda.grid(1)
             if pos >= MATRIX_DIM1:
-            return
+                return
+            
             temp = 0.0
             for k in range(MATRIX_DIM0):
-            temp = temp + matrix[k,pos]
+                temp = temp + matrix[k,pos]
     
             cuda.syncthreads()
             result[pos] = temp
-            
+
             return
         
         @cuda.jit
