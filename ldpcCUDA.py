@@ -17,10 +17,14 @@ import operator
 import math
 import concurrent.futures
 from multiprocessing import Lock
-
+from __future__ import print_function
+import threading
+compiler_lock = threading.Lock()
 
 # Trying an adapted version of https://github.com/ContinuumIO/numbapro-examples/blob/master/multigpu/multigpu_mt.py
 compilerLock = Lock()
+from numba import cuda, float32, int32
+
 
 projectDir = os.environ.get('LDPC')
 if projectDir == None:
@@ -35,7 +39,7 @@ import sys
 sys.path.insert(1, projectDir)
 
 def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , cudaDeviceNumber = 0):
-    from numba import cuda, float32, int32
+    
     cuda.select_device(cudaDeviceNumber)
     device = cuda.get_current_device()
     print("*** debugging mp issues: "+ str(device))
@@ -106,7 +110,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
     
     
     
-    with compilerLock:
+    with compiler_lock:
 
 
         ############################
@@ -894,13 +898,13 @@ def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, 
     newNumOfTransmissions = numOfTransmissions // numberOfCudaDevices
     
     #Temporarily disabled for debug of cu_init error
-    print("*** debugging multiple futures. NumberOfCudaDevices: " + str(numberOfCudaDevices))
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], SNRpoints, numberOfIterations, parityMatrix, newNumOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
-        #print(results)
-    for result in concurrent.futures.as_completed(results):
-        #print(result.result())
-        berStats = berStats.add(result.result())
+    #print("*** debugging multiple futures. NumberOfCudaDevices: " + str(numberOfCudaDevices))
+    #with concurrent.futures.ProcessPoolExecutor() as executor:
+    #    results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], SNRpoints, numberOfIterations, parityMatrix, newNumOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
+    #    #print(results)
+    #for result in concurrent.futures.as_completed(results):
+    #    #print(result.result())
+    #    berStats = berStats.add(result.result())
    # 
    
     
@@ -913,7 +917,14 @@ def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, 
     #    for r in results:
     #        print(r)
     #        berStats = berStats.add(r)
-   
+    children = []
+    for cid, dev in enumerate(cuda.list_devices()):
+        t = threading.Thread(target=device_controller, args=(seeds[cid], SNRpoints, numberOfIterations, parityMatrix, newNumOfTransmissions, 'None', cid))
+        t.start()
+        children.append(t)
+
+    for t in children:
+        t.join()
     return berStats
             
 
