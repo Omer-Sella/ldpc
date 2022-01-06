@@ -17,6 +17,7 @@ import operator
 import math
 import concurrent.futures
 from multiprocessing import Lock
+from numba import cuda
 
 # Trying an adapted version of https://github.com/ContinuumIO/numbapro-examples/blob/master/multigpu/multigpu_mt.py
 compilerLock = Lock()
