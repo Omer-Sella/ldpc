@@ -19,7 +19,7 @@ GENERAL_LDPC_ENV_TYPE = np.float32
 LDPC_ENV_INT_DATA_TYPE = np.int32
 LDPC_ENV_SEED_DATA_TYPE = np.int32
 LDPC_ENV_NUMBER_OF_ITERATIONS = 50
-LDPC_ENV_NUMBER_OF_TRANSMISSIONS = 60
+LDPC_ENV_NUMBER_OF_TRANSMISSIONS = 10
 # How many seconds is a batch. Should be tested with number of iterations as well.
 #This is a way to limit the entire training process on cluster use 
 LDPC_ENV_MAXIMUM_ACCUMULATED_DECODING_TIME = 64 * LDPC_ENV_NUMBER_OF_TRANSMISSIONS
