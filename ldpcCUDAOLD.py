@@ -37,7 +37,9 @@ import asyncio
 
 # Omer Sella: in an ideal world, the value written in BIG_NUMBER would be the maximal value of float32, where float32 is on the GPU.
 BIG_NUMBER = float32(10000)
-MATRIX_DIM0 = np.int32(1022)
+# Omer Sella: I haven't tested it yet, but possibly the following should be int32 (from numba) rather than np.int32()
+#MATRIX_DIM0 = np.int32(1022)
+MATRIX_DIM0 = int32(1022)
 MATRIX_DIM1 = 8176
 CODEWORDSIZE = MATRIX_DIM1
 VECTOR_DIM = MATRIX_DIM0
