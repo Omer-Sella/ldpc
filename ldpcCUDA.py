@@ -883,7 +883,7 @@ def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, 
    # 
    
     
-    SNRList = SNRpoints * numberOfCudaDevices
+    SNRList = [SNRpoints] * numberOfCudaDevices
     print("*** debugging snr list : " + str(SNRList))
     numberOfTransmissionsList = [newNumOfTransmissions] * numberOfCudaDevices
     noneList = ['None'] * numberOfCudaDevices
