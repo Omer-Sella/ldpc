@@ -416,7 +416,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             myLogger.keyValue('jEntropy', entropyList[1].item())
             myLogger.keyValue('kEntropy', entropyList[2].item())
             myLogger.keyValue('coordinatesEntropy', entropyList[2].item())
-                        
+            print(a[-1])          
             next_o, r, d, _ = env.step(a[-1])
             myLogger.keyValue('Reward', r)
             myLogger.keyValue('epochNumber', epoch)
