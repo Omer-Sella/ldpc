@@ -882,15 +882,15 @@ def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, 
    # 
    
     
-   SNRList = SNRpoints * numberOfCudaDevices
-   numberOfTransmissionsList = [newNumOfTransmissions] * numberOfCudaDevices
-   noneList = ['None'] * numberOfCudaDevices
-   deviceList = list(range(numberOfCudaDevices))
-   with concurrent.futures.ProcessPoolExecutor() as executor:    
-       results = executor.map(evaluateCodeCuda, seeds, SNRList, numberOfTransmissionsList, noneList, deviceList)
-       for r in results:
-           print(r)
-           berStats = berStats.add(r)
+    SNRList = SNRpoints * numberOfCudaDevices
+    numberOfTransmissionsList = [newNumOfTransmissions] * numberOfCudaDevices
+    noneList = ['None'] * numberOfCudaDevices
+    deviceList = list(range(numberOfCudaDevices))
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        results = executor.map(evaluateCodeCuda, seeds, SNRList, numberOfTransmissionsList, noneList, deviceList)
+        for r in results:
+            print(r)
+            berStats = berStats.add(r)
    
     return berStats
             
