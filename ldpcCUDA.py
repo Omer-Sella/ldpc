@@ -26,484 +26,478 @@ projectDirEvals = str(projectDir) + "evaluations/"
 import sys
 sys.path.insert(1, projectDir)
 
-import fileHandler
-import common
-LDPC_LOCAL_PRNG = np.random.RandomState(7134066)
-LDPC_MAX_SEED = 2**31 - 1
-LDPC_SEED_DATA_TYPE = np.int64
-
-import asyncio
-
-# Omer Sella: in an ideal world, the value written in BIG_NUMBER would be the maximal value of float32, where float32 is on the GPU.
-BIG_NUMBER = float32(10000)
-MATRIX_DIM0 = np.int32(1022)
-MATRIX_DIM1 = 8176
-CODEWORDSIZE = MATRIX_DIM1
-VECTOR_DIM = MATRIX_DIM0
-SHARED_SIZE_0 = 1024 # AND NOT MATRIX_DIM0
-SHARED_SIZE_1 = 8196
-CONST1 = MATRIX_DIM0
-CONST2 = MATRIX_DIM1
-THREADS_PER_BLOCK = 512
-BLOCKS_PER_GRID_DIM0 = (MATRIX_DIM0 + (THREADS_PER_BLOCK - 1)) // THREADS_PER_BLOCK
-BLOCKS_PER_GRID_DIM1 = (MATRIX_DIM1 + (THREADS_PER_BLOCK - 1)) // THREADS_PER_BLOCK
-LDPC_CUDA_INT_DATA_TYPE = np.int32
-
-SHARED_MEM_VERTICAL_RECUTION = 512
-THREADS_PER_BLOCK_VERTICAL_SUM = (512, 1)
-
-BLOCKS_PER_GRID_X_VERTICAL_SUM = math.ceil(512 / THREADS_PER_BLOCK_VERTICAL_SUM[0])
-BLOCKS_PER_GRID_Y_VERTICAL_SUM = math.ceil(MATRIX_DIM1 / THREADS_PER_BLOCK_VERTICAL_SUM[1])
-BLOCKS_PER_GRID_VERTICAL_SUM = (BLOCKS_PER_GRID_X_VERTICAL_SUM, BLOCKS_PER_GRID_Y_VERTICAL_SUM)
-
-
-
-#https://docs.microsoft.com/en-us/sysinternals/downloads/process-explorer
-#https://en.wikipedia.org/wiki/Thread_block_(CUDA_programming)
-#https://numba.pydata.org/numba-doc/dev/cuda/examples.html
-
-#Omer Sella: see the following link regarding numba cuda caching
-#https://github.com/numba/numba/issues/1711
-
-
-
-############################
-
-
-@cuda.jit(device = True)
-def twoElementsLoad(lhs, lhsIndex, lhsMask, rhs, rhsIndex, rhsMask):
-    lhsLocal = lhs
-    rhsLocal = rhs
-    if lhsMask == 0:
-        lhsLocal = BIG_NUMBER
-    if rhsMask == 0:
-        rhsLocal = BIG_NUMBER
-        
-    if lhsLocal < rhsLocal:
-            smallest = lhsLocal
-            secondSmallest = rhsLocal
-            argSmallest = lhsIndex
-    else:
-            smallest = rhsLocal
-            secondSmallest = lhsLocal
-            argSmallest = rhsIndex
-    # if lhsMask == 1:
-    #     if rhsMask == 1:
-    #         if lhs < rhs:
-    #             smallest = lhs
-    #             secondSmallest = rhs
-    #             argSmallest = lhsIndex
-    #         else:
-    #             smallest = rhs
-    #             secondSmallest = lhs
-    #             argSmallest = rhsIndex
-    #     else:
-    #         smallest = lhs
-    #         secondSmallest = BIG_NUMBER
-    #         argSmallest = lhsIndex
-    # else:
-    #     if rhsMask == 1:
-    #         smallest = rhs
-    #         secondSmallest = BIG_NUMBER
-    #         argSmallest = rhsIndex
-    #     else:
-    #         smallest = BIG_NUMBER
-    #         secondSmallest = BIG_NUMBER
-    #         argSmallest = 0
-    return smallest, secondSmallest, argSmallest
-
-
-@cuda.jit(device = True)
-def twoElementsMergeSort(lhsSmallest, lhsSecondSmallest, argminLhs, rhsSmallest, rhsSecondSmallest, argminRhs):
-    
-    if (lhsSmallest < rhsSmallest):
-        resultSmallest = lhsSmallest
-        resultSecondSmallest = min(rhsSmallest, lhsSecondSmallest)
-        resultArgmin = argminLhs
-    else:
-        resultSmallest = rhsSmallest
-        resultSecondSmallest = min(lhsSmallest, rhsSecondSmallest)
-        resultArgmin = argminRhs
-    return resultSmallest, resultSecondSmallest, resultArgmin
-    
-        
-SHARED_MEMORY_SIZE_LOCATE_TWO_SMALLEST_HORIZONTAL = 1024
-THREADS_PER_BLOCK_LOCATE_TWO_SMALLEST_HORIZONTAL_2D = (1,1022)
-BLOCKS_PER_GRID_X_LOCATE_TWO_SMALLEST_HORIZONTAL_2D = math.ceil(MATRIX_DIM0 / THREADS_PER_BLOCK_LOCATE_TWO_SMALLEST_HORIZONTAL_2D[0])
-BLOCKS_PER_GRID_Y_LOCATE_TWO_SMALLEST_HORIZONTAL_2D = 1 #math.ceil(MATRIX_DIM1 / THREADS_PER_BLOCK_LOCATE_TWO_SMALLEST_HORIZONTAL_2D[1])
-BLOCKS_PER_GRID_LOCATE_TWO_SMALLEST_HORIZONTAL_2D = (BLOCKS_PER_GRID_X_LOCATE_TWO_SMALLEST_HORIZONTAL_2D, BLOCKS_PER_GRID_Y_LOCATE_TWO_SMALLEST_HORIZONTAL_2D)
-
-
-@cuda.jit
-def locateTwoSmallestHorizontal2DV2(M, parityVector, smallest, secondSmallest, argmin):
-    # Omer Sella: this kernel is highly specific to the 8176 X 1022 size.
-    # It is intended to be used in blocks of 1X1022. Possibly could work for 2X1022 - untested.
-    
-    partialSmallest = cuda.shared.array(SHARED_MEMORY_SIZE_LOCATE_TWO_SMALLEST_HORIZONTAL, dtype = float32)
-    partialSecondSmallest = cuda.shared.array(SHARED_MEMORY_SIZE_LOCATE_TWO_SMALLEST_HORIZONTAL, dtype = float32)
-    argminSmallest = cuda.shared.array(SHARED_MEMORY_SIZE_LOCATE_TWO_SMALLEST_HORIZONTAL, dtype = float32)
-    if (cuda.threadIdx.x == 0):
-        partialSmallest[1022] = BIG_NUMBER
-        partialSmallest[1023] = BIG_NUMBER
-        partialSecondSmallest[1023] = BIG_NUMBER
-        partialSecondSmallest[1023] = BIG_NUMBER
-    cuda.syncthreads()
-    row,col = cuda.grid(2)
-    
-    threadIdxX = cuda.threadIdx.y
-    offset = cuda.blockDim.y
-    
-    i = cuda.blockIdx.y * cuda.blockDim.y * 2 + cuda.threadIdx.y
-    i_offset = i + offset
-    
-    
-    partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX] = twoElementsLoad(abs(M[row, i]), i, parityVector[row, i], abs(M[row, i_offset]), i_offset, parityVector[row, i_offset])
-    for j in range(1,4):
-        i = j * cuda.blockDim.y * 2 + cuda.threadIdx.y
-        a,b,c = twoElementsLoad(abs(M[row, i]), i, parityVector[row, i], abs(M[row, i + offset]), i + offset, parityVector[row, i + offset])
-        partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX] = twoElementsMergeSort(partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX], a, b, c)
-        cuda.syncthreads()
-
-    
-    s = 512
-    if (threadIdxX < s):
-            partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX] = twoElementsMergeSort(partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX], partialSmallest[threadIdxX + s], partialSecondSmallest[threadIdxX + s], argminSmallest[threadIdxX + s])
-            cuda.syncthreads()
-    s = 256
-    while (s > 0):
-        if (threadIdxX < s):
-            partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX] = twoElementsMergeSort(partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX], partialSmallest[threadIdxX + s], partialSecondSmallest[threadIdxX + s], argminSmallest[threadIdxX + s])
-            cuda.syncthreads()
-        s = s // 2
-   
-      # if (threadIdxX < s):
-      #         partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX] = twoElementsMergeSort(partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX], partialSmallest[threadIdxX + s], partialSecondSmallest[threadIdxX + s], argminSmallest[threadIdxX + s])
-      #         cuda.syncthreads()
-        
-
- 	  # # #// Let the thread 0 for this block write it's result to main memory
- 	  # # #// Result is inexed by this block
-    
-    if (cuda.threadIdx.y == 0):
-          smallest[row] = partialSmallest[0]#cuda.blockIdx.x#
-          secondSmallest[row] = partialSecondSmallest[0]
-          argmin[row] = argminSmallest[0]
-          cuda.syncthreads()
-############################
-
-
-@cuda.jit(device = True)
-def extendedSign(operand):
-    if operand < 0:
-        return -1
-    else:
-        return 1
-    
-@cuda.jit
-def signReduceHorizontal(matrix, signVector):
-
-        pos = cuda.grid(1)
-        localSign = 1        
-        for j in range(MATRIX_DIM1):
-            localSign = localSign * extendedSign(matrix[pos,j])
-                
-        signVector[pos] = localSign
-        cuda.syncthreads()
-        return
-
-# Omer Sella: this function takes a matrix as an input and finds :
-# 1. The two smallest elements in every row (in absolute values)
-# 2. The location of (the) minimum.
-# 3. The number of negatives in every row
-@cuda.jit
-def findMinimaAndNumberOfNegatives(parityMatrix, matrix, smallest, secondSmallest, locationOfMinimum):
-
-        pos = cuda.grid(1)
-        
-        
-        # Omer Sella: init local variables
-        localLocationOfMinimum = -1
-        localSmallest = BIG_NUMBER
-        localSecondSmallest = BIG_NUMBER
-        localNumberOfNegatives =  0
-        
-        # First implementation: go over the row and extract the information
-        for j in range(MATRIX_DIM1):
-            if parityMatrix[pos,j] == 1:
-                element = matrix[pos,j]
-                if element < 0:
-                    element = -1 * matrix[pos,j]
-                else:
-                    pass
-                
-                if element < localSmallest:
-                    localSecondSmallest = localSmallest
-                    localSmallest = element
-                    localLocationOfMinimum = j
-                elif element < localSecondSmallest:
-                    localSecondSmallest = element
-                else:
-                    pass
-            else:
-                pass
-        # Omer Sella: now communicate thread specific results into the arrays
-        smallest[pos] = localSmallest
-        secondSmallest[pos] = localSecondSmallest
-        locationOfMinimum[pos] = localLocationOfMinimum
-        
-        # Omer Sella: CUDA voodoo
-        cuda.syncthreads()
-        return
-
-
-THREADS_PER_BLOCK_PRODUCE_NEW_MATRIX_2D = (2,511)
-# (511,2) 576.11 micro
-# (1022,1) 724.48 micro
-# (2,511) 472.58 micro
-BLOCKS_PER_GRID_X_PRODUCE_NEW_MATRIX_2D = math.ceil(MATRIX_DIM0 / THREADS_PER_BLOCK_PRODUCE_NEW_MATRIX_2D[0])
-BLOCKS_PER_GRID_Y_PRODUCE_NEW_MATRIX_2D = math.ceil(MATRIX_DIM1 / THREADS_PER_BLOCK_PRODUCE_NEW_MATRIX_2D[1])
-BLOCKS_PER_GRID_PRODUCE_NEW_MATRIX_2D = (BLOCKS_PER_GRID_X_PRODUCE_NEW_MATRIX_2D, BLOCKS_PER_GRID_Y_PRODUCE_NEW_MATRIX_2D)
-
-
-@cuda.jit
-def produceNewMatrix2D(parityMatrix, matrix, smallest, secondSmallest, locationOfMinimum, signProduct, newMatrix):
-        
-    i,j = cuda.grid(2)
-    
-    localSecondSmallest = secondSmallest[i]
-    localSmallest = smallest[i]
-    localLocationOfMinimum = locationOfMinimum[i]
-    localSignProduct = signProduct[i]
-    localMask = parityMatrix[i,j]
-    
-    if matrix[i,j] >= 0:
-        localSign = 1
-    else:
-        localSign = -1
-    
-    temp = 0.0
-    if j == localLocationOfMinimum:
-        temp = localSecondSmallest
-    else:
-        temp = localSmallest
-    newMatrix[i,j] = localMask * temp * localSignProduct * localSign
-    
-    return
-
-
-@cuda.jit
-def maskedFanOut(mask, vector, matrix):
-    
-    pos = cuda.grid(1)
-    
-    #if pos >= MATRIX_DIM1:
-    if pos > MATRIX_DIM1:
-        return
-    localValue = vector[pos]
-    cuda.syncthreads()
-    
-    
-    
-    for k in range(MATRIX_DIM0):
-        #matrix[k,pos] = vector[pos]
-        if mask[k,pos] == 1:
-            matrix[k,pos] = localValue
-        else:
-            matrix[k,pos] = 0.0
-    cuda.syncthreads()
-    return
-
-
-
-@cuda.jit
-def sumReduction2DVertical(M, v_r):
-	
-    partial_sum = cuda.shared.array(SHARED_MEM_VERTICAL_RECUTION, dtype = float32)
-    
-	
-    row, col = cuda.grid(2) #cuda.blockIdx.x * (cuda.blockDim.x * 2) + cuda.threadIdx.x
-    
-    
-    if ((row + cuda.blockDim.x) < M.shape[0]):
-        partial_sum[cuda.threadIdx.x] = M[row, col] + M[row + cuda.blockDim.x, col]
-    else:
-        partial_sum[cuda.threadIdx.x] = M[row, col]
-    cuda.syncthreads()
-
-	#// Iterate of log base 2 the block dimension
-    s = cuda.blockDim.x // 2
-    
-    while (s >= 1):
-
-        if (cuda.threadIdx.x < s):
-            partial_sum[cuda.threadIdx.x] += partial_sum[cuda.threadIdx.x + s]
-
-        s = s // 2
-        cuda.syncthreads()
-        
-
-	#// Let the thread 0 for this block write it's result to main memory
-	#// Result is inexed by this block
-    if (cuda.threadIdx.x == 0):
-        v_r[col] = partial_sum[0]
-        cuda.syncthreads()
-
-@cuda.jit
-def matrixSumVertical(matrix, result):
-    pos = cuda.grid(1)
-    if pos >= MATRIX_DIM1:
-        return
-    temp = 0.0
-    for k in range(MATRIX_DIM0):
-        temp = temp + matrix[k,pos]
-    
-    cuda.syncthreads()
-    result[pos] = temp
-    return
-        
-@cuda.jit
-def slicerCuda(vector, slicedVector):
-    ## Omer Sella: slicer puts a threshold, everything STRICTLY above 0 is translated to 1,  otherwise 0 (including equality). Do not confuse with the reserved function name slice !
-    pos = cuda.grid(1)
-    #print(pos)
-    if pos >= MATRIX_DIM1:
-        return
-    if vector[pos] > 0:
-        slicedVector[pos] = 1
-    else:
-        slicedVector[pos] = 0 
-    cuda.syncthreads()
-    return
-
-    
-@cuda.jit        
-def resetVector(v):
-    k = cuda.grid(1)
-    v[k] = 0.0
-    
-
-THREADS_PER_BLOCK_BINARY_CALC = (1022,1)
-BLOCKS_PER_GRID_X_BINARY = math.ceil(MATRIX_DIM0 / THREADS_PER_BLOCK_BINARY_CALC[0])
-BLOCKS_PER_GRID_Y_BINARY = math.ceil(MATRIX_DIM1 / THREADS_PER_BLOCK_BINARY_CALC[1])
-BLOCKS_PER_GRID_BINARY_CALC = (BLOCKS_PER_GRID_X_BINARY, BLOCKS_PER_GRID_Y_BINARY)
-
-@cuda.jit
-def calcBinaryProduct2(parityMatrix, binaryVector, resultVector):
-    
-    i,j = cuda.grid(2)
-    if binaryVector[j] != 0:
-        cuda.atomic.add(resultVector, i, parityMatrix[i,j])
-
-@cuda.jit        
-def mod2Vector(v):
-    k = cuda.grid(1)
-    ## OSS 10/11/2021 added a boundary check, there seems to have been a bug caused by access to uncharted memory at v[MATRIX_DIM0]
-    if k >= MATRIX_DIM0:
-        return
-    v[k] = v[k] % 2
-    
-
-@cuda.jit
-def numberOfNegativesToProductOfSigns(numberOfNegatives_device,productOfSigns_device):
-    pos = cuda.grid(1)
-    if pos >= MATRIX_DIM0:
-        return
-    else:
-        productOfSigns_device[pos] = -1 * ( ( 2 * (numberOfNegatives_device[pos] % 2) ) - 1)
-    return
-
-@cuda.jit
-def cudaPlusDim1(softVector_device,fromChannel_device):
-    pos = cuda.grid(1)
-    if pos >= MATRIX_DIM1:
-        return
-    else:
-        softVector_device[pos] += fromChannel_device[pos]
-    return
-
-
-
-THREADS_PER_BLOCK_MATRIX_MINUS_2D = (1,1022)
-# (2,511) 295 micro
-# (511,2) 1.64 mili
-# (2,1022) Doesn't work
-# (1,1022) 276 micro
-#
-BLOCKS_PER_GRID_X_MATRIX_MINUS_2D = math.ceil(MATRIX_DIM0 / THREADS_PER_BLOCK_MATRIX_MINUS_2D[0])
-BLOCKS_PER_GRID_Y_MATRIX_MINUS_2D = math.ceil(MATRIX_DIM1 / THREADS_PER_BLOCK_MATRIX_MINUS_2D[1])
-BLOCKS_PER_GRID_MATRIX_MINUS_2D = (BLOCKS_PER_GRID_X_MATRIX_MINUS_2D, BLOCKS_PER_GRID_Y_MATRIX_MINUS_2D)
-
-@cuda.jit
-def cudaMatrixMinus2D(A,B):
-    i, j = cuda.grid(2)
-    A[i,j] -= B[i,j]
-
-
-@cuda.jit
-def checkIsCodeword(vector, result):
-    sdata = cuda.shared.array(MATRIX_DIM1, dtype = float32)
-    
-    pos = cuda.grid(1)
-    
-    if pos >= MATRIX_DIM0:
-        return
-    sdata[pos] = 0
-    if vector[pos] != 0:
-        sdata[0] = sdata[0] + vector[pos]
-        cuda.syncthreads()
-    cuda.syncthreads()
-
-    if pos == 0:
-        result[0] = sdata[0]
-
-@cuda.jit
-def numberOfNonZeros(vector, result):
-    
-    pos = cuda.grid(1)
-    if pos >= MATRIX_DIM1:
-        return
-    
-    if vector[pos] != 0:
-        cuda.atomic.add(result, 1 , 1)
-        #oss 25/11/2021 I removed cuda.syncthreads() from this line this it caused the kernel to halt the GPU when moving to cuda 10.1
-    cuda.syncthreads()
-
-def slicer(vector):
-    ## Omer Sella: slicer puts a threshold, everything above 0 is translated to 1,  otherwise 0 (including equality). Do not confuse with the reserved function name slice !
-    slicedVector = np.ones(MATRIX_DIM1, dtype = LDPC_CUDA_INT_DATA_TYPE)
-    slicedVector[np.where(vector <= 0)] = 0
-    return slicedVector
-
-
-def modulate(vector, length):
-    modulatedVector = np.ones(length, dtype = np.float32)
-    modulatedVector[np.where(vector == 0)] = -1
-    return modulatedVector
-
-def addAWGN(vector, length, SNRdb, prng):
-    ## The input SNR is in db so first convert:
-    SNR = 10 ** (SNRdb/10)
-    ## Now use the definition: SNR = signal^2 / sigma^2
-    sigma = np.sqrt(0.5 / SNR)
-    noise = np.float32(prng.normal(0, sigma, length))
-    sigmaActual = np.sqrt((np.sum(noise ** 2)) / length)
-    noisyVector = vector + noise
-    return noisyVector, sigma, sigmaActual
-
-def AWGNarray(dim0, dim1, SNRdb, prng):
-    ## The input SNR is in db so first convert:
-    SNR = 10 ** (SNRdb/10)
-    ## Now use the definition: SNR = signal^2 / sigma^2
-    sigma = np.sqrt(0.5 / SNR)
-    noise = np.float32(prng.normal(0, sigma, (dim0, dim1)))
-    sigmaActual = np.sum(noise ** 2, axis = 1) / dim1
-    sigmaActual = np.sqrt( sigmaActual )
-    return noise, sigma, sigmaActual
-    
-
-
 def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , cudaDeviceNumber = 0):
+    import fileHandler
+    import common
+    LDPC_LOCAL_PRNG = np.random.RandomState(7134066)
+    LDPC_MAX_SEED = 2**31 - 1
+    LDPC_SEED_DATA_TYPE = np.int64
+    # Omer Sella: in an ideal world, the value written in BIG_NUMBER would be the maximal value of float32, where float32 is on the GPU.
+    BIG_NUMBER = float32(10000)
+    MATRIX_DIM0 = np.int32(1022)
+    MATRIX_DIM1 = 8176
+    CODEWORDSIZE = MATRIX_DIM1
+    VECTOR_DIM = MATRIX_DIM0
+    SHARED_SIZE_0 = 1024 # AND NOT MATRIX_DIM0
+    SHARED_SIZE_1 = 8196
+    CONST1 = MATRIX_DIM0
+    CONST2 = MATRIX_DIM1
+    THREADS_PER_BLOCK = 512
+    BLOCKS_PER_GRID_DIM0 = (MATRIX_DIM0 + (THREADS_PER_BLOCK - 1)) // THREADS_PER_BLOCK
+    BLOCKS_PER_GRID_DIM1 = (MATRIX_DIM1 + (THREADS_PER_BLOCK - 1)) // THREADS_PER_BLOCK
+    LDPC_CUDA_INT_DATA_TYPE = np.int32
+
+    SHARED_MEM_VERTICAL_RECUTION = 512
+    THREADS_PER_BLOCK_VERTICAL_SUM = (512, 1)
+
+    BLOCKS_PER_GRID_X_VERTICAL_SUM = math.ceil(512 / THREADS_PER_BLOCK_VERTICAL_SUM[0])
+    BLOCKS_PER_GRID_Y_VERTICAL_SUM = math.ceil(MATRIX_DIM1 / THREADS_PER_BLOCK_VERTICAL_SUM[1])
+    BLOCKS_PER_GRID_VERTICAL_SUM = (BLOCKS_PER_GRID_X_VERTICAL_SUM, BLOCKS_PER_GRID_Y_VERTICAL_SUM)
+
+
+
+    #https://docs.microsoft.com/en-us/sysinternals/downloads/process-explorer
+    #https://en.wikipedia.org/wiki/Thread_block_(CUDA_programming)
+    #https://numba.pydata.org/numba-doc/dev/cuda/examples.html
+
+    #Omer Sella: see the following link regarding numba cuda caching
+    #https://github.com/numba/numba/issues/1711
+
+
+
+    ############################
+
     from numba import cuda, float32, int32
+    @cuda.jit(device = True)
+    def twoElementsLoad(lhs, lhsIndex, lhsMask, rhs, rhsIndex, rhsMask):
+        lhsLocal = lhs
+        rhsLocal = rhs
+        if lhsMask == 0:
+            lhsLocal = BIG_NUMBER
+        if rhsMask == 0:
+            rhsLocal = BIG_NUMBER
+        
+        if lhsLocal < rhsLocal:
+                smallest = lhsLocal
+                secondSmallest = rhsLocal
+                argSmallest = lhsIndex
+        else:
+                smallest = rhsLocal
+                secondSmallest = lhsLocal
+                argSmallest = rhsIndex
+        # if lhsMask == 1:
+        #     if rhsMask == 1:
+        #         if lhs < rhs:
+        #             smallest = lhs
+        #             secondSmallest = rhs
+        #             argSmallest = lhsIndex
+        #         else:
+        #             smallest = rhs
+        #             secondSmallest = lhs
+        #             argSmallest = rhsIndex
+        #     else:
+        #         smallest = lhs
+        #         secondSmallest = BIG_NUMBER
+        #         argSmallest = lhsIndex
+        # else:
+        #     if rhsMask == 1:
+        #         smallest = rhs
+        #         secondSmallest = BIG_NUMBER
+        #         argSmallest = rhsIndex
+        #     else:
+        #         smallest = BIG_NUMBER
+        #         secondSmallest = BIG_NUMBER
+        #         argSmallest = 0
+        return smallest, secondSmallest, argSmallest
+
+
+    @cuda.jit(device = True)
+    def twoElementsMergeSort(lhsSmallest, lhsSecondSmallest, argminLhs, rhsSmallest, rhsSecondSmallest, argminRhs):
+    
+        if (lhsSmallest < rhsSmallest):
+            resultSmallest = lhsSmallest
+            resultSecondSmallest = min(rhsSmallest, lhsSecondSmallest)
+            resultArgmin = argminLhs
+        else:
+            resultSmallest = rhsSmallest
+            resultSecondSmallest = min(lhsSmallest, rhsSecondSmallest)
+            resultArgmin = argminRhs
+        return resultSmallest, resultSecondSmallest, resultArgmin
+    
+        
+    SHARED_MEMORY_SIZE_LOCATE_TWO_SMALLEST_HORIZONTAL = 1024
+    THREADS_PER_BLOCK_LOCATE_TWO_SMALLEST_HORIZONTAL_2D = (1,1022)
+    BLOCKS_PER_GRID_X_LOCATE_TWO_SMALLEST_HORIZONTAL_2D = math.ceil(MATRIX_DIM0 / THREADS_PER_BLOCK_LOCATE_TWO_SMALLEST_HORIZONTAL_2D[0])
+    BLOCKS_PER_GRID_Y_LOCATE_TWO_SMALLEST_HORIZONTAL_2D = 1 #math.ceil(MATRIX_DIM1 / THREADS_PER_BLOCK_LOCATE_TWO_SMALLEST_HORIZONTAL_2D[1])
+    BLOCKS_PER_GRID_LOCATE_TWO_SMALLEST_HORIZONTAL_2D = (BLOCKS_PER_GRID_X_LOCATE_TWO_SMALLEST_HORIZONTAL_2D, BLOCKS_PER_GRID_Y_LOCATE_TWO_SMALLEST_HORIZONTAL_2D)
+
+
+    @cuda.jit
+    def locateTwoSmallestHorizontal2DV2(M, parityVector, smallest, secondSmallest, argmin):
+        # Omer Sella: this kernel is highly specific to the 8176 X 1022 size.
+        # It is intended to be used in blocks of 1X1022. Possibly could work for 2X1022 - untested.
+    
+        partialSmallest = cuda.shared.array(SHARED_MEMORY_SIZE_LOCATE_TWO_SMALLEST_HORIZONTAL, dtype = float32)
+        partialSecondSmallest = cuda.shared.array(SHARED_MEMORY_SIZE_LOCATE_TWO_SMALLEST_HORIZONTAL, dtype = float32)
+        argminSmallest = cuda.shared.array(SHARED_MEMORY_SIZE_LOCATE_TWO_SMALLEST_HORIZONTAL, dtype = float32)
+        if (cuda.threadIdx.x == 0):
+            partialSmallest[1022] = BIG_NUMBER
+            partialSmallest[1023] = BIG_NUMBER
+            partialSecondSmallest[1023] = BIG_NUMBER
+            partialSecondSmallest[1023] = BIG_NUMBER
+        cuda.syncthreads()
+        row,col = cuda.grid(2)
+    
+        threadIdxX = cuda.threadIdx.y
+        offset = cuda.blockDim.y
+    
+        i = cuda.blockIdx.y * cuda.blockDim.y * 2 + cuda.threadIdx.y
+        i_offset = i + offset
+    
+    
+        partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX] = twoElementsLoad(abs(M[row, i]), i, parityVector[row, i], abs(M[row, i_offset]), i_offset, parityVector[row, i_offset])
+        for j in range(1,4):
+            i = j * cuda.blockDim.y * 2 + cuda.threadIdx.y
+            a,b,c = twoElementsLoad(abs(M[row, i]), i, parityVector[row, i], abs(M[row, i + offset]), i + offset, parityVector[row, i + offset])
+            partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX] = twoElementsMergeSort(partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX], a, b, c)
+            cuda.syncthreads()
+
+    
+        s = 512
+        if (threadIdxX < s):
+                partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX] = twoElementsMergeSort(partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX], partialSmallest[threadIdxX + s], partialSecondSmallest[threadIdxX + s], argminSmallest[threadIdxX + s])
+                cuda.syncthreads()
+        s = 256
+        while (s > 0):
+            if (threadIdxX < s):
+                partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX] = twoElementsMergeSort(partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX], partialSmallest[threadIdxX + s], partialSecondSmallest[threadIdxX + s], argminSmallest[threadIdxX + s])
+                cuda.syncthreads()
+            s = s // 2
+   
+          # if (threadIdxX < s):
+          #         partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX] = twoElementsMergeSort(partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX], partialSmallest[threadIdxX + s], partialSecondSmallest[threadIdxX + s], argminSmallest[threadIdxX + s])
+          #         cuda.syncthreads()
+        
+
+ 	      # # #// Let the thread 0 for this block write it's result to main memory
+ 	      # # #// Result is inexed by this block
+    
+        if (cuda.threadIdx.y == 0):
+              smallest[row] = partialSmallest[0]#cuda.blockIdx.x#
+              secondSmallest[row] = partialSecondSmallest[0]
+              argmin[row] = argminSmallest[0]
+              cuda.syncthreads()
+    ############################
+
+
+    @cuda.jit(device = True)
+    def extendedSign(operand):
+        if operand < 0:
+            return -1
+        else:
+            return 1
+    
+    @cuda.jit
+    def signReduceHorizontal(matrix, signVector):
+
+            pos = cuda.grid(1)
+            localSign = 1        
+            for j in range(MATRIX_DIM1):
+                localSign = localSign * extendedSign(matrix[pos,j])
+                
+            signVector[pos] = localSign
+            cuda.syncthreads()
+            return
+
+    # Omer Sella: this function takes a matrix as an input and finds :
+    # 1. The two smallest elements in every row (in absolute values)
+    # 2. The location of (the) minimum.
+    # 3. The number of negatives in every row
+    @cuda.jit
+    def findMinimaAndNumberOfNegatives(parityMatrix, matrix, smallest, secondSmallest, locationOfMinimum):
+
+            pos = cuda.grid(1)
+        
+        
+            # Omer Sella: init local variables
+            localLocationOfMinimum = -1
+            localSmallest = BIG_NUMBER
+            localSecondSmallest = BIG_NUMBER
+            localNumberOfNegatives =  0
+        
+            # First implementation: go over the row and extract the information
+            for j in range(MATRIX_DIM1):
+                if parityMatrix[pos,j] == 1:
+                    element = matrix[pos,j]
+                    if element < 0:
+                        element = -1 * matrix[pos,j]
+                    else:
+                        pass
+                
+                    if element < localSmallest:
+                        localSecondSmallest = localSmallest
+                        localSmallest = element
+                        localLocationOfMinimum = j
+                    elif element < localSecondSmallest:
+                        localSecondSmallest = element
+                    else:
+                        pass
+                else:
+                    pass
+            # Omer Sella: now communicate thread specific results into the arrays
+            smallest[pos] = localSmallest
+            secondSmallest[pos] = localSecondSmallest
+            locationOfMinimum[pos] = localLocationOfMinimum
+        
+            # Omer Sella: CUDA voodoo
+            cuda.syncthreads()
+            return
+
+
+    THREADS_PER_BLOCK_PRODUCE_NEW_MATRIX_2D = (2,511)
+    # (511,2) 576.11 micro
+    # (1022,1) 724.48 micro
+    # (2,511) 472.58 micro
+    BLOCKS_PER_GRID_X_PRODUCE_NEW_MATRIX_2D = math.ceil(MATRIX_DIM0 / THREADS_PER_BLOCK_PRODUCE_NEW_MATRIX_2D[0])
+    BLOCKS_PER_GRID_Y_PRODUCE_NEW_MATRIX_2D = math.ceil(MATRIX_DIM1 / THREADS_PER_BLOCK_PRODUCE_NEW_MATRIX_2D[1])
+    BLOCKS_PER_GRID_PRODUCE_NEW_MATRIX_2D = (BLOCKS_PER_GRID_X_PRODUCE_NEW_MATRIX_2D, BLOCKS_PER_GRID_Y_PRODUCE_NEW_MATRIX_2D)
+
+
+    @cuda.jit
+    def produceNewMatrix2D(parityMatrix, matrix, smallest, secondSmallest, locationOfMinimum, signProduct, newMatrix):
+        
+        i,j = cuda.grid(2)
+    
+        localSecondSmallest = secondSmallest[i]
+        localSmallest = smallest[i]
+        localLocationOfMinimum = locationOfMinimum[i]
+        localSignProduct = signProduct[i]
+        localMask = parityMatrix[i,j]
+    
+        if matrix[i,j] >= 0:
+            localSign = 1
+        else:
+            localSign = -1
+    
+        temp = 0.0
+        if j == localLocationOfMinimum:
+            temp = localSecondSmallest
+        else:
+            temp = localSmallest
+        newMatrix[i,j] = localMask * temp * localSignProduct * localSign
+    
+        return
+
+
+    @cuda.jit
+    def maskedFanOut(mask, vector, matrix):
+    
+        pos = cuda.grid(1)
+    
+        #if pos >= MATRIX_DIM1:
+        if pos > MATRIX_DIM1:
+            return
+        localValue = vector[pos]
+        cuda.syncthreads()
+    
+    
+    
+        for k in range(MATRIX_DIM0):
+            #matrix[k,pos] = vector[pos]
+            if mask[k,pos] == 1:
+                matrix[k,pos] = localValue
+            else:
+                matrix[k,pos] = 0.0
+        cuda.syncthreads()
+        return
+
+
+
+    @cuda.jit
+    def sumReduction2DVertical(M, v_r):
+	
+        partial_sum = cuda.shared.array(SHARED_MEM_VERTICAL_RECUTION, dtype = float32)
+    
+	
+        row, col = cuda.grid(2) #cuda.blockIdx.x * (cuda.blockDim.x * 2) + cuda.threadIdx.x
+    
+    
+        if ((row + cuda.blockDim.x) < M.shape[0]):
+            partial_sum[cuda.threadIdx.x] = M[row, col] + M[row + cuda.blockDim.x, col]
+        else:
+            partial_sum[cuda.threadIdx.x] = M[row, col]
+        cuda.syncthreads()
+
+	    #// Iterate of log base 2 the block dimension
+        s = cuda.blockDim.x // 2
+    
+        while (s >= 1):
+
+            if (cuda.threadIdx.x < s):
+                partial_sum[cuda.threadIdx.x] += partial_sum[cuda.threadIdx.x + s]
+
+            s = s // 2
+            cuda.syncthreads()
+        
+
+	    #// Let the thread 0 for this block write it's result to main memory
+	    #// Result is inexed by this block
+        if (cuda.threadIdx.x == 0):
+            v_r[col] = partial_sum[0]
+            cuda.syncthreads()
+
+    @cuda.jit
+    def matrixSumVertical(matrix, result):
+        pos = cuda.grid(1)
+        if pos >= MATRIX_DIM1:
+            return
+        temp = 0.0
+        for k in range(MATRIX_DIM0):
+            temp = temp + matrix[k,pos]
+    
+        cuda.syncthreads()
+        result[pos] = temp
+        return
+        
+    @cuda.jit
+    def slicerCuda(vector, slicedVector):
+        ## Omer Sella: slicer puts a threshold, everything STRICTLY above 0 is translated to 1,  otherwise 0 (including equality). Do not confuse with the reserved function name slice !
+        pos = cuda.grid(1)
+        #print(pos)
+        if pos >= MATRIX_DIM1:
+            return
+        if vector[pos] > 0:
+            slicedVector[pos] = 1
+        else:
+            slicedVector[pos] = 0 
+        cuda.syncthreads()
+        return
+
+    
+    @cuda.jit        
+    def resetVector(v):
+        k = cuda.grid(1)
+        v[k] = 0.0
+    
+
+    THREADS_PER_BLOCK_BINARY_CALC = (1022,1)
+    BLOCKS_PER_GRID_X_BINARY = math.ceil(MATRIX_DIM0 / THREADS_PER_BLOCK_BINARY_CALC[0])
+    BLOCKS_PER_GRID_Y_BINARY = math.ceil(MATRIX_DIM1 / THREADS_PER_BLOCK_BINARY_CALC[1])
+    BLOCKS_PER_GRID_BINARY_CALC = (BLOCKS_PER_GRID_X_BINARY, BLOCKS_PER_GRID_Y_BINARY)
+
+    @cuda.jit
+    def calcBinaryProduct2(parityMatrix, binaryVector, resultVector):
+    
+        i,j = cuda.grid(2)
+        if binaryVector[j] != 0:
+            cuda.atomic.add(resultVector, i, parityMatrix[i,j])
+
+    @cuda.jit        
+    def mod2Vector(v):
+        k = cuda.grid(1)
+        ## OSS 10/11/2021 added a boundary check, there seems to have been a bug caused by access to uncharted memory at v[MATRIX_DIM0]
+        if k >= MATRIX_DIM0:
+            return
+        v[k] = v[k] % 2
+    
+
+    @cuda.jit
+    def numberOfNegativesToProductOfSigns(numberOfNegatives_device,productOfSigns_device):
+        pos = cuda.grid(1)
+        if pos >= MATRIX_DIM0:
+            return
+        else:
+            productOfSigns_device[pos] = -1 * ( ( 2 * (numberOfNegatives_device[pos] % 2) ) - 1)
+        return
+
+    @cuda.jit
+    def cudaPlusDim1(softVector_device,fromChannel_device):
+        pos = cuda.grid(1)
+        if pos >= MATRIX_DIM1:
+            return
+        else:
+            softVector_device[pos] += fromChannel_device[pos]
+        return
+
+
+
+    THREADS_PER_BLOCK_MATRIX_MINUS_2D = (1,1022)
+    # (2,511) 295 micro
+    # (511,2) 1.64 mili
+    # (2,1022) Doesn't work
+    # (1,1022) 276 micro
+    #
+    BLOCKS_PER_GRID_X_MATRIX_MINUS_2D = math.ceil(MATRIX_DIM0 / THREADS_PER_BLOCK_MATRIX_MINUS_2D[0])
+    BLOCKS_PER_GRID_Y_MATRIX_MINUS_2D = math.ceil(MATRIX_DIM1 / THREADS_PER_BLOCK_MATRIX_MINUS_2D[1])
+    BLOCKS_PER_GRID_MATRIX_MINUS_2D = (BLOCKS_PER_GRID_X_MATRIX_MINUS_2D, BLOCKS_PER_GRID_Y_MATRIX_MINUS_2D)
+
+    @cuda.jit
+    def cudaMatrixMinus2D(A,B):
+        i, j = cuda.grid(2)
+        A[i,j] -= B[i,j]
+
+
+    @cuda.jit
+    def checkIsCodeword(vector, result):
+        sdata = cuda.shared.array(MATRIX_DIM1, dtype = float32)
+    
+        pos = cuda.grid(1)
+    
+        if pos >= MATRIX_DIM0:
+            return
+        sdata[pos] = 0
+        if vector[pos] != 0:
+            sdata[0] = sdata[0] + vector[pos]
+            cuda.syncthreads()
+        cuda.syncthreads()
+
+        if pos == 0:
+            result[0] = sdata[0]
+
+    @cuda.jit
+    def numberOfNonZeros(vector, result):
+    
+        pos = cuda.grid(1)
+        if pos >= MATRIX_DIM1:
+            return
+    
+        if vector[pos] != 0:
+            cuda.atomic.add(result, 1 , 1)
+            #oss 25/11/2021 I removed cuda.syncthreads() from this line this it caused the kernel to halt the GPU when moving to cuda 10.1
+        cuda.syncthreads()
+
+    def slicer(vector):
+        ## Omer Sella: slicer puts a threshold, everything above 0 is translated to 1,  otherwise 0 (including equality). Do not confuse with the reserved function name slice !
+        slicedVector = np.ones(MATRIX_DIM1, dtype = LDPC_CUDA_INT_DATA_TYPE)
+        slicedVector[np.where(vector <= 0)] = 0
+        return slicedVector
+
+
+    def modulate(vector, length):
+        modulatedVector = np.ones(length, dtype = np.float32)
+        modulatedVector[np.where(vector == 0)] = -1
+        return modulatedVector
+
+    def addAWGN(vector, length, SNRdb, prng):
+        ## The input SNR is in db so first convert:
+        SNR = 10 ** (SNRdb/10)
+        ## Now use the definition: SNR = signal^2 / sigma^2
+        sigma = np.sqrt(0.5 / SNR)
+        noise = np.float32(prng.normal(0, sigma, length))
+        sigmaActual = np.sqrt((np.sum(noise ** 2)) / length)
+        noisyVector = vector + noise
+        return noisyVector, sigma, sigmaActual
+
+    def AWGNarray(dim0, dim1, SNRdb, prng):
+        ## The input SNR is in db so first convert:
+        SNR = 10 ** (SNRdb/10)
+        ## Now use the definition: SNR = signal^2 / sigma^2
+        sigma = np.sqrt(0.5 / SNR)
+        noise = np.float32(prng.normal(0, sigma, (dim0, dim1)))
+        sigmaActual = np.sum(noise ** 2, axis = 1) / dim1
+        sigmaActual = np.sqrt( sigmaActual )
+        return noise, sigma, sigmaActual
+    
     cuda.select_device(cudaDeviceNumber)
     # Concurrent futures require the seed to be between 0 and 2**32 -1
     #assert (np.dtype(seed) == np.int32)
