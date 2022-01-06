@@ -37,7 +37,7 @@ import asyncio
 
 # Omer Sella: in an ideal world, the value written in BIG_NUMBER would be the maximal value of float32, where float32 is on the GPU.
 BIG_NUMBER = float32(10000)
-MATRIX_DIM0 = 1022
+MATRIX_DIM0 = np.int32(1022)
 MATRIX_DIM1 = 8176
 CODEWORDSIZE = MATRIX_DIM1
 VECTOR_DIM = MATRIX_DIM0
@@ -508,7 +508,6 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
     # Concurrent futures require the seed to be between 0 and 2**32 -1
     #assert (np.dtype(seed) == np.int32)
     assert (seed > 0)
-    print("**** debugging snr list: " + str(SNRpoints))
     assert hasattr(SNRpoints, "__len__")
     with cuda.defer_cleanup():
         
@@ -884,7 +883,6 @@ def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, 
    
     
     SNRList = [SNRpoints] * numberOfCudaDevices
-    print("*** debugging snr list : " + str(SNRList))
     numberOfTransmissionsList = [newNumOfTransmissions] * numberOfCudaDevices
     noneList = ['None'] * numberOfCudaDevices
     deviceList = list(range(numberOfCudaDevices))
