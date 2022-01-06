@@ -919,7 +919,7 @@ def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, 
     #        berStats = berStats.add(r)
     children = []
     for cid, dev in enumerate(cuda.list_devices()):
-        t = threading.Thread(target=device_controller, args=(seeds[cid], SNRpoints, numberOfIterations, parityMatrix, newNumOfTransmissions, 'None', cid))
+        t = threading.Thread(target=evaluateCodeCuda, args=(seeds[cid], SNRpoints, numberOfIterations, parityMatrix, newNumOfTransmissions, 'None', cid))
         t.start()
         children.append(t)
 
