@@ -875,11 +875,11 @@ def testConcurrentFutures(numberOfCudaDevices = 1):
     #################
     with concurrent.futures.ProcessPoolExecutor() as executor:
         results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], roi, numOfIterations, nearEarthParity, numOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
-        print(results)
+        #print(results)
         for result in concurrent.futures.as_completed(results):
-            print(result.result())
-            a = result.result()
-            print(a)
+            #print(result.result())
+            #a = result.result()
+            #print(a)
             berStats = berStats.add(result.result())
     ##################
     return berStats
