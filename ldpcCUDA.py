@@ -645,6 +645,9 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
             #print(totalTime)
             #print("***And thr throughput is:")
             #print(8176 * numOfTransmissions /totalTime)
+    
+    #Omer Sella: added cuda.close() to see if I can run with concurrent futures.
+    cuda.close()
     return berStats
 
 
