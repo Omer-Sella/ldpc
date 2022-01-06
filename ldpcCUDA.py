@@ -508,6 +508,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
     # Concurrent futures require the seed to be between 0 and 2**32 -1
     #assert (np.dtype(seed) == np.int32)
     assert (seed > 0)
+    print(SNRpoints)
     assert hasattr(SNRpoints, "__len__")
     with cuda.defer_cleanup():
         
