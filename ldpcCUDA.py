@@ -36,7 +36,7 @@ sys.path.insert(1, projectDir)
 
 def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , cudaDeviceNumber = 0):
     from numba import cuda, float32, int32
-    cuda.select_device(cudaDeviceNumber)
+    cuda.select_device(0)#cudaDeviceNumber)
     device = cuda.get_current_device()
     print("*** debugging mp issues: "+ str(device))
     print("*** debugging mp issues: "+ str(cuda.gpus))
