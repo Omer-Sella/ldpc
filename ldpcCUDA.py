@@ -314,7 +314,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
     
             #if pos >= MATRIX_DIM1:
             if pos > MATRIX_DIM1:
-            return
+                return
             localValue = vector[pos]
             cuda.syncthreads()
     
@@ -327,6 +327,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
             else:
                 matrix[k,pos] = 0.0
             cuda.syncthreads()
+            
             return
 
 
@@ -363,7 +364,8 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
             if (cuda.threadIdx.x == 0):
             v_r[col] = partial_sum[0]
             cuda.syncthreads()
-        return
+            
+            return
 
         @cuda.jit
         def matrixSumVertical(matrix, result):
@@ -376,7 +378,8 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
     
             cuda.syncthreads()
             result[pos] = temp
-        return
+            
+            return
         
         @cuda.jit
         def slicerCuda(vector, slicedVector):
@@ -390,7 +393,8 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
             else:
                 slicedVector[pos] = 0 
             cuda.syncthreads()
-        return
+        
+            return
 
     
         @cuda.jit        
