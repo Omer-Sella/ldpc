@@ -196,10 +196,10 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                 cuda.syncthreads()
             s = 256
             while (s > 0):
-            if (threadIdxX < s):
-                partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX] = twoElementsMergeSort(partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX], partialSmallest[threadIdxX + s], partialSecondSmallest[threadIdxX + s], argminSmallest[threadIdxX + s])
-                cuda.syncthreads()
-            s = s // 2
+                if (threadIdxX < s):
+                    partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX] = twoElementsMergeSort(partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX], partialSmallest[threadIdxX + s], partialSecondSmallest[threadIdxX + s], argminSmallest[threadIdxX + s])
+                    cuda.syncthreads()
+                s = s // 2
    
             # if (threadIdxX < s):
             #         partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX] = twoElementsMergeSort(partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX], partialSmallest[threadIdxX + s], partialSecondSmallest[threadIdxX + s], argminSmallest[threadIdxX + s])
