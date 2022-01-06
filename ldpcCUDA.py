@@ -22,13 +22,13 @@ if projectDir == None:
     projectDir = pathlib.Path(__file__).parent.absolute()
 
 projectDirEvals = str(projectDir) + "evaluations/"
+import fileHandler
+import common
 
 import sys
 sys.path.insert(1, projectDir)
 
 def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , cudaDeviceNumber = 0):
-    import fileHandler
-    import common
     LDPC_LOCAL_PRNG = np.random.RandomState(7134066)
     LDPC_MAX_SEED = 2**31 - 1
     LDPC_SEED_DATA_TYPE = np.int64
