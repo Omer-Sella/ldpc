@@ -647,7 +647,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
             #print(8176 * numOfTransmissions /totalTime)
     
     #Omer Sella: added cuda.close() to see if I can run with concurrent futures.
-    cuda.close()
+    cuda.close(cudaDeviceNumber)
     return berStats
 
 
