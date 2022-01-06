@@ -8,6 +8,7 @@ Created on Fri Mar  20 16:53 2020
 #if you uncomment the next line the world will end
 
 from typing import Iterator
+from numba import cuda, float32, int32
 import numpy as np
 import os
 import time
@@ -503,7 +504,6 @@ def AWGNarray(dim0, dim1, SNRdb, prng):
 
 
 def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , cudaDeviceNumber = 0):
-    from numba import cuda, float32, int32
     cuda.select_device(cudaDeviceNumber)
     # Concurrent futures require the seed to be between 0 and 2**32 -1
     #assert (np.dtype(seed) == np.int32)
