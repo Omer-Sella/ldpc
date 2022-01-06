@@ -925,6 +925,10 @@ def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, 
 
     for t in children:
         t.join()
+        print(t)
+    print(children)
+    
+    
     return berStats
             
 
