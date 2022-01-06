@@ -34,6 +34,7 @@ import sys
 sys.path.insert(1, projectDir)
 
 def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , cudaDeviceNumber = 0):
+    from numba import cuda, float32, int32
     LDPC_LOCAL_PRNG = np.random.RandomState(7134066)
     LDPC_MAX_SEED = 2**31 - 1
     LDPC_SEED_DATA_TYPE = np.int64
@@ -96,7 +97,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
     #Omer Sella: see the following link regarding numba cuda caching
     #https://github.com/numba/numba/issues/1711
     
-    from numba import cuda, float32, int32
+    
     cuda.select_device(cudaDeviceNumber)
     device = cuda.get_current_device()
     
