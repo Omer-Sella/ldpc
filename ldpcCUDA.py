@@ -6,7 +6,7 @@ Created on Fri Mar  20 16:53 2020
 """
 ### New encoder / decoder implementation using numba + cuda
 #if you uncomment the next line the world will end
-
+from __future__ import print_function
 from typing import Iterator
 import numpy as np
 import os
@@ -17,7 +17,7 @@ import operator
 import math
 import concurrent.futures
 from multiprocessing import Lock
-from __future__ import print_function
+
 import threading
 compiler_lock = threading.Lock()
 
