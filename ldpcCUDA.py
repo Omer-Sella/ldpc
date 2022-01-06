@@ -322,10 +322,10 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
     
             for k in range(MATRIX_DIM0):
             #matrix[k,pos] = vector[pos]
-            if mask[k,pos] == 1:
-                matrix[k,pos] = localValue
-            else:
-                matrix[k,pos] = 0.0
+                if mask[k,pos] == 1:
+                    matrix[k,pos] = localValue
+                else:
+                    matrix[k,pos] = 0.0
             cuda.syncthreads()
             
             return
@@ -342,9 +342,9 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
     
     
             if ((row + cuda.blockDim.x) < M.shape[0]):
-            partial_sum[cuda.threadIdx.x] = M[row, col] + M[row + cuda.blockDim.x, col]
+                partial_sum[cuda.threadIdx.x] = M[row, col] + M[row + cuda.blockDim.x, col]
             else:
-            partial_sum[cuda.threadIdx.x] = M[row, col]
+                partial_sum[cuda.threadIdx.x] = M[row, col]
             cuda.syncthreads()
 
             #// Iterate of log base 2 the block dimension
