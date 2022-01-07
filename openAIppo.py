@@ -287,7 +287,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     #ac = actor_critic(OVERRIDE_OBSERVATION_SPACE_DIM, OVERRIDE_ACTION_SPACE_DIM, **ac_kwargs)
     ac = models.openAIActorCritic(int, 2048, int, INTERNAL_ACTION_SPACE_SIZE, 64, MAXIMUM_NUMBER_OF_HOT_BITS, [64,64] , actorCriticDevice = 'cpu')
     # Sync params across processes
-    sync_params(ac)
+    #sync_params(ac) #OSS 07/01/2022 commenting out since removing mpi functionality
 
     # Count variables
     var_counts = tuple(core.count_vars(module) for module in [ac.pi, ac.v])
