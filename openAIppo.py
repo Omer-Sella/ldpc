@@ -431,7 +431,9 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             entropyArray = np.array([entropyList[0].item(), entropyList[1].item(), entropyList[2].item()])
             #entropyArray = np.hstack((entropyArray, entropyList[3]].detach().numpy()))
             if  OPEN_AI_PPO_NUMBER_OF_BUFFERS == 1:
-                buf.store([o], [a[-2]], [r], [v], [logp], [actorEntropy], [entropyArray])
+                # OSS: 07/01/2021 commented and reverted to regular buffer (no container) when debigging conc futures
+                #buf.store([o], [a[-2]], [r], [v], [logp], [actorEntropy], [entropyArray])
+                buf.store(o, a[-2], r, v, logp, actorEntropy, entropyArray)
             else:
                 buf.store(o, a[-2], r, v, logp, actorEntropy, entropyArray)
             logger.store(VVals=v)
