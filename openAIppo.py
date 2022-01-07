@@ -461,6 +461,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
                     print("*** PPO acknowledges that the episode terminated")
                     print("*** EpRet debug. ep_ret == " + str(ep_ret))
                     logger.store(EpRet=ep_ret, EpLen=ep_len)
+                print("*** Debugging conc futures issues. Am I getting here ?")
                 o, ep_ret, ep_len = env.reset(), 0, 0
             
             
