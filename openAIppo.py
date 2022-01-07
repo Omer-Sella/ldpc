@@ -361,7 +361,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         ## For debug puposes only ! 
         ## Debugging conc futures
         next_o, r, d, _ = env.step(a[-1])
-        print("*** debugging conc futures - did I make it inside the update, after the get() ?") YES !
+        print("*** debugging conc futures - did I make it inside the update, after the get() ?") #YES !
         ## Did it work ?  YES !
         #############################
 
@@ -374,7 +374,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         ## For debug puposes only ! 
         ## Debugging conc futures
         next_o, r, d, _ = env.step(a[-1])
-        print("*** debugging conc futures - did I make it inside the update, after computing loss ?") Yes !
+        print("*** debugging conc futures - did I make it inside the update, after computing loss ?") #Yes !
         ## Did it work ? Yes !
         #############################
 
