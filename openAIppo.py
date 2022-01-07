@@ -246,7 +246,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
 
     # Special function to avoid certain slowdowns from PyTorch + MPI combo.  
-    setup_pytorch_for_mpi()
+    #setup_pytorch_for_mpi() #OSS 07/01/2022 commented this since no mpi will be used.
 
     # Set up logger and save configuration
     logger = EpochLogger(**logger_kwargs)
