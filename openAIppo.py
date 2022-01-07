@@ -492,9 +492,9 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         ## Debugging conc futures
         #next_o, r, d, _ = env.step(a[-1])
         #print("*** debugging conc futures - did I make it BEFORE the update ?") YES !!!
-        ## Did it work ? No !
+        ## Did it work ? Yes !
         #############################
-        update()
+        #update()
         #############################
         ## For debug puposes only ! 
         ## Debugging conc futures
