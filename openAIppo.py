@@ -482,13 +482,20 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             logger.save_state({'env': env}, None)
 
         # Perform PPO update!
-        update()
         #############################
         ## For debug puposes only ! 
         ## Debugging conc futures
         next_o, r, d, _ = env.step(a[-1])
-        print("*** debugging conc futures - did I make it after the update ?")
-        ## Did it work ? 
+        print("*** debugging conc futures - did I make it BEFORE the update ?") 
+        ## Did it work ? No !
+        #############################
+        update()
+        #############################
+        ## For debug puposes only ! 
+        ## Debugging conc futures
+        #next_o, r, d, _ = env.step(a[-1])
+        #print("*** debugging conc futures - did I make it after the update ?") NO !
+        ## Did it work ? No !
         #############################
 
 
