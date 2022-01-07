@@ -898,7 +898,7 @@ def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, 
     
     #Temporarily disabled for debug of cu_init error
     print("*** debugging multiple futures. NumberOfCudaDevices: " + str(numberOfCudaDevices))
-    with concurrent.futures.ProcessPoolExecutor() as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers = 1) as executor:
         results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], SNRpoints, numberOfIterations, parityMatrix, newNumOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
         #print(results)
     for result in concurrent.futures.as_completed(results):
