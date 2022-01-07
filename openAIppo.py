@@ -14,8 +14,8 @@ if projectDir == None:
     projectDir = pathlib.Path(__file__).parent.absolute()
 import openAIcore as core
 from logx import EpochLogger
-from mpi_pytorch import setup_pytorch_for_mpi, sync_params, mpi_avg_grads
-from mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
+#from mpi_pytorch import setup_pytorch_for_mpi, sync_params, mpi_avg_grads
+#from mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
 from utilityFunctions import plotter as ossplotter
 from utilityFunctions import logger as osslogger
 #OSS 26/11/2021 moved beffur to a separate module so importing everything from there.
@@ -397,6 +397,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             print("*** debugging conc futures - did I make it inside the update, before loss_pi.backwards() ?")
             ## Did it work ?  
             #############################
+            print(loss_pi)
             loss_pi.backward()
             #OSS 07/01/2022 commented since no mpi is used.
             #mpi_avg_grads(ac.pi)    # average grads across MPI processes
