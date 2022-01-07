@@ -463,6 +463,13 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
                     logger.store(EpRet=ep_ret, EpLen=ep_len)
                 print("*** Debugging conc futures issues. Am I getting here ?")
                 o, ep_ret, ep_len = env.reset(), 0, 0
+
+                #############################
+                ## For debug puposes only ! 
+                ## Debugging conc futures
+                next_o, r, d, _ = env.step(a[-1])
+                ## Did it work ?
+                #############################
             
             
 
