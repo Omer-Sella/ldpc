@@ -360,8 +360,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         #############################
         ## For debug puposes only ! 
         ## Debugging conc futures
-        #next_o, r, d, _ = env.step(a[-1])
-        #print("*** debugging conc futures - did I make it inside the update, after the get() ?") #YES !
+        next_o, r, d, _ = env.step(a[-1])
+        print("*** debugging conc futures - did I make it inside the update, after the get() ?") #YES !
         ## Did it work ?  YES !
         #############################
 
@@ -373,8 +373,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         #############################
         ## For debug puposes only ! 
         ## Debugging conc futures
-        #next_o, r, d, _ = env.step(a[-1])
-        #print("*** debugging conc futures - did I make it inside the update, after computing loss ?") #Yes !
+        next_o, r, d, _ = env.step(a[-1])
+        print("*** debugging conc futures - did I make it inside the update, after computing loss ?") #Yes !
         ## Did it work ? Yes !
         #############################
 
@@ -390,6 +390,13 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             if kl > 1.5 * target_kl:
                 logger.log('Early stopping at step %d due to reaching max kl.'%i)
                 break
+            #############################
+            ## For debug puposes only ! 
+            ## Debugging conc futures
+            next_o, r, d, _ = env.step(a[-1])
+            print("*** debugging conc futures - did I make it inside the update, before loss_pi.backwards() ?")
+            ## Did it work ?  
+            #############################
             loss_pi.backward()
             #OSS 07/01/2022 commented since no mpi is used.
             #mpi_avg_grads(ac.pi)    # average grads across MPI processes
