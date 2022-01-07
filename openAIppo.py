@@ -296,8 +296,9 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     # Set up experience buffer
     local_steps_per_epoch = int(steps_per_epoch / num_procs())
     #OSS 29/11/2021 commented the buffer and switched to buffer container
-    #buf = PPOBuffer(obs_dim, act_dim, local_steps_per_epoch, gamma, lam)
-    buf = PPOBufferContainer(obs_dim, act_dim, local_steps_per_epoch, OPEN_AI_PPO_NUMBER_OF_BUFFERS, gamma, lam)
+    #OSS 07/01/2021 reinstated the regular buffer in an attempt to isolate conc fututres bug.
+    buf = PPOBuffer(obs_dim, act_dim, local_steps_per_epoch, gamma, lam)
+    #buf = PPOBufferContainer(obs_dim, act_dim, local_steps_per_epoch, OPEN_AI_PPO_NUMBER_OF_BUFFERS, gamma, lam)
     # Set up function for computing PPO policy loss
     def compute_loss_pi(data):
         obs, act, adv, logp_old, entropy_old = data['obs'], data['act'], data['adv'], data['logp'], data['ent']
@@ -485,8 +486,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         #############################
         ## For debug puposes only ! 
         ## Debugging conc futures
-        next_o, r, d, _ = env.step(a[-1])
-        print("*** debugging conc futures - did I make it BEFORE the update ?") 
+        #next_o, r, d, _ = env.step(a[-1])
+        #print("*** debugging conc futures - did I make it BEFORE the update ?") YES !!!
         ## Did it work ? No !
         #############################
         update()
