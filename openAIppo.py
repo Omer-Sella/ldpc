@@ -360,15 +360,23 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         #############################
         ## For debug puposes only ! 
         ## Debugging conc futures
-        next_o, r, d, _ = env.step(a[-1])
-        print("*** debugging conc futures - did I make it inside the update, after the get() ?") 
-        ## Did it work ? 
+        #next_o, r, d, _ = env.step(a[-1])
+        #print("*** debugging conc futures - did I make it inside the update, after the get() ?") YES !
+        ## Did it work ?  YES !
         #############################
 
 
         pi_l_old, pi_info_old = compute_loss_pi(data)
         pi_l_old = pi_l_old.item()
         v_l_old = compute_loss_v(data).item()
+
+        #############################
+        ## For debug puposes only ! 
+        ## Debugging conc futures
+        #next_o, r, d, _ = env.step(a[-1])
+        print("*** debugging conc futures - did I make it inside the update, after computing loss ?")
+        ## Did it work ? 
+        #############################
 
         # Train policy with multiple steps of gradient descent
         for i in range(train_pi_iters):
@@ -462,7 +470,6 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
                     print('Warning: trajectory cut off by epoch at %d steps.'%ep_len, flush=True)
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if timeout or epoch_ended:
-                    print("*** debug of concurrent futures - am I getting here ?")
                     _, v, _, _, _, _ = ac.step(torch.as_tensor(o, dtype=torch.float32))
                 else:
                     v = 0
@@ -475,7 +482,6 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
                     print("*** PPO acknowledges that the episode terminated")
                     print("*** EpRet debug. ep_ret == " + str(ep_ret))
                     logger.store(EpRet=ep_ret, EpLen=ep_len)
-                print("*** Debugging conc futures issues. Am I getting here ?")
                 o, ep_ret, ep_len = env.reset(), 0, 0
 
                 #############################
