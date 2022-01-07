@@ -360,8 +360,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         #############################
         ## For debug puposes only ! 
         ## Debugging conc futures
-        next_o, r, d, _ = env.step(a[-1])
-        print("*** debugging conc futures - did I make it inside the update, after the get() ?") #YES !
+        #next_o, r, d, _ = env.step(a[-1])
+        #print("*** debugging conc futures - did I make it inside the update, after the get() ?") #YES !
         ## Did it work ?  YES !
         #############################
 
@@ -373,8 +373,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         #############################
         ## For debug puposes only ! 
         ## Debugging conc futures
-        next_o, r, d, _ = env.step(a[-1])
-        print("*** debugging conc futures - did I make it inside the update, after computing loss ?") #Yes !
+        #next_o, r, d, _ = env.step(a[-1])
+        #print("*** debugging conc futures - did I make it inside the update, after computing loss ?") #Yes !
         ## Did it work ? Yes !
         #############################
 
@@ -383,7 +383,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             #print("*** Policy training step %d..."%i)
             pi_optimizer.zero_grad()
             loss_pi, pi_info = compute_loss_pi(data)
-            kl = mpi_avg(pi_info['kl'])
+            kl = pi_info['kl']
             assert(kl == pi_info['kl'])
             #print("*** Understanding early stopping to due kl:")
             #print(kl)
