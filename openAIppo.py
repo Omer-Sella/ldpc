@@ -393,6 +393,13 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             loss_pi.backward()
             #OSS 07/01/2022 commented since no mpi is used.
             #mpi_avg_grads(ac.pi)    # average grads across MPI processes
+            #############################
+            ## For debug puposes only ! 
+            ## Debugging conc futures
+            next_o, r, d, _ = env.step(a[-1])
+            print("*** debugging conc futures - did I make it inside the update, before optimizer ?")
+            ## Did it work ?  
+            #############################
             pi_optimizer.step()
         #############################
         ## For debug puposes only ! 
