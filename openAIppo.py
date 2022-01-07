@@ -374,8 +374,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         ## For debug puposes only ! 
         ## Debugging conc futures
         #next_o, r, d, _ = env.step(a[-1])
-        print("*** debugging conc futures - did I make it inside the update, after computing loss ?")
-        ## Did it work ? 
+        #print("*** debugging conc futures - did I make it inside the update, after computing loss ?") Yes !
+        ## Did it work ? Yes !
         #############################
 
         # Train policy with multiple steps of gradient descent
@@ -393,7 +393,13 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             loss_pi.backward()
             mpi_avg_grads(ac.pi)    # average grads across MPI processes
             pi_optimizer.step()
-
+        #############################
+        ## For debug puposes only ! 
+        ## Debugging conc futures
+        next_o, r, d, _ = env.step(a[-1])
+        print("*** debugging conc futures - did I make it inside the update, after train_pi_iters?")
+        ## Did it work ? 
+        #############################
         logger.store(StopIter=i)
 
         # Value function learning
