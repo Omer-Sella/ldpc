@@ -7,7 +7,7 @@ from torch.optim import Adam
 import gym
 import time
 import os
-
+import copy
 projectDir = os.environ.get('LDPC')
 if projectDir == None:
     import pathlib
@@ -391,14 +391,16 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
                 logger.log('Early stopping at step %d due to reaching max kl.'%i)
                 break
             loss_pi.backward()
+            oldacpi == copy.deepcopy(ac.pi)
             mpi_avg_grads(ac.pi)    # average grads across MPI processes
+            assert ac.pi == oldacpi
             pi_optimizer.step()
         #############################
         ## For debug puposes only ! 
         ## Debugging conc futures
         next_o, r, d, _ = env.step(a[-1])
         print("*** debugging conc futures - did I make it inside the update, after train_pi_iters?")
-        ## Did it work ? 
+        ## Did it work ?  No !
         #############################
         logger.store(StopIter=i)
 
