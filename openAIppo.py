@@ -399,7 +399,9 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             #############################
             print(loss_pi)
             loss_pi.to('cpu')
+            print(loss_pi)
             loss_pi.backward()
+
             #OSS 07/01/2022 commented since no mpi is used.
             #mpi_avg_grads(ac.pi)    # average grads across MPI processes
             #############################
