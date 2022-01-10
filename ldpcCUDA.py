@@ -331,11 +331,11 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
     
             for k in range(MATRIX_DIM0):
             #matrix[k,pos] = vector[pos]
-                matrix[k,pos] = localValue * mask[k,pos]
-                #if mask[k,pos] == 1:
-                #    matrix[k,pos] = localValue
-                #else:
-                #    matrix[k,pos] = 0.0
+                
+                if mask[k,pos] == 1:
+                    matrix[k,pos] = localValue
+                else:
+                    matrix[k,pos] = 0.0
             cuda.syncthreads()
             
             return
@@ -898,25 +898,25 @@ def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, 
     newNumOfTransmissions = numOfTransmissions // numberOfCudaDevices
     
     #Temporarily disabled for debug of cu_init error
-    #print("*** debugging multiple futures. NumberOfCudaDevices: " + str(numberOfCudaDevices))
-    #with concurrent.futures.ProcessPoolExecutor() as executor:
-    #    results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], SNRpoints, numberOfIterations, parityMatrix, newNumOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
-    #    #print(results)
-    #for result in concurrent.futures.as_completed(results):
-    #    #print(result.result())
-    #    berStats = berStats.add(result.result())
+    print("*** debugging multiple futures. NumberOfCudaDevices: " + str(numberOfCudaDevices))
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], SNRpoints, numberOfIterations, parityMatrix, newNumOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
+        #print(results)
+    for result in concurrent.futures.as_completed(results):
+        #print(result.result())
+        berStats = berStats.add(result.result())
    # 
    
     
-    SNRList = [SNRpoints] * numberOfCudaDevices
-    numberOfTransmissionsList = [newNumOfTransmissions] * numberOfCudaDevices
-    noneList = ['None'] * numberOfCudaDevices
-    deviceList = list(range(numberOfCudaDevices))
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        results = executor.map(evaluateCodeCuda, seeds, SNRList, numberOfTransmissionsList, noneList, deviceList)
-        for r in results:
-            print(r)
-            berStats = berStats.add(r)
+    #SNRList = [SNRpoints] * numberOfCudaDevices
+    #numberOfTransmissionsList = [newNumOfTransmissions] * numberOfCudaDevices
+    #noneList = ['None'] * numberOfCudaDevices
+    #deviceList = list(range(numberOfCudaDevices))
+    #with concurrent.futures.ProcessPoolExecutor() as executor:
+    #    results = executor.map(evaluateCodeCuda, seeds, SNRList, numberOfTransmissionsList, noneList, deviceList)
+    #    for r in results:
+    #        print(r)
+    #        berStats = berStats.add(r)
     #children = []
     #for cid, dev in enumerate(cuda.list_devices()):
     #    t = threading.Thread(target=evaluateCodeCuda, args=(seeds[cid], SNRpoints, numberOfIterations, parityMatrix, newNumOfTransmissions, 'None', cid))
