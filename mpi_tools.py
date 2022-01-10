@@ -1,4 +1,4 @@
-from mpi4py import MPI
+#from mpi4py import MPI
 import os, subprocess, sys
 import numpy as np
 
@@ -51,7 +51,7 @@ def allreduce(*args, **kwargs):
 
 def num_procs():
     """Count active MPI processes."""
-    return MPI.COMM_WORLD.Get_size()
+    return 1 
 
 def broadcast(x, root=0):
     MPI.COMM_WORLD.Bcast(x, root=root)
