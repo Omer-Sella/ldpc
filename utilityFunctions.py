@@ -9,7 +9,8 @@ import time
 import os
 import matplotlib.pyplot as plt
 import torch
-from mpi_tools import proc_id as mpiProcessID
+#OSS: removed mpi stuff
+#from mpi_tools import proc_id as mpiProcessID
 
 
 import matplotlib.animation as animation
@@ -131,7 +132,9 @@ class logger():
     def __init__(self, keys, logPath = None, hdf5FileName = 'experiment.h5', fileName = 'experiment.txt'):
         
         
-        if  mpiProcessID() == 0:
+        if True:
+        #OSS 10/01/2022 removed mpi stuff 
+        #if  mpiProcessID() == 0:
             if logPath == None:
                 self.logPath = str(PROJECT_PATH) + "/temp/experiments/%i" %int(time.time())
             else:
