@@ -331,10 +331,11 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
     
             for k in range(MATRIX_DIM0):
             #matrix[k,pos] = vector[pos]
-                if mask[k,pos] == 1:
-                    matrix[k,pos] = localValue
-                else:
-                    matrix[k,pos] = 0.0
+                matrix[k,pos] = localValue * mask[k,pos]
+                #if mask[k,pos] == 1:
+                #    matrix[k,pos] = localValue
+                #else:
+                #    matrix[k,pos] = 0.0
             cuda.syncthreads()
             
             return
