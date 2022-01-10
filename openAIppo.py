@@ -580,7 +580,8 @@ if __name__ == '__main__':
     parser.add_argument('--policyCoefficient', type=float, default = 1.0)
     parser.add_argument('--exp_name', type=str, default='ppo')
     args = parser.parse_args()
-    mpi_fork(args.cpu)  # run parallel code with mpi
+    #OSS 10/01/2022 commented mpi_fork since mpi is not used.
+    #mpi_fork(args.cpu)  # run parallel code with mpi
 
     from run_utils import setup_logger_kwargs
     import os
