@@ -261,7 +261,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     myPlotter = ossplotter(50)
 
     # Random seed
-    seed += 10000 * proc_id()
+    seed += 10000 #OSS: 10/01/2022 removed: * proc_id()
     torch.manual_seed(seed)
     np.random.seed(seed)
 
