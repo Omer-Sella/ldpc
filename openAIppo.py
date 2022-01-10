@@ -362,8 +362,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         #############################
         ## For debug puposes only ! 
         ## Debugging conc futures
-        next_o, r, d, _ = env.step(a[-1])
-        print("*** debugging conc futures - did I make it inside the update, after the get() ?") #YES !
+        #next_o, r, d, _ = env.step(a[-1])
+        #print("*** debugging conc futures - did I make it inside the update, after the get() ?") #YES !
         ## Did it work ?  YES !
         #############################
 
@@ -375,8 +375,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         #############################
         ## For debug puposes only ! 
         ## Debugging conc futures
-        next_o, r, d, _ = env.step(a[-1])
-        print("*** debugging conc futures - did I make it inside the update, after computing loss ?") #Yes !
+        #next_o, r, d, _ = env.step(a[-1])
+        #print("*** debugging conc futures - did I make it inside the update, after computing loss ?") #Yes !
         ## Did it work ? Yes !
         #############################
 
@@ -395,8 +395,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             #############################
             ## For debug puposes only ! 
             ## Debugging conc futures
-            next_o, r, d, _ = env.step(a[-1])
-            print("*** debugging conc futures - did I make it inside the update, before loss_pi.backwards() ?")
+            #next_o, r, d, _ = env.step(a[-1])
+            #print("*** debugging conc futures - did I make it inside the update, before loss_pi.backwards() ?")
             ## Did it work ?  
             #############################
             print(loss_pi)
@@ -409,16 +409,16 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             #############################
             ## For debug puposes only ! 
             ## Debugging conc futures
-            next_o, r, d, _ = env.step(a[-1])
-            print("*** debugging conc futures - did I make it inside the update, before optimizer ?")
+            #next_o, r, d, _ = env.step(a[-1])
+            #print("*** debugging conc futures - did I make it inside the update, before optimizer ?")
             ## Did it work ?  
             #############################
             pi_optimizer.step()
         #############################
         ## For debug puposes only ! 
         ## Debugging conc futures
-        next_o, r, d, _ = env.step(a[-1])
-        print("*** debugging conc futures - did I make it inside the update, after train_pi_iters?")
+        #next_o, r, d, _ = env.step(a[-1])
+        #print("*** debugging conc futures - did I make it inside the update, after train_pi_iters?")
         ## Did it work ?  No !
         #############################
         logger.store(StopIter=i)
