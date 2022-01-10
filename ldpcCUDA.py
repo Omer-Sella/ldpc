@@ -109,7 +109,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
     
     
     
-    with compilerLock:
+    with compiler_lock:
 
 
         ############################
