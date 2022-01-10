@@ -293,7 +293,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     logger.log('\nNumber of parameters: \t pi: %d, \t v: %d\n'%var_counts)
 
     # Set up experience buffer
-    local_steps_per_epoch = int(steps_per_epoch / num_procs())
+    local_steps_per_epoch = int(steps_per_epoch) #OSS 10/01/2022 removed mpi stuff / num_procs())
     #OSS 29/11/2021 commented the buffer and switched to buffer container
     #OSS 07/01/2021 reinstated the regular buffer in an attempt to isolate conc fututres bug.
     buf = PPOBuffer(obs_dim, act_dim, local_steps_per_epoch, gamma, lam)
