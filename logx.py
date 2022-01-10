@@ -124,8 +124,9 @@ class Logger:
 
     def log(self, msg, color='green'):
         """Print a colorized message to stdout."""
-        if proc_id()==0:
-            print(colorize(msg, color, bold=True))
+        #if proc_id()==0:
+        #OSS removed mpi if condition
+        print(colorize(msg, color, bold=True))
 
     def log_tabular(self, key, val):
         """
