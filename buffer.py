@@ -12,8 +12,8 @@ It is similar to the code in openAI spinningup and I re-implemented it to unders
 
 import numpy as np
 import openAIcore as core
-from mpi_pytorch import setup_pytorch_for_mpi, sync_params, mpi_avg_grads
-from mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
+#from mpi_pytorch import setup_pytorch_for_mpi, sync_params, mpi_avg_grads
+from mpi_tools import mpi_statistics_scalar
 import torch
 
 ### Constants
