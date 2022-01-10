@@ -82,10 +82,12 @@ def mpi_statistics_scalar(x, with_min_and_max=False):
             addition to mean and std.
     """
     x = np.array(x, dtype=np.float32)
-    global_sum, global_n = mpi_sum([np.sum(x), len(x)])
+    global_sum = np.sum(x)
+    global_n =  len(x)
+    #global_sum, global_n = mpi_sum([np.sum(x), len(x)])
     mean = global_sum / global_n
 
-    global_sum_sq = mpi_sum(np.sum((x - mean)**2))
+    global_sum_sq = np.sum((x - mean)**2)
     std = np.sqrt(global_sum_sq / global_n)  # compute global std
 
     if with_min_and_max:
