@@ -14,7 +14,7 @@ import numpy as np
 import torch
 import os.path as osp, time, atexit, os
 import warnings
-from mpi_tools import proc_id, mpi_statistics_scalar
+from mpi_tools import mpi_statistics_scalar
 from serialization_utils import convert_json
 import time
 import os
@@ -99,7 +99,9 @@ class Logger:
                 hyperparameter configuration with multiple random seeds, you
                 should give them all the same ``exp_name``.)
         """
-        if proc_id()==0:
+        #OSS 10/01/2022 commented mpi stuff
+        #if proc_id()==0:
+        if True:
             if output_dir == None:
                 self.output_dir = str(PROJECT_PATH) + "/temp/experiments/%i" %int(time.time())
             
