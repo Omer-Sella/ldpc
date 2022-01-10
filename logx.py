@@ -193,7 +193,9 @@ class Logger:
 
             itr: An int, or None. Current iteration of training.
         """
-        if proc_id()==0:
+        if True:
+        # OSS 10/01/2022 removed mpi stuff
+        #if proc_id()==0:
             fname = 'vars.pkl' if itr is None else 'vars%d.pkl'%itr
             try:
                 joblib.dump(state_dict, osp.join(self.output_dir, fname))
@@ -231,7 +233,9 @@ class Logger:
         Uses simple_save to save a trained model, plus info to make it easy
         to associated tensors to variables after restore. 
         """
-        if proc_id()==0:
+        #OSS removed mpi stuff:
+        if True:
+        #if proc_id()==0:
             assert hasattr(self, 'tf_saver_elements'), \
                 "First have to setup saving with self.setup_tf_saver"
             fpath = 'tf1_save' + ('%d'%itr if itr is not None else '')
@@ -264,7 +268,9 @@ class Logger:
         """
         Saves the PyTorch model (or models).
         """
-        if proc_id()==0:
+        if True:
+        #OSS: 10/01/2022 removed mpi stuff
+        #if proc_id()==0:
             assert hasattr(self, 'pytorch_saver_elements'), \
                 "First have to setup saving with self.setup_pytorch_saver"
             fpath = 'pyt_save'
@@ -291,7 +297,9 @@ class Logger:
 
         Writes both to stdout, and to the output file.
         """
-        if proc_id()==0:
+        if True:
+        #OSS 10/01/2022 removed mpi stuff
+        #if proc_id()==0:
             vals = []
             key_lens = [len(key) for key in self.log_headers]
             max_key_len = max(15,max(key_lens))
