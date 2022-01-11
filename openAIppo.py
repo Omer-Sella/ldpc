@@ -25,7 +25,7 @@ OBSERVATION_DATA_TYPE = np.float32
 INTERNAL_ACTION_DATA_TYPE = np.float32
 
 epochs = 5
-numberOfStepsPerEpoch = 10
+numberOfStepsPerEpoch = 52
 seed = 7134066
 localRandom = np.random.RandomState(seed)
 maximumEpisodeLength = 3

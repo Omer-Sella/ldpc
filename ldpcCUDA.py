@@ -924,18 +924,22 @@ def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, 
     for result in concurrent.futures.as_completed(results):
         #print(result.result())
         berStats = berStats.add(result.result())
-    
-    children = []
-    for cid, dev in enumerate(cuda.list_devices()):
-        t = threading.Thread(target=evaluateCodeCuda, args=(seeds[cid], SNRpoints, numberOfIterations, parityMatrix, newNumOfTransmissions, 'None', cid), )
-        t.start()
-        children.append(t)
-    bs = []
-    for t in children:
-        bs.append(t.join())
-        print(t)
-    print(children)
-    print(bs)
+    #bsArray = []
+    #for i in range(numberOfCudaDevices):
+    #    newBerStats = common.berStatistics()
+    #    bsArray.append(copy.deepcopy(berStats))
+
+    #children = []
+    #for cid, dev in enumerate(cuda.list_devices()):
+    #    t = threading.Thread(target=evaluateCodeCuda, args=(seeds[cid], SNRpoints, numberOfIterations, parityMatrix, newNumOfTransmissions, 'None', cid))
+    #    t.start()
+    #    children.append(t)
+    #bs = []
+    #for t in children:
+    #    bs.append(t.join())
+    #    print(t)
+    #print(children)
+    #print(bs)
     
     
     return berStats
