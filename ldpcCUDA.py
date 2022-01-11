@@ -41,9 +41,6 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
     
     cuda.select_device(cudaDeviceNumber)
     device = cuda.get_current_device()
-    print("*** debugging mp issues: "+ str(device))
-    print("*** debugging mp issues: "+ str(cuda.gpus))
-    
     LDPC_LOCAL_PRNG = np.random.RandomState(7134066)
     LDPC_MAX_SEED = 2**31 - 1
     LDPC_SEED_DATA_TYPE = np.int64
@@ -790,7 +787,7 @@ def evaluateMatrixAndEpsilon(parityMatrix, epsilon, numberOfIterations = 50, cud
                     
                    
                 
-        print("*** while iterator finished at " + str(iterator))
+        #print("*** while iterator finished at " + str(iterator))
         slicerCuda[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device, binaryVector_device)
         result_device[1] = 0
         numberOfNonZeros[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](binaryVector_device, result_device)
@@ -798,7 +795,7 @@ def evaluateMatrixAndEpsilon(parityMatrix, epsilon, numberOfIterations = 50, cud
         result_host = result_device.copy_to_host()
         totalTime += (end - start)
         berDecoded = result_host[1]
-        print(berDecoded)
+        #print(berDecoded)
             #binaryVector_host = binaryVector_device.copy_to_host()
                 
             #softVector_host = softVector_device.copy_to_host()

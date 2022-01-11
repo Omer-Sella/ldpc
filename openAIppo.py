@@ -396,9 +396,9 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             #print("*** debugging conc futures - did I make it inside the update, before loss_pi.backwards() ?")
             ## Did it work ?  
             #############################
-            print(loss_pi)
-            loss_pi.to('cpu')
-            print(loss_pi)
+            #print(loss_pi)
+            #loss_pi.to('cpu')
+            #print(loss_pi)
             loss_pi.backward()
 
             #OSS 07/01/2022 commented since no mpi is used.
@@ -560,7 +560,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         logger.log_tabular('StopIter', average_only=True)
         logger.log_tabular('Time', time.time()-start_time)
         logger.log_tabular('EpLen', average_only=True)
-        logger.log_tabular('EpRet', with_min_and_max=True)
+        #logger.log_tabular('EpRet', with_min_and_max=True)
+        logger.log_tabular('EpRet', with_min_and_max=False)
         logger.dump_tabular()
     #myPlotter.saveAnimation("D:/ldpc/localData/plot.mp4")
 
