@@ -151,27 +151,15 @@ class logger():
             self.hdf5FileName = None
         self.currentRow = {}
         self.columnKeys = []
-        # if agentSeed != None:
-        #     self.environmentSeed = environmentSeed
-        # if environmentSeed != None:
-        #     self.agentSeed = agentSeed
         for key in keys:
             self.columnKeys.append(key)
-        #OSS 10/01/2022: removed mpi stuff
-        if True:
-        #if mpiProcessID() == 0:            
-            with open(self.fileName, 'w') as fid:
-                fid.write("\t".join(self.columnKeys)+"\n")
-            #with h5py.File(self.hdf5FileName, 'a') as fid:
-            #    for key in self.columnKeys:
-            #        fid.create_group(key)
-        self.dataSet = 0
+        with open(self.fileName, 'w') as fid:
+            fid.write("\t".join(self.columnKeys)+"\n")
+    
+    self.dataSet = 0
         
-    def logPrint(self, message, colour='green'):
-        #OSS 10/01/2022 removed mpi stuff
-        if True:
-        #if mpiProcessID() == 0:
-            print(colourString(message, colour, bold = True))
+    def logPrint(self, message, colour='green'):    
+        print(colourString(message, colour, bold = True))
     
     def keyValue(self, key, value):
         assert key in self.columnKeys, "Assertion failed since the key %s in keyValue(key, value) was not introduced when the logger was initialised."%key
