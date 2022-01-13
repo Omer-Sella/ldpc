@@ -153,13 +153,18 @@ class logger():
         self.columnKeys = []
         for key in keys:
             self.columnKeys.append(key)
+        
+        
         with open(self.fileName, 'w') as fid:
             fid.write("\t".join(self.columnKeys)+"\n")
-    
-    self.dataSet = 0
+            
+        self.dataSet = 0
         
-    def logPrint(self, message, colour='green'):    
-        print(colourString(message, colour, bold = True))
+    def logPrint(self, message, colour='green'):
+        #OSS 10/01/2022 removed mpi stuff
+        if True:
+        #if mpiProcessID() == 0:
+            print(colourString(message, colour, bold = True))
     
     def keyValue(self, key, value):
         assert key in self.columnKeys, "Assertion failed since the key %s in keyValue(key, value) was not introduced when the logger was initialised."%key
