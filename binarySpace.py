@@ -12,11 +12,9 @@ Created on Wed Feb 12 15:21:27 2020
 
 
 import numpy as np
-# OSS trying to do this without extending the space class
-#from gym.spaces import Space
+from gym.spaces import Space
 
-#class binarySpace(Space):
-class binarySpace():
+class binarySpace(Space):
     r"""A binary array in :math:`\{ 0, 1, \\dots, n-1 \}`. 
 
     Example::
@@ -27,14 +25,15 @@ class binarySpace():
     """
 
     def __init__(self, shape = None):
-        assert (shape is not None), 'Safety: a binaryArray must have some shape'
-        if np.isscalar(shape):
-            self.shape = (shape,)
-        else:
-            assert (len(shape) <= 2)
-            self.shape = shape
+        #assert (shape is not None), 'Safety: a binaryArray must have some shape'
+        self.shape = shape
+        #if np.isscalar(shape):
+        #    self.shape = (shape,)
+        #else:
+        #    assert (len(shape) <= 2)
+        #    self.shape = shape
         #OSS diabeling space extension
-        #super(binarySpace, self).__init__(self.shape, np.int64)
+        super(binarySpace, self).__init__(self.shape, np.int64)
 
 
     def sample(self):
