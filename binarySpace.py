@@ -33,7 +33,7 @@ class binarySpace(Space):
         #    assert (len(shape) <= 2)
         #    self.shape = shape
         #OSS diabeling space extension
-        super(binarySpace, self).__init__(shape, np.int64)
+        super(binarySpace, self).__init__((shape,), np.int64)
 
 
     def sample(self):
