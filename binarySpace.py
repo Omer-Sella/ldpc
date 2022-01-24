@@ -16,7 +16,7 @@ import numpy as np
 #from gym.spaces import Space
 
 #class binarySpace(Space):
-class binarySpace(Space):
+class binarySpace():
     r"""A binary array in :math:`\{ 0, 1, \\dots, n-1 \}`. 
 
     Example::
