@@ -14,11 +14,11 @@ class uint8Space(Space):
     def __init__(self, shape = None):
         assert (shape is not None), 'Safety: a binaryArray must have some shape'
         if np.isscalar(shape):
-            self.shape = (shape,)
+            tempShape = (shape,)
         else:
             assert (len(shape) <= 2)
-            self.shape = shape
-        super(uint8Space, self).__init__(self.shape, np.uint8)
+            tempShape = shape
+        super(uint8Space, self).__init__(tempShape, np.uint8)
 
 
     def sample(self):

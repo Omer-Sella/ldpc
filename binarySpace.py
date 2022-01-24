@@ -27,13 +27,13 @@ class binarySpace(Space):
     def __init__(self, shape = None):
         #assert (shape is not None), 'Safety: a binaryArray must have some shape'
         #self.shape = shape
-        #if np.isscalar(shape):
-        #    self.shape = (shape,)
-        #else:
-        #    assert (len(shape) <= 2)
-        #    self.shape = shape
+        if np.isscalar(shape):
+            tempShape = (shape,)
+        else:
+            assert (len(shape) <= 2)
+            self.shape = shape
         #OSS diabeling space extension
-        super(binarySpace, self).__init__((shape,), np.int64)
+        super(binarySpace, self).__init__(tempShape, np.int64)
 
 
     def sample(self):
