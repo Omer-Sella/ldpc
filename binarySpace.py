@@ -12,8 +12,10 @@ Created on Wed Feb 12 15:21:27 2020
 
 
 import numpy as np
-from gym.spaces import Space
+# OSS trying to do this without extending the space class
+#from gym.spaces import Space
 
+#class binarySpace(Space):
 class binarySpace(Space):
     r"""A binary array in :math:`\{ 0, 1, \\dots, n-1 \}`. 
 
@@ -31,7 +33,8 @@ class binarySpace(Space):
         else:
             assert (len(shape) <= 2)
             self.shape = shape
-        super(binarySpace, self).__init__(self.shape, np.int64)
+        #OSS diabeling space extension
+        #super(binarySpace, self).__init__(self.shape, np.int64)
 
 
     def sample(self):
