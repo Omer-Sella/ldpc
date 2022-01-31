@@ -22,6 +22,7 @@ compiler_lock = threading.Lock()
 
 # Trying an adapted version of https://github.com/ContinuumIO/numbapro-examples/blob/master/multigpu/multigpu_mt.py
 compilerLock = Lock()
+#oss: temporarily trying to move this to the function
 from numba import cuda, float32, int32
 
 
@@ -38,7 +39,7 @@ import sys
 sys.path.insert(1, projectDir)
 
 def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , cudaDeviceNumber = 0):
-    
+    from numba import cuda, float32, int32
     cuda.select_device(cudaDeviceNumber)
     device = cuda.get_current_device()
     LDPC_LOCAL_PRNG = np.random.RandomState(7134066)
