@@ -6,6 +6,7 @@ Created on Fri Mar  20 16:53 2020
 """
 ### New encoder / decoder implementation using numba + cuda
 #if you uncomment the next line the world will end
+import multiprocessing
 from typing import Iterator
 import numpy as np
 import os
@@ -37,6 +38,8 @@ import common
 
 import sys
 sys.path.insert(1, projectDir)
+#OSS trying spawn instead of fork
+multiprocessing.set_start_method('spawn')
 
 def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , cudaDeviceNumber = 0):
     from numba import cuda, float32, int32
