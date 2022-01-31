@@ -530,7 +530,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
     #assert (np.dtype(seed) == np.int32)
     assert (seed > 0)
     assert hasattr(SNRpoints, "__len__")
-    with cuda.defer_cleanup():
+    #with cuda.defer_cleanup():
         
     localPrng = np.random.RandomState(seed)
     numberOfSNRpoints = len(SNRpoints)
