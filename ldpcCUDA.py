@@ -896,13 +896,13 @@ def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, 
     newNumOfTransmissions = numOfTransmissions // numberOfCudaDevices
     
     #Temporarily disabled for debug of cu_init error
-    #print("*** debugging multiple futures. NumberOfCudaDevices: " + str(numberOfCudaDevices))
-    #with concurrent.futures.ProcessPoolExecutor() as executor:
-    #    results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], SNRpoints, numberOfIterations, parityMatrix, newNumOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
-    #    #print(results)
-    #for result in concurrent.futures.as_completed(results):
-    #    #print(result.result())
-    #    berStats = berStats.add(result.result())
+    print("*** debugging multiple futures. NumberOfCudaDevices: " + str(numberOfCudaDevices))
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], SNRpoints, numberOfIterations, parityMatrix, newNumOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
+        #print(results)
+    for result in concurrent.futures.as_completed(results):
+        #print(result.result())
+        berStats = berStats.add(result.result())
    # 
    
     
@@ -916,12 +916,13 @@ def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, 
     #        print(r)
     #        berStats = berStats.add(r)
     
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], SNRpoints, numberOfIterations, parityMatrix, newNumOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
-        #print(results)
-    for result in concurrent.futures.as_completed(results):
-        #print(result.result())
-        berStats = berStats.add(result.result())
+    #OSS 31/01/2022 trying to bring back multi processing
+    #with concurrent.futures.ThreadPoolExecutor() as executor:
+    #    results = {executor.submit(evaluateCodeCuda, seeds[deviceNumber], SNRpoints, numberOfIterations, parityMatrix, newNumOfTransmissions, 'None', deviceNumber): deviceNumber for deviceNumber in range(numberOfCudaDevices)}
+    #    #print(results)
+    #for result in concurrent.futures.as_completed(results):
+    #    #print(result.result())
+    #    berStats = berStats.add(result.result())
     #bsArray = []
     #for i in range(numberOfCudaDevices):
     #    newBerStats = common.berStatistics()
