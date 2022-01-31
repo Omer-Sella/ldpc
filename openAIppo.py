@@ -20,6 +20,11 @@ from utilityFunctions import logger as osslogger
 #OSS 26/11/2021 moved beffur to a separate module so importing everything from there.
 from buffer import *
 
+#OSS trying spawn instead of fork
+import multiprocessing
+
+
+
 
 OBSERVATION_DATA_TYPE = np.float32
 INTERNAL_ACTION_DATA_TYPE = np.float32
@@ -565,6 +570,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
 if __name__ == '__main__':
     import argparse
+    multiprocessing.set_start_method('spawn')
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default= 'gym_ldpc:ldpc-v0')
     parser.add_argument('--hid', type=int, default=64)
