@@ -255,31 +255,39 @@ def updateBerVSnr(ax, figure, xCoordinate, yCoordinate, snrData, berData, colour
     
     
 def updateCirculantImage(ax, figure, xCoordinate, yCoordinate, circulant):
-    ax[xCoordinate, yCoordinate].matshow(circulant)
+    colourMap = 'Greys'
+    ax[xCoordinate, yCoordinate].matshow(circulant, cmap=colourMap,  interpolation = None)
     figure.canvas.draw()
     figure.canvas.flush_events()
     return
 
-def spawnGraphics(matrix, subMatrixDimX, subMatrixDimY):
+def spawnGraphics(matrix, subMatrixDimX, subMatrixDimY, withReward = True):
     m,n = matrix.shape
     s = m // subMatrixDimX
     t = n // subMatrixDimY
     assert (s * subMatrixDimX ) == m
     assert (t * subMatrixDimY ) == n
-    widths = (t)*[1] + [3]
+    if withReward:
+        widths = (t)*[1] + [3]
+    else:
+        widths = (t)*[1]
     snrActualNearEarthAxis = np.array([2.9914482, 3.1541038, 3.3075778, 3.440423]) # 2.9810917, 3.101447, 3.1851501, 3.2885435, 3.4165282
     berNearEarthAxis = np.array([0.02354207, 0.013591, 0.01078767, 0])
     
-    fig, axs = plt.subplots(s , t + 1, gridspec_kw={'width_ratios': widths })
+    if withReward:
+        fig, axs = plt.subplots(s , t + 1, gridspec_kw={'width_ratios': widths })
+    else:
+        fig, axs = plt.subplots(s , t)#, gridspec_kw={'width_ratios': widths })
     for i in range(s):
         for j in range(t):
             updateCirculantImage(axs, fig, i, j, matrix[ i * subMatrixDimX : (i + 1) * subMatrixDimX - 1 , j * subMatrixDimY : (j + 1) * subMatrixDimY - 1])
-            axs[i,j].set_title("Circulant " + str(i) + "," + str(j))
+            axs[i,j].set_title("Circulant " + str(i) + "," + str(j), fontsize = 18)
             axs[i,j].get_xaxis().set_visible(False)
             axs[i,j].get_yaxis().set_visible(False)
     # oss22 removed in code review  updateReward(axs, fig, 0, 16, snrActualNearEarthAxis, berNearEarthAxis, colour = 'red')
-    axs[0,16].set_title('SNR to BER linear plots ovelayed')
-    axs[1,16].set_title('SNR to BER scatter plot')
+    if withReward:
+        axs[0,16].set_title('SNR to BER linear plots ovelayed')
+        axs[1,16].set_title('SNR to BER scatter plot')
     return fig, axs
 
 def pieceWiseLinear(X,slope0, bias0, cutoff):

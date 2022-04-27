@@ -193,18 +193,16 @@ class Logger:
 
             itr: An int, or None. Current iteration of training.
         """
-        if True:
-        # OSS 10/01/2022 removed mpi stuff
-        #if proc_id()==0:
-            fname = 'vars.pkl' if itr is None else 'vars%d.pkl'%itr
-            try:
-                joblib.dump(state_dict, osp.join(self.output_dir, fname))
-            except:
-                self.log('Warning: could not pickle state_dict.', color='red')
-            if hasattr(self, 'tf_saver_elements'):
-                self._tf_simple_save(itr)
-            if hasattr(self, 'pytorch_saver_elements'):
-                self._pytorch_simple_save(itr)
+        
+        fname = 'vars.pkl' if itr is None else 'vars%d.pkl'%itr
+        try:
+            joblib.dump(state_dict, osp.join(self.output_dir, fname))
+        except:
+            self.log('Warning: could not pickle state_dict.', color='red')
+        #if hasattr(self, 'tf_saver_elements'):
+        #    self._tf_simple_save(itr)
+        if hasattr(self, 'pytorch_saver_elements'):
+            self._pytorch_simple_save(itr)
 
     def setup_tf_saver(self, sess, inputs, outputs):
         """
@@ -268,27 +266,25 @@ class Logger:
         """
         Saves the PyTorch model (or models).
         """
-        if True:
-        #OSS: 10/01/2022 removed mpi stuff
-        #if proc_id()==0:
-            assert hasattr(self, 'pytorch_saver_elements'), \
-                "First have to setup saving with self.setup_pytorch_saver"
-            fpath = 'pyt_save'
-            fpath = osp.join(self.output_dir, fpath)
-            fname = 'model' + ('%d'%itr if itr is not None else '') + '.pt'
-            fname = osp.join(fpath, fname)
-            os.makedirs(fpath, exist_ok=True)
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                # We are using a non-recommended way of saving PyTorch models,
-                # by pickling whole objects (which are dependent on the exact
-                # directory structure at the time of saving) as opposed to
-                # just saving network weights. This works sufficiently well
-                # for the purposes of Spinning Up, but you may want to do 
-                # something different for your personal PyTorch project.
-                # We use a catch_warnings() context to avoid the warnings about
-                # not being able to save the source code.
-                torch.save(self.pytorch_saver_elements, fname)
+        
+        assert hasattr(self, 'pytorch_saver_elements'), \
+            "First have to setup saving with self.setup_pytorch_saver"
+        fpath = 'pyt_save'
+        fpath = osp.join(self.output_dir, fpath)
+        fname = 'model' + ('%d'%itr if itr is not None else '') + '.pt'
+        fname = osp.join(fpath, fname)
+        os.makedirs(fpath, exist_ok=True)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # We are using a non-recommended way of saving PyTorch models,
+            # by pickling whole objects (which are dependent on the exact
+            # directory structure at the time of saving) as opposed to
+            # just saving network weights. This works sufficiently well
+            # for the purposes of Spinning Up, but you may want to do 
+            # something different for your personal PyTorch project.
+            # We use a catch_warnings() context to avoid the warnings about
+            # not being able to save the source code.
+            torch.save(self.pytorch_saver_elements, fname)
 
 
     def dump_tabular(self):

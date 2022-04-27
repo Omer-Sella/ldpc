@@ -443,7 +443,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     # Prepare for interaction with environment
     start_time = time.time()
     o, ep_ret, ep_len = env.reset(), 0, 0
-    
+    saveNumber = 0
 
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
@@ -507,8 +507,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
                     buf.finish_path(v)
                 if terminal:
                     # only save EpRet / EpLen if trajectory finished
-                    print("*** PPO acknowledges that the episode terminated")
-                    print("*** EpRet debug. ep_ret == " + str(ep_ret))
+                    #print("*** PPO acknowledges that the episode terminated")
+                    #print("*** EpRet debug. ep_ret == " + str(ep_ret))
                     logger.store(EpRet=ep_ret, EpLen=ep_len)
                 o, ep_ret, ep_len = env.reset(), 0, 0
 
@@ -526,8 +526,11 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
 
         # Save model
-        if (epoch % save_freq == 0) or (epoch == epochs-1):
-            logger.save_state({'env': env}, None)
+        if (epoch % save_freq == 0) or (epoch == epochs-1) or (epoch == 0):
+            #logger.save_state({'env': env}, None)
+            logger.save_state({'env': env, 'model': ac}, itr = saveNumber)
+            saveNumber = saveNumber + 1
+
 
         # Perform PPO update!
         #############################
@@ -566,7 +569,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         #logger.log_tabular('EpRet', with_min_and_max=True)
         logger.log_tabular('EpRet', with_min_and_max=False)
         logger.dump_tabular()
-    #myPlotter.saveAnimation("D:/ldpc/localData/plot.mp4")
+    
 
 if __name__ == '__main__':
     import argparse

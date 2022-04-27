@@ -8,7 +8,7 @@ import numpy as np
 import time
 import os
 import matplotlib.pyplot as plt
-import torch
+#import torch
 #OSS: removed mpi stuff
 #from mpi_tools import proc_id as mpiProcessID
 
