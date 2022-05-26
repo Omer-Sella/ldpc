@@ -467,7 +467,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             myLogger.keyValue('iEntropy', entropyList[0].item())
             myLogger.keyValue('jEntropy', entropyList[1].item())
             myLogger.keyValue('kEntropy', entropyList[2].item())
-            myLogger.keyValue('coordinatesEntropy', entropyList[3].item())
+            # Omer Sella: this is a bug ! entropyList[3] is not a 1 element tensor (coordinatesEntropy) so can't take it as an item. I'm keeping it as a placeholder.
+            myLogger.keyValue('coordinatesEntropy', entropyList[2].item())
             next_o, r, d, _ = env.step(a[-1])
             myLogger.keyValue('Reward', r)
             myLogger.keyValue('epochNumber', epoch)
