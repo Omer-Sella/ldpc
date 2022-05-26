@@ -180,7 +180,8 @@ class LdpcEnv(gym.Env):
         yCoordinateBinary = action[self.xBits : self.xBits + self.yBits]
         #print(yCoordinateBinary.shape)
         yCoordinate = self.yCoordinateBinaryToInt.dot(yCoordinateBinary)
-        density = np.sum(self.state) / (self.messageSize * self.codewordSize)
+        # 26/05/2022 disabled density calc - it is no longer used.
+        #density = np.sum(self.state) / (self.messageSize * self.codewordSize)
         #print("*** density of state before action :" + str(density))
         if self.replacementOnly == True:
             xrCoordinateBinary = action[self.xBits + self.yBits : self.xBits + self.yBits + self.xBits]
@@ -212,20 +213,14 @@ class LdpcEnv(gym.Env):
         
         if status == 'OK':
             # Omer Sella: circulant change was legal and successful. Evaluate new code.
-            
-
             self.berStats = self.evaluateCode()
             self.scatterSnr, self.scatterBer, self.scatterItr, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = self.berStats.getStatsV2()
             #test = berStats.stats
             #print(test)
             self.BERpoints = berData
-             
             #print("*** berData needs to be at least 2 points for a valid reward. berData is: " + str(self.BERpoints))
             #print("*** and its length is " + str(len(self.BERpoints)))
-            
             reward = self.calcReward()
-
-
             #density = np.sum(self.state) / (self.messageSize * self.codewordSize)
             #print("*** nnz of state after action :" + str(density))
             
@@ -257,9 +252,10 @@ class LdpcEnv(gym.Env):
         #print("*** *** *** *** ***Reward == " + str(reward))
         #print("*** *** *** *** *** Done == " + str(done))
         #print("*** accumulated decoding time == " + str(self.accumulatedEvaluationTime))
-        if self.accumulatedEvaluationTime > LDPC_ENV_MAXIMUM_ACCUMULATED_DECODING_TIME:
-            done = True
-            #print("**** DECODING TIME EXHAUSTED" + str(self.accumulatedEvaluationTime))
+        #Omer Sella: disabled accumulated decoding time cap.
+        #if self.accumulatedEvaluationTime > LDPC_ENV_MAXIMUM_ACCUMULATED_DECODING_TIME:
+        #    done = True
+        #    #print("**** DECODING TIME EXHAUSTED" + str(self.accumulatedEvaluationTime))
         self.observed_state = self.compress()
         return self.observed_state, reward, done, {}
     

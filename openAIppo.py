@@ -31,7 +31,7 @@ INTERNAL_ACTION_DATA_TYPE = np.float32
 
 seed = 7134066
 localRandom = np.random.RandomState(seed)
-maximumEpisodeLength = 3
+#maximumEpisodeLength = 3
 clipRatio = 0.2
 policyLearningRate = 3e-4
 valueFunctionLearningRate = 1e-3
@@ -142,7 +142,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         max_ep_len=32,#max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), 
         save_freq=10, envCudaDevices = 4, experimentDataDir = None,
-        entropyCoefficient = 0.0, policyCoefficient = 1.0):
+        entropyCoefficient0 = 0.01, entropyCoefficient1 = 0.01, entropyCoefficient2 = 0.01, policyCoefficient = 1.0):
     """
     Proximal Policy Optimization (by clipping), 
 
@@ -273,7 +273,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     #env = env_fn(gpuDevice = (proc_id() % NUMBER_OF_GPUS_PER_NODE))
     #print("*** debugging cuda device")
     #print(envCudaDevice)
-    env = env_fn(x = 7134066, y = envCudaDevices)
+    #Omer Sella: I changed the environment seed to be the same as the ppo seed.
+    env = env_fn(x = seed, y = envCudaDevices)
     #print(env.gpuDeviceNumber)
     #print(env.gpuDeviceNumber)
     #print(env.gpuDeviceNumber)
@@ -321,6 +322,9 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         #print(actorEntropyList[0].mean().item())
         
         iEntropy = actorEntropyList[0].mean().item()
+        jEntropy = actorEntropyList[1].mean().item()
+        kEntropy = actorEntropyList[2].mean().item()
+        #coordinatesEntropy = actorEntropyList[3].mean().item()
        
         
         # Useful extra info
@@ -336,7 +340,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         #########
         #OSS: we are testing a hypothesis, that the entropy for choice of i collapses too fast. So I'm replacing ent with iEntropy and let's see what happens
         #totalLoss = policyCoefficient * loss_pi + entropyCoefficient * ent
-        totalLoss = policyCoefficient * loss_pi + entropyCoefficient * iEntropy
+        totalLoss = policyCoefficient * loss_pi + entropyCoefficient0 * iEntropy + entropyCoefficient1 * jEntropy + entropyCoefficient2 * kEntropy# + entropyCoefficient3 * coordinatesEntropy
         
         return totalLoss, pi_info
 
@@ -463,7 +467,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             myLogger.keyValue('iEntropy', entropyList[0].item())
             myLogger.keyValue('jEntropy', entropyList[1].item())
             myLogger.keyValue('kEntropy', entropyList[2].item())
-            myLogger.keyValue('coordinatesEntropy', entropyList[2].item())
+            myLogger.keyValue('coordinatesEntropy', entropyList[3].item())
             next_o, r, d, _ = env.step(a[-1])
             myLogger.keyValue('Reward', r)
             myLogger.keyValue('epochNumber', epoch)
@@ -529,6 +533,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         if (epoch % save_freq == 0) or (epoch == epochs-1) or (epoch == 0):
             #logger.save_state({'env': env}, None)
             logger.save_state({'env': env, 'model': ac}, itr = saveNumber)
+            acFileName = experimentDataDir + "/acSave" + itr + ".pt"
+            torch.save(ac.state_dict(), acFileName)
             saveNumber = saveNumber + 1
 
 
@@ -586,7 +592,9 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--envCudaDevices', type=int, default=1)
     #parser.add_argument('--epochs', type=int, default=25) #Omer Sella: I have the 25 option for testing
-    parser.add_argument('--entropyCoefficient', type=float, default = 0.01)
+    parser.add_argument('--entropyCoefficient0', type=float, default = 0.01)
+    parser.add_argument('--entropyCoefficient1', type=float, default = 0.01)
+    parser.add_argument('--entropyCoefficient2', type=float, default = 0.01)
     parser.add_argument('--policyCoefficient', type=float, default = 1.0)
     parser.add_argument('--exp_name', type=str, default='ppo')
     args = parser.parse_args()
