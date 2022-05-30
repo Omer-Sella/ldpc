@@ -1,10 +1,7 @@
 {
   "ExpandedNodes": [
-    "",
-    "\\gym-ldpc",
-    "\\gym-ldpc\\gym_ldpc",
-    "\\gym-ldpc\\gym_ldpc\\envs"
+    ""
   ],
-  "SelectedNode": "\\gym-ldpc\\gym_ldpc\\envs\\ldpc_env.py",
+  "SelectedNode": "\\randomAgent.py",
   "PreviewInSolutionExplorer": false
 }

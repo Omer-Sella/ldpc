@@ -51,7 +51,7 @@ def postMortemBestCodes(filePath = None, baseline = REWARD_FOR_NEAR_EARTH_3_0_TO
         
 
 
-def postMortemHeatMaps(filePath = None, baseline = REWARD_FOR_NEAR_EARTH_3_0_TO_3_4):
+def postMortemHeatMaps(filePath = None, axI = None, axJ = None, axK = None):
     plt.style.use("seaborn")
     if filePath == None:
         filePath = "D:/ldpc/temp/experiments/1625763063/experiment.txt"

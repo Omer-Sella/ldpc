@@ -158,7 +158,11 @@ class actorCritic(nn.Module):
         #   3. Both observations AND actions are provided, in which case we are evaluating log probabilities
         
         # Observations batchSize X observationSpaceSize of type observationSpaceType
-
+        print("*** debugging step. self.training == " + str(self.training))
+        print("*** debugging step. self.training == " + str(self.training))
+        print("*** debugging step. self.training == " + str(self.training))
+        print("*** debugging step. self.training == " + str(self.training))
+        print("*** debugging step. self.training == " + str(self.training))
         if action is not None:
             action = torch.as_tensor(action, device = self.device)
         
@@ -169,8 +173,10 @@ class actorCritic(nn.Module):
         if action is not None:
             i = action[:, 0]
         elif self.training:
+            #print("*** i says: categorical distribution")
             i = iCategoricalDistribution.sample()
         else:
+            #print("*** i says: most probable action mode")
             i = torch.argmax(logitsForIChooser)
                
         
@@ -188,8 +194,10 @@ class actorCritic(nn.Module):
         if action is not None:
             j = action[:, 1]
         elif self.training:    
+            #print("*** j says: categorical distribution")
             j = jCategoricalDistribution.sample()
         else:
+            #print("*** j says: most probable action mode")
             j = torch.argmax(logitsForJChooser)
                 
         # Omer Sella: now we need to append j to the observations

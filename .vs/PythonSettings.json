@@ -1,4 +1,5 @@
 {
   "TestFramework": "Pytest",
-  "Interpreter": "CondaEnv|CondaEnv|friday"
+  "Interpreter": "CondaEnv|CondaEnv|friday",
+  "SuppressEnvironmentCreationPrompt": true
 }

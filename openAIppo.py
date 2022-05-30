@@ -29,8 +29,8 @@ import multiprocessing
 OBSERVATION_DATA_TYPE = np.float32
 INTERNAL_ACTION_DATA_TYPE = np.float32
 
-seed = 7134066
-localRandom = np.random.RandomState(seed)
+#seed = 7134066
+#localRandom = np.random.RandomState(seed)
 #maximumEpisodeLength = 3
 clipRatio = 0.2
 policyLearningRate = 3e-4
@@ -139,7 +139,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         steps_per_epoch=64,
         epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, 
-        max_ep_len=32,#max_ep_len=1000,
+        max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), 
         save_freq=10, envCudaDevices = 4, experimentDataDir = None,
         entropyCoefficient0 = 0.01, entropyCoefficient1 = 0.01, entropyCoefficient2 = 0.01, policyCoefficient = 1.0):
@@ -452,7 +452,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
         for t in range(local_steps_per_epoch):
-            print("*** step number: " + str(t))
+            
             myLogger.keyValue('Observation', o)
             a, v, logp, actorEntropy, logpList, entropyList = ac.step(torch.as_tensor(o, dtype=torch.float32))
             myLogger.keyValue('actorEntropy', actorEntropy)

@@ -6,7 +6,7 @@ import time
 
 import fileHandler
 import os
-
+import multiprocessing
 
 # Omer Sella 06/01/2021
 # Random agent.
@@ -32,7 +32,7 @@ def numToBits(number, numberOfBits):
     return newNumber
     
 
-def randomAgent(environmentFunction, seed = 90210, maximumStepsPerEpoch = 5, numberOfEpochs = 50, saveFrequency = 10, maximumTrajectoryLenth = 1000, savePath = 'D:/swift/evaluations/oneSparseCirculantAway/'):
+def randomAgent(environmentFunction, seed = 90210, maximumStepsPerEpoch = 5, numberOfEpochs = 50, saveFrequency = 10, maximumTrajectoryLenth = 1000, savePath = 'D:/swift/evaluations/oneSparseCirculantAway/', envCudaDevices = 1):
     """
     Random agent.
     Arguments:
@@ -59,13 +59,14 @@ def randomAgent(environmentFunction, seed = 90210, maximumStepsPerEpoch = 5, num
     localRandom = np.random.RandomState(seed)
     
     # Instatiate an environment
-    env = environmentFunction()
+    env = environmentFunction(x = seed, y = envCudaDevices)
     
-    observation = env.reset()
+    
     hotBitsVector = np.array([3,4,5,6,7])
     
     timeout = False
     for epoch in range(numberOfEpochs):
+        observation = env.reset()
         trajectoryReturn = 0
         trajectoryLength = 0
         for t in range(maximumStepsPerEpoch):
@@ -87,15 +88,6 @@ def randomAgent(environmentFunction, seed = 90210, maximumStepsPerEpoch = 5, num
             logger.keyValue('jAction', j)
             logger.keyValue('hotBitsAction', hotBits)
             vector[hotBits] = 1
-            # print("*** i is :")
-            # print(i)
-            # print("*** j is :")
-            # print(j)
-            # print("*** hotbits are :")
-            # print(hotBits)
-            # print(vector)
-            # print(len(vector))
-            #assert (len(vector) == 511), "Vector length is" + str(len(vector))
             action, value, logp = np.hstack((np.hstack((xCoordinate, yCoordinate)), vector)) , 0, 0#actor.step()
             startTime = time.time()
             nextObservation, nextReturn, nextDone, _ = env.step(action)
@@ -126,14 +118,28 @@ def randomAgent(environmentFunction, seed = 90210, maximumStepsPerEpoch = 5, num
             #    trajectoryLength = 0
             
             observation = nextObservation
-        
-        myPlotter.step(trajectoryReturn)
-                    
-                        
-                
+
+             # Log info about epoch
             
                 
             
 if __name__ == '__main__':
+    import argparse
+    multiprocessing.set_start_method('spawn')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--env', type=str, default= 'gym_ldpc:ldpc-v0')
+    parser.add_argument('--seed', '-s', type=int, default=30)
+    parser.add_argument('--cpu', type=int, default=1) #Omer Sella: was 4 instead of 1
+    parser.add_argument('--steps', type=int, default=32)
+    parser.add_argument('--epochs', type=int, default=50)
+    parser.add_argument('--envCudaDevices', type=int, default=1)
+    parser.add_argument('--exp_name', type=str, default='ppo')
+    args = parser.parse_args()
+    import os
+    experimentTime = time.time()
+    PROJECT_PATH = os.environ.get('LDPC')
+    experimentDataDir = PROJECT_PATH + "/temp/experiments/%i" %int(experimentTime)
     
-    randomAgent(lambda : gym.make('gym_ldpc:ldpc-v0'))
+    randomAgent(lambda x = 8200, y = 0: gym.make(args.env, seed = x, numberOfCudaDevices = y),
+        seed=args.seed, maximumStepsPerEpoch=args.steps, numberOfEpochs=args.epochs,
+        envCudaDevices = args.envCudaDevices, savePath = experimentDataDir)
