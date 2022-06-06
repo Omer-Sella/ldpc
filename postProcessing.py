@@ -51,12 +51,14 @@ def postMortemBestCodes(filePath = None, baseline = REWARD_FOR_NEAR_EARTH_3_0_TO
         
 
 
-def postMortemHeatMaps(filePath = None, axI = None, axJ = None, axK = None):
+def postMortemHeatMaps(dataFrame = None, axI = None, axJ = None, axK = None, filePath = None):
     plt.style.use("seaborn")
-    if filePath == None:
-        filePath = "D:/ldpc/temp/experiments/1625763063/experiment.txt"
-        
-    df = pd.read_csv(filePath, sep = '\t')
+    if filePath != None:
+        df = pd.read_csv(filePath, sep = '\t')
+        pathBreakdown = os.path.split(filePath)
+    else:
+        df = dataFrame
+
     
     # Get number of unique epochs
     numberOfEpochs = len(np.unique(df.epochNumber))
@@ -70,27 +72,31 @@ def postMortemHeatMaps(filePath = None, axI = None, axJ = None, axK = None):
         
     
     
-    # For getting the infor from the dataframes - https://stackoverflow.com/questions/39250504/count-occurrences-in-dataframe
+    # For getting the info from the dataframes - https://stackoverflow.com/questions/39250504/count-occurrences-in-dataframe
     # For heatmaps - https://www.askpython.com/python/examples/heatmaps-in-python
     
     
     #####
     #iAction heat map
     
-    # Group data frame by epoch number and then jAction
+    # Group data frame by epoch number and then iAction
     gb2 = df.groupby(['epochNumber', 'iAction']) 
     
     # Pad with 0s where jAction type did not occur
     gb3 = gb2.size().unstack(fill_value = 0)
     iActionHeatMapArray = gb3.to_numpy().T
     
-    ax2, fig2 = plt.subplots(figsize = iActionHeatMapArray.shape)
-    ax2 = sns.heatmap( iActionHeatMapArray / epochLength, linewidth = 1 , annot = True)
-    ax2.set_title( "HeatMap of choices of i (row number in the parity matrix)" )
-    pathBreakdown = os.path.split(filePath)
-    imageName = pathBreakdown[0] + "/heatMapI.png"
-    plt.tight_layout()
-    plt.savefig(fname = imageName)
+    #if axI == None:
+    #    axI, fig2 = plt.subplots(figsize = iActionHeatMapArray.shape)
+            
+    #axI = sns.heatmap( iActionHeatMapArray / epochLength, linewidth = 1 , annot = True)
+    #axI.set_title( "HeatMap of choices of i (row number in the parity matrix)" )
+    
+    
+    #if filePath != None:
+    #    imageName = pathBreakdown[0] + "/heatMapI.png"
+    #    plt.tight_layout()
+    #    plt.savefig(fname = imageName)
     
     
     #####
@@ -103,39 +109,46 @@ def postMortemHeatMaps(filePath = None, axI = None, axJ = None, axK = None):
     gb3 = gb2.size().unstack(fill_value = 0)
     jActionHeatMapArray = gb3.to_numpy().T
     
-    ax1, fig1 = plt.subplots(figsize = jActionHeatMapArray.shape)
-    ax1 = sns.heatmap( jActionHeatMapArray / epochLength, linewidth = 1 , annot = True)
-    ax1.set_title( "HeatMap of choices of j (column number in the parity matrix)" )
-    imageName = pathBreakdown[0] + "/heatMapJ.png"
-    plt.tight_layout()
-    plt.savefig(fname = imageName)
+    #if axJ == None:
+    #    axJ, fig1 = plt.subplots(figsize = jActionHeatMapArray.shape)
+    
+    #axJ = sns.heatmap( jActionHeatMapArray / epochLength, linewidth = 1 , annot = True)
+    #axJ.set_title( "HeatMap of choices of j (column number in the parity matrix)" )
+    
+    #f filePath != None:
+    #   imageName = pathBreakdown[0] + "/heatMapJ.png"
+    #    plt.tight_layout()
+    #    plt.savefig(fname = imageName)
     
     
     
     #####
     #kAction heat map
     
-    # Group data frame by epoch number and then jAction
+    # Group data frame by epoch number and then kAction
     gb2 = df.groupby(['epochNumber', 'kAction']) 
     
     # Pad with 0s where jAction type did not occur
     gb3 = gb2.size().unstack(fill_value = 0)
     kActionHeatMapArray = gb3.to_numpy().T
     
-    ax3, fig3 = plt.subplots(figsize = kActionHeatMapArray.shape)
-    ax3 = sns.heatmap( kActionHeatMapArray / epochLength, linewidth = 1 , annot = True)
-    ax3.set_title( "HeatMap of choices of k (number of hot bits)" )
-    imageName = pathBreakdown[0] + "/heatMapK.png"
-    plt.tight_layout()
-    plt.savefig(fname = imageName)
+    #if axJ == None:
+    #    axJ, fig3 = plt.subplots(figsize = kActionHeatMapArray.shape)
+    #axJ = sns.heatmap( kActionHeatMapArray / epochLength, linewidth = 1 , annot = True)
+    #axJ.set_title( "HeatMap of choices of k (number of hot bits)" )
+    
+    #if filePath != None:
+    #    imageName = pathBreakdown[0] + "/heatMapK.png"
+    #    plt.tight_layout()
+    #    plt.savefig(fname = imageName)
     
     
-    return iActionHeatMapArray, jActionHeatMapArray, kActionHeatMapArray, df
+    return iActionHeatMapArray, jActionHeatMapArray, kActionHeatMapArray
     
     
 
 def postMortem(filePath = None, baseline = None):
-    
+    plt.style.use("seaborn")
     if filePath == None:
         filePath = "D:/ldpc/temp/experiments/1623248772/experiment.txt"
         
@@ -153,14 +166,26 @@ def postMortem(filePath = None, baseline = None):
     
     keys = df.columns.values
     
+     # Get number of unique epochs
+    numberOfEpochs = len(np.unique(df.epochNumber))
     
-    fig, ax = plt.subplots(4,6, figsize = (16, 16))
+    # Try to get number of interactions per epoch
+    epochLength = len(df) % numberOfEpochs
+    if epochLength == 0:
+        epochLength = len(df) / numberOfEpochs
+    else:
+        epochLength = 1
+    
+    
+    fig, ax = plt.subplots(4,4, figsize = (16, 16))
     
     #df.Reward.plot(ax=ax[0,0], subplots=True)
     #xmin = 0
     #xmax = len(df) - 1
     #if baseline != None: 
     #    ax[0,0].hlines(baseline, xmin, xmax)
+    
+    iActionHeatMapArray, jActionHeatMapArray, kActionHeatMapArray = postMortemHeatMaps(dataFrame = df)#, axI = ax[0,1], axJ = ax[0,2], axK = ax[0,3])
     
     dfEpochNumber = df.groupby(["epochNumber"])
     
@@ -205,23 +230,27 @@ def postMortem(filePath = None, baseline = None):
 
 
 ### i information
-    dfEpochNumber.iAction.plot(ax=ax[0,1])
+    
     if 'logpI' in df:
         dfEpochNumber.logpI.plot(ax=ax[1,1])
         ax[1,1].set_title('log probability')
         ax[1,1].set_ylabel("i")
         ax[1,1].set_xlabel('Actor-environment interaction number')
-    ax[0,1].set_title('Choice of i (0 or 1) as a function of actor-environment interaction number')
-    ax[0,1].set_ylabel("i [0 or 1]")
-    ax[0,1].set_xlabel('Actor-environment interaction number')
+    sns.heatmap( iActionHeatMapArray / epochLength, linewidth = 1 , annot = False, ax = ax[0,1])
+    #dfEpochNumber.iAction.plot(ax=ax[0,1])
+    
+    #ax[0,1].set_title('Choice of i (0 or 1) as a function of actor-environment interaction number')
+    #ax[0,1].set_ylabel("i [0 or 1]")
+    #ax[0,1].set_xlabel('Actor-environment interaction number')
     if 'iEntropy' in df:
         dfEpochNumber.iEntropy.plot(ax=ax[2,1])
     
 ### j information   
-    dfEpochNumber.jAction.plot(ax=ax[0,2])
-    ax[0,2].set_title('Choice of j (0,1..15) as a function of actor-environment interaction number')
-    ax[0,2].set_ylabel("j [0,1..15]")
-    ax[0,2].set_xlabel('Actor-environment interaction number')
+    sns.heatmap( jActionHeatMapArray / epochLength, linewidth = 1 , annot = False, ax = ax[0,2])    
+    #dfEpochNumber.jAction.plot(ax=ax[0,2])
+    #ax[0,2].set_title('Choice of j (0,1..15) as a function of actor-environment interaction number')
+    #ax[0,2].set_ylabel("j [0,1..15]")
+    #ax[0,2].set_xlabel('Actor-environment interaction number')
     if 'logpJ' in df:
         dfEpochNumber.logpJ.plot(ax=ax[1,2])
         ax[1,2].set_title('log probability')
@@ -231,8 +260,9 @@ def postMortem(filePath = None, baseline = None):
         dfEpochNumber.jEntropy.plot(ax=ax[2,2])
     
 ### k information   
-    if 'kAction' in df:
-        dfEpochNumber.kAction.plot(ax=ax[0,3])
+    #if 'kAction' in df:
+    #    dfEpochNumber.kAction.plot(ax=ax[0,3])
+    sns.heatmap( kActionHeatMapArray / epochLength, linewidth = 1 , annot = False, ax = ax[0,3])
     if 'logpK' in df:
         dfEpochNumber.logpK.plot(ax=ax[1,3])
     if 'kEntropy' in df:

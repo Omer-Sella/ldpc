@@ -12,7 +12,7 @@ import multiprocessing
 # Random agent.
 
 projectDir = os.environ.get('LDPC')
-print(projectDir)
+#print(projectDir)
 if projectDir == None:
     import pathlib
     projectDir = pathlib.Path(__file__).parent.absolute()
@@ -32,7 +32,7 @@ def numToBits(number, numberOfBits):
     return newNumber
     
 
-def randomAgent(environmentFunction, seed = 90210, maximumStepsPerEpoch = 5, numberOfEpochs = 50, saveFrequency = 10, maximumTrajectoryLenth = 1000, savePath = 'D:/swift/evaluations/oneSparseCirculantAway/', envCudaDevices = 1):
+def randomAgent(environmentFunction, seed = 90210, maximumStepsPerEpoch = 5, numberOfEpochs = 50, saveFrequency = 10, maximumTrajectoryLenth = 1000, savePath = './randomAgent/', envCudaDevices = 1):
     """
     Random agent.
     Arguments:
@@ -52,7 +52,7 @@ def randomAgent(environmentFunction, seed = 90210, maximumStepsPerEpoch = 5, num
             'DeltaLossPi', 'SeltaLossV', 'Entropy', 'KL', 'ClipFrac',
             'StopIter', 'Time']
     simpleKeys = ['Observation', 'iAction', 'jAction', 'hotBitsAction', 'Reward']
-    logger = utilityFunctions.logger(simpleKeys, logPath = "C:/User/optimus/testLogger/")
+    logger = utilityFunctions.logger(simpleKeys, logPath = (savePath + '/log/'))
     #logger.save_config(locals())
     myPlotter = utilityFunctions.plotter(numberOfEpochs)
     # Create a local np.random. Do not change the numpy global random state !
@@ -138,7 +138,7 @@ if __name__ == '__main__':
     import os
     experimentTime = time.time()
     PROJECT_PATH = os.environ.get('LDPC')
-    experimentDataDir = PROJECT_PATH + "/temp/experiments/%i" %int(experimentTime)
+    experimentDataDir = PROJECT_PATH + "/randomAgent/experiments/%i" %int(experimentTime)
     
     randomAgent(lambda x = 8200, y = 0: gym.make(args.env, seed = x, numberOfCudaDevices = y),
         seed=args.seed, maximumStepsPerEpoch=args.steps, numberOfEpochs=args.epochs,
