@@ -18,8 +18,7 @@ import copy
 GENERAL_LDPC_ENV_TYPE = np.float32
 LDPC_ENV_INT_DATA_TYPE = np.int32
 LDPC_ENV_SEED_DATA_TYPE = np.int32
-LDPC_ENV_NUMBER_OF_ITERATIONS = 50
-LDPC_ENV_NUMBER_OF_TRANSMISSIONS = 40
+LDPC_ENV_NUMBER_OF_ITERATIONS = 50LDPC_ENV_NUMBER_OF_TRANSMISSIONS = 40
 # How many seconds is a batch. Should be tested with number of iterations as well.
 #This is a way to limit the entire training process on cluster use 
 LDPC_ENV_MAXIMUM_ACCUMULATED_DECODING_TIME = 64 * LDPC_ENV_NUMBER_OF_TRANSMISSIONS
@@ -218,32 +217,10 @@ class LdpcEnv(gym.Env):
             #test = berStats.stats
             #print(test)
             self.BERpoints = berData
-            #print("*** berData needs to be at least 2 points for a valid reward. berData is: " + str(self.BERpoints))
-            #print("*** and its length is " + str(len(self.BERpoints)))
+            # berData needs to be at least 2 points for a valid reward. berData is: " + str(self.BERpoints))
+            # and its length is " + str(len(self.BERpoints)))
             reward = self.calcReward()
             #density = np.sum(self.state) / (self.messageSize * self.codewordSize)
-            #print("*** nnz of state after action :" + str(density))
-            
-            
-            
-            #if ( density < self.targetDensity):
-            #    #print("*** Going into evaluation")
-            #    self.berStats = self.evaluateCode()
-            #    self.scatterSnr, self.scatterBer, self.scatterItr, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = self.berStats.getStatsV2()
-            #    #test = berStats.stats
-            #    #print(test)
-            #    self.BERpoints = berData
-             
-            #    #print("*** berData needs to be at least 2 points for a valid reward. berData is: " + str(self.BERpoints))
-            #    #print("*** and its length is " + str(len(self.BERpoints)))
-            
-            #    reward = self.calcReward()
-            #else:
-            #    # Calculate the negative of cross entropy bentween bernouli with self.targetDensity and what we actually got as a ***state*** (and not the specific step !)
-            #    logTargetProbs = np.log2(np.where(self.state == 1, self.targetDensity, 1 - self.targetDensity))
-            #    sampledProbs = np.where(self.state == 1, density, 1 - density)
-            #    reward = np.sum(sampledProbs * logTargetProbs)
-            #    #Omer Sella: note that cross entropy is: -1 * np.sum(sampledProbs * logTargetProbs)
                 
         else:
             reward = self.rewardForIllegalAction
@@ -263,18 +240,6 @@ class LdpcEnv(gym.Env):
     def reset(self):
         self.state = copy.deepcopy(self.resetValue)
         self.observed_state = self.compress()
-        
-        #for i in range(self.xBits):
-        #    for j in range(self.yBits):
-        #        numberOfHotBits = self.localPRNG.choice(self.hotBitsRange, 1)
-        #        hotBits = self.localPRNG.choice(511, numberOfHotBits, replace = False)
-        #        newVector = np.zeros(511, dtype = LDPC_ENV_INT_DATA_TYPE)
-        #        newVector[hotBits] = 1
-        #        newCirculant = circulant(newVector).T
-        #        self.replaceCirculant(i, j, newCirculant)
-
-        #berStats = self.evaluateCode()
-        #snrAxis, averageSnrAxis, berData, averageNumberOfIterations = berStats.getStats()
         self.BERpoints = np.ones(len(self.SNRpoints), dtype = GENERAL_LDPC_ENV_TYPE)
         self.accumulatedEvaluationTime = 0
         return self.observed_state

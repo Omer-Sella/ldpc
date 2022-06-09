@@ -201,7 +201,7 @@ def binaryMatrixToHexString(binaryMatrix, circulantSize):
 
 
 def saveCodeInstance(parityMatrix, circulantSize, codewordSize, evaluationData = None, path = None, evaluationTime = 0, numberOfNonZero = 0, fileName = None):
-    print("*** in saveCodeInstance ...")
+    #print("*** in saveCodeInstance ...")
     m, n = parityMatrix.shape
     M = m // circulantSize
     N = n // circulantSize
@@ -212,7 +212,7 @@ def saveCodeInstance(parityMatrix, circulantSize, codewordSize, evaluationData =
     else:
         fileNameWithPath = path + fileName
 
-    print("*** " + fileName)
+    #print("*** " + fileName)
     workspaceDict = {}
     workspaceDict['parityMatrix'] = parityMatrix
     workspaceDict['fileName'] = fileName
@@ -227,7 +227,7 @@ def saveCodeInstance(parityMatrix, circulantSize, codewordSize, evaluationData =
     workspaceDict['nonZero'] = numberOfNonZero
     scipy.io.savemat((fileNameWithPath + '.mat'), workspaceDict)
     #evaluationData.plotStats(codewordSize, fileNameWithPath)
-    print("*** Finishing saveCodeInstance !")
+    #print("*** Finishing saveCodeInstance !")
     return fileName
 
 def testFileHandler():
