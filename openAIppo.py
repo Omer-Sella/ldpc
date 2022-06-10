@@ -142,7 +142,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), 
         save_freq=10, envCudaDevices = 4, experimentDataDir = None,
-        entropyCoefficient0 = 0.01, entropyCoefficient1 = 0.01, entropyCoefficient2 = 0.01, policyCoefficient = 1.0):
+        entropyCoefficient0 = 0.01, entropyCoefficient1 = 0.01, entropyCoefficient2 = 0.01, policyCoefficient = 1.0, resetType = 'WORST_CODES'):
     """
     Proximal Policy Optimization (by clipping), 
 
@@ -270,14 +270,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
 
     # Instantiate environment
-    #env = env_fn(gpuDevice = (proc_id() % NUMBER_OF_GPUS_PER_NODE))
-    #print("*** debugging cuda device")
-    #print(envCudaDevice)
     #Omer Sella: I changed the environment seed to be the same as the ppo seed.
-    env = env_fn(x = seed, y = envCudaDevices)
-    #print(env.gpuDeviceNumber)
-    #print(env.gpuDeviceNumber)
-    #print(env.gpuDeviceNumber)
+    env = env_fn(x = seed, y = envCudaDevices, resetType = resetType)
     obs_dim = env.observation_space.shape
     act_dim = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS #env.action_space.shape
 
@@ -580,9 +574,11 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
 if __name__ == '__main__':
     import argparse
+    # Omer Sella: this is critical - we are setting forking to spawn, otherwise utilisation of multiple GPUs doesn't work properly
     multiprocessing.set_start_method('spawn')
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default= 'gym_ldpc:ldpc-v0')
+    parser.add_argument('--resetType', type=str, default= 'WORST_CODES')
     parser.add_argument('--hid', type=int, default=64)
     parser.add_argument('--l', type=int, default=2)
     parser.add_argument('--gamma', type=float, default=0.99)
@@ -609,7 +605,7 @@ if __name__ == '__main__':
     experimentDataDir = PROJECT_PATH + "/temp/experiments/%i" %int(experimentTime)
     logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, data_dir = experimentDataDir)
 
-    ppo(lambda x = 8200, y = 0: gym.make(args.env, seed = x, numberOfCudaDevices = y), #Omer Sella: Actor_Critic is now embedded and thus commented actor_critic=core.MLPActorCritic,
+    ppo(lambda x = 8200, y = 0, z = 'WORST_CODES': gym.make(args.env, seed = x, numberOfCudaDevices = y, resetType = z), #Omer Sella: Actor_Critic is now embedded and thus commented actor_critic=core.MLPActorCritic,
         ac_kwargs=dict(hidden_sizes=[args.hid]*args.l), gamma=args.gamma, 
         seed=args.seed, steps_per_epoch=args.steps, epochs=args.epochs,
-        logger_kwargs=logger_kwargs, envCudaDevices = args.envCudaDevices, experimentDataDir = experimentDataDir)
+        logger_kwargs=logger_kwargs, envCudaDevices = args.envCudaDevices, experimentDataDir = experimentDataDir, resetType = 'WORST_CODES')

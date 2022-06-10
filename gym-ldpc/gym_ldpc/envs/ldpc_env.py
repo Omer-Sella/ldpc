@@ -18,7 +18,8 @@ import copy
 GENERAL_LDPC_ENV_TYPE = np.float32
 LDPC_ENV_INT_DATA_TYPE = np.int32
 LDPC_ENV_SEED_DATA_TYPE = np.int32
-LDPC_ENV_NUMBER_OF_ITERATIONS = 50LDPC_ENV_NUMBER_OF_TRANSMISSIONS = 40
+LDPC_ENV_NUMBER_OF_ITERATIONS = 50
+LDPC_ENV_NUMBER_OF_TRANSMISSIONS = 40
 # How many seconds is a batch. Should be tested with number of iterations as well.
 #This is a way to limit the entire training process on cluster use 
 LDPC_ENV_MAXIMUM_ACCUMULATED_DECODING_TIME = 64 * LDPC_ENV_NUMBER_OF_TRANSMISSIONS
@@ -44,6 +45,7 @@ import time
 from binarySpace import binarySpace
 from uint8Space import uint8Space
 import common
+import scipy
 
 class LdpcEnv(gym.Env):
     """
@@ -72,21 +74,31 @@ class LdpcEnv(gym.Env):
     
     """
     
-  ## Omer Sella: probably change to binary array instead of rgb array.
+  
     metadata = {'render.modes': ['rgb']}
 
-  #def __init__(self, SNRpointsOfInterest = [5, 10, 15], H, xLimit, yLimit, circulantSize):
-    def __init__(self, replacementOnly=False, seed=7134066, numberOfCudaDevices = 4, resetHammingDistance = 'MAXIMUM'):
+  
+    def __init__(self, replacementOnly=False, seed=7134066, numberOfCudaDevices = 4, resetType = 'NEAR_EARTH'):
         
-        H = fileHandler.readMatrixFromFile(projectDir + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False)
+        if resetType == 'NEAR_EARTH':        
+            H = fileHandler.readMatrixFromFile(projectDir + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False)
+            self.state = copy.deepcopy(H)
+            self.resetValue = copy.deepcopy(H)
+        else:
+            if resetType == 'WORST_CODES':
+                self.resetMatrices = os.listdir(projectDir + '/codeMatrices/experimental/worstCodes/')
+            elif resetType == "BEST_CODES":
+                self.resetMatrices = os.listdir(projectDir + '/codeMatrices/experimental/bestCodes/')
+            else:
+                assert (resetType == 'MEDIAN_CODES')
+                self.resetMatrices = os.listdir(projectDir + '/codeMatrices/experimental/medianCodes/'), 'Reset type has to be one of: NEAR_EARTH, WORST_CODES, MEDIAN_CODES'
+            self.extractParityMatrix()
         self.replacementOnly = replacementOnly
         self.messageSize = 7156
         self.codewordSize = 8176
         #self.SNRpoints = np.array([3.0, 3.2, 3.4, 3.6, 3.8], dtype = GENERAL_LDPC_ENV_TYPE)
         self.SNRpoints = np.array([3.0, 3.2, 3.4], dtype = GENERAL_LDPC_ENV_TYPE) #Omer Sella: removed last two snr points
         self.BERpoints = np.ones(len(self.SNRpoints), dtype = GENERAL_LDPC_ENV_TYPE)
-        self.state = copy.deepcopy(H)
-        self.resetValue = copy.deepcopy(H)
         self.circulantSize = 511
         # Omer Sella: should be made clear from the action space details
         self.xBits = 1
@@ -127,7 +139,6 @@ class LdpcEnv(gym.Env):
         self.accumulatedEvaluationTime = 0
         #berStats = self.evaluateCode()
         #self.scatterSnr, self.scatterBer, self.scatterItr, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = berStats.getStatsV2()
-        #self.calcReward("red")
         self.maximumNNZ = 64000
         #nearEart density 0.0005589714924538849
         self.targetDensity = 6.0/511 #0.0005589714924538849
@@ -148,23 +159,6 @@ class LdpcEnv(gym.Env):
     ## 01/01/2021 Omer Sella: I changed the step function to just check xEntropy of the next action, this is to see if the agent is learning sparsity.
     ## Happy new year !
     ## 04/05/2021 Omer Sella: I commented the xEntropy step function, back to evaluating actual codes.
-    """
-    def step(self, action):
-        done = False
-        # Get first line of new circulant
-        circulantFirstRow = action[self.xBits + self.yBits : ]
-        circulantDensity = np.sum(circulantFirstRow) / self.circulantSize
-        # Calculate the negative of cross entropy bentween bernouli with self.targetDensity and the circulant we got as a specific step !
-        logTargetProbs = np.log2(np.where(circulantFirstRow == 1, self.targetDensity, 1 - self.targetDensity))
-        sampledProbs = np.where(circulantFirstRow == 1, circulantDensity, 1 - circulantDensity)
-        reward = np.sum(sampledProbs * logTargetProbs)
-        #Omer Sella: note that cross entropy is: -1 * np.sum(sampledProbs * logTargetProbs)
-        print(reward)
-        if circulantDensity > 2 * self.targetDensity:
-            done = True
-        return self.observed_state, reward, done, {}
-        
-    """
     def step(self, action):
         done = False
         ## Omer Sella: the assertion that the action is of type int vector is for safety during developement and should be removed upon release
@@ -224,21 +218,27 @@ class LdpcEnv(gym.Env):
                 
         else:
             reward = self.rewardForIllegalAction
-        
-        #print("*** Finishing step. ")
-        #print("*** *** *** *** ***Reward == " + str(reward))
-        #print("*** *** *** *** *** Done == " + str(done))
-        #print("*** accumulated decoding time == " + str(self.accumulatedEvaluationTime))
-        #Omer Sella: disabled accumulated decoding time cap.
-        #if self.accumulatedEvaluationTime > LDPC_ENV_MAXIMUM_ACCUMULATED_DECODING_TIME:
-        #    done = True
-        #    #print("**** DECODING TIME EXHAUSTED" + str(self.accumulatedEvaluationTime))
         self.observed_state = self.compress()
         return self.observed_state, reward, done, {}
     
-      
+    def extractParityMatrix(self):
+        resetFile = self.localPRNG.choice(self.resetMatrices)
+        self.state = scipy.io.loadmat(resetFile)['parityMatrix']
+        return
+
     def reset(self):
-        self.state = copy.deepcopy(self.resetValue)
+        
+        if self.resetType == "NEAR_EARTH":
+            self.state = copy.deepcopy(self.resetValue)
+        else:
+            # Choose at random a matrix that represents a really bad code, or:
+            # Choose at random a matrix from a pool of not so good and not so bad codes
+            # depending on self.resetType
+            self.extractParityMatrix()
+            
+        
+            
+            
         self.observed_state = self.compress()
         self.BERpoints = np.ones(len(self.SNRpoints), dtype = GENERAL_LDPC_ENV_TYPE)
         self.accumulatedEvaluationTime = 0
@@ -258,19 +258,9 @@ class LdpcEnv(gym.Env):
         #print(newCirculant.shape)
         circulantSize =  newCirculant.shape[0]
         status = 'NA'
-        #print("*** circulant size is: ")
-        #print(circulantSize)
-        #print("*** xCoordinate is: ")
-        #print(xCoordinate)
-        #print("*** yCoordinate is: ")
-        #print(yCoordinate)
         if (xCoordinate > (2 ** self.xBits)) or (yCoordinate > (2 ** self.yBits)):
             status = 'Illegal action'
         else:      
-            #print(xCoordinate * circulantSize)
-            #print((xCoordinate + 1) * circulantSize)
-            #print(yCoordinate * circulantSize)
-            #print((yCoordinate + 1) * circulantSize)
             self.state[xCoordinate * circulantSize : (xCoordinate + 1) * circulantSize, yCoordinate * circulantSize : (yCoordinate + 1) * circulantSize] = newCirculant
             #common.updateCirculantImage(self.ax, self.fig, xCoordinate, yCoordinate, newCirculant)
             status = 'OK'
@@ -278,14 +268,13 @@ class LdpcEnv(gym.Env):
         return status
     
     def calcReward(self, colour = None):
-        # Omer Sella: fit a line to the snr / ber data, and return the slope.
+        # Omer Sella: fit a line to the snr / ber data, and return the area between the line and the constant function 1.
         if len(self.BERpoints) < 2:
             # You need at least two points to fit a line
             reward = self.rewardForBadCandidate
         else:
                         
             # Fit a line through the data #OSS 26/12/2021 this is now proivided by a function from common
-            #p = np.polyfit(self.scatterSnr, self.scatterBer, LDPC_POLYNOMIAL_ORDER)
             # OSS 26/12/2021 adjusted the reward function to be less sensitive to 0 BER data points
             snr, ber, p1, trendP, itr = common.recursiveLinearFit(self.scatterSnr, self.scatterBer)
 
@@ -315,25 +304,13 @@ class LdpcEnv(gym.Env):
         seeds = self.localPRNG.randint(0, LDPC_ENV_MAX_SEED, self.cudaDevices, dtype = LDPC_ENV_SEED_DATA_TYPE)
         seed = self.localPRNG.randint(0, LDPC_ENV_MAX_SEED, 1, dtype = LDPC_ENV_SEED_DATA_TYPE)
         #seed = np.random.randint(0, LDPC_ENV_MAX_SEED, 1, dtype = LDPC_ENV_SEED_DATA_TYPE)
-        #transmissions = np.arange(0, self.ldpcDecoderNumOfTransmissions, 1, dtype = LDPC_ENV_INT_DATA_TYPE)
-        
-        #SNR_iterable = list([self.SNRpoints])  * self.ldpcDecoderNumOfTransmissions
-        #messageSize_iterable = list([self.messageSize])  * self.ldpcDecoderNumOfTransmissions
-        #codewordSize_iterable = list([self.codewordSize]) * self.ldpcDecoderNumOfTransmissions
-        #numberOfIterations_iterable = list([self.ldpcDecoderNumOfIterations]) * self.ldpcDecoderNumOfTransmissions
-        #H_iterable = list([self.state]) * self.ldpcDecoderNumOfTransmissions
-        
-        
         start = time.time()        
         berStats = common.berStatistics(self.codewordSize)
         # OSS: I'm commenting out evaluateCodeCuda in order to use the wrapper that utilises multiple GPUs
         #berStats = ldpcCUDA.evaluateCodeCuda(seed, self.SNRpoints, self.ldpcDecoderNumOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None', cudaDeviceNumber = self.cudaDevices)
         berStats = ldpcCUDA.evaluateCodeCudaWrapper(seeds, self.SNRpoints, self.ldpcDecoderNumOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None' , numberOfCudaDevices = self.cudaDevices)
         snrAxis, averageSnrAxis, berData, averageNumberOfIterations = berStats.getStats()
-        #end = time.time()
-        #print('Time it took for code evaluation == %d' % (end-start))
-        #print("berDecoded " + str(berData))
-        #self.accumulatedEvaluationTime = self.accumulatedEvaluationTime + (end-start)
+        
 
         return berStats
     
