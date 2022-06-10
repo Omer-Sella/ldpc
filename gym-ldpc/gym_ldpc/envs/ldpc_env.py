@@ -80,19 +80,21 @@ class LdpcEnv(gym.Env):
   
     def __init__(self, replacementOnly=False, seed=7134066, numberOfCudaDevices = 4, resetType = 'NEAR_EARTH'):
         
+        self.localPRNG = np.random.RandomState(seed)
         if resetType == 'NEAR_EARTH':        
             H = fileHandler.readMatrixFromFile(projectDir + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False)
             self.state = copy.deepcopy(H)
             self.resetValue = copy.deepcopy(H)
         else:
             if resetType == 'WORST_CODES':
-                self.resetMatrices = os.listdir(projectDir + '/codeMatrices/experimental/worstCodes/')
+                self.resetMatricesPath = projectDir + '/codeMatrices/experimental/worstCodes/'
             elif resetType == "BEST_CODES":
-                self.resetMatrices = os.listdir(projectDir + '/codeMatrices/experimental/bestCodes/')
+                self.resetMatricesPath = projectDir + '/codeMatrices/experimental/bestCodes/'
             else:
-                assert (resetType == 'MEDIAN_CODES')
-                self.resetMatrices = os.listdir(projectDir + '/codeMatrices/experimental/medianCodes/'), 'Reset type has to be one of: NEAR_EARTH, WORST_CODES, MEDIAN_CODES'
+                assert (resetType == 'MEDIAN_CODES') , 'Reset type has to be one of: NEAR_EARTH, WORST_CODES, MEDIAN_CODES'
+                self.resetMatricesPath = projectDir + '/codeMatrices/experimental/medianCodes/'
             self.extractParityMatrix()
+        
         self.replacementOnly = replacementOnly
         self.messageSize = 7156
         self.codewordSize = 8176
@@ -147,11 +149,11 @@ class LdpcEnv(gym.Env):
         #unpaddedFirstRow, unpaddedSecondRow = self.uncompress()
         #assert np.all(unpaddedFirstRow == self.state[0,:])
         #assert np.all(unpaddedSecondRow == self.state[511,:])
-        self.localPRNG = np.random.RandomState(seed)
         self.hotBitsRange = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]
         self.cudaDevices = numberOfCudaDevices
         self.counter = 0
-        self.resetHammingDistance = resetHammingDistance
+        self.resetType = resetType
+        
 
         
         
@@ -222,8 +224,9 @@ class LdpcEnv(gym.Env):
         return self.observed_state, reward, done, {}
     
     def extractParityMatrix(self):
-        resetFile = self.localPRNG.choice(self.resetMatrices)
-        self.state = scipy.io.loadmat(resetFile)['parityMatrix']
+        resetFile = self.localPRNG.choice(os.listdir(self.resetMatricesPath))
+        resetFilePath = self.resetMatricesPath + resetFile
+        self.state = scipy.io.loadmat(resetFilePath)['parityMatrix']
         return
 
     def reset(self):
@@ -253,7 +256,7 @@ class LdpcEnv(gym.Env):
     
     def replaceCirculant(self, xCoordinate, yCoordinate, newCirculant):
         
-        m,n = self.resetValue.shape
+        m,n = self.state.shape
         #print('*****')
         #print(newCirculant.shape)
         circulantSize =  newCirculant.shape[0]

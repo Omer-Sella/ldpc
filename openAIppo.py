@@ -271,7 +271,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
     # Instantiate environment
     #Omer Sella: I changed the environment seed to be the same as the ppo seed.
-    env = env_fn(x = seed, y = envCudaDevices, resetType = resetType)
+    env = env_fn(x = seed, y = envCudaDevices, z = resetType)
     obs_dim = env.observation_space.shape
     act_dim = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS #env.action_space.shape
 
