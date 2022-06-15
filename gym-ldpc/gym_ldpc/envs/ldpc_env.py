@@ -45,6 +45,7 @@ import time
 from binarySpace import binarySpace
 from uint8Space import uint8Space
 import common
+import scipy
 
 class LdpcEnv(gym.Env):
     """
@@ -73,21 +74,33 @@ class LdpcEnv(gym.Env):
     
     """
     
-  ## Omer Sella: probably change to binary array instead of rgb array.
+  
     metadata = {'render.modes': ['rgb']}
 
-  #def __init__(self, SNRpointsOfInterest = [5, 10, 15], H, xLimit, yLimit, circulantSize):
-    def __init__(self, replacementOnly=False, seed=7134066, numberOfCudaDevices = 4, resetHammingDistance = 'MAXIMUM'):
+  
+    def __init__(self, replacementOnly=False, seed=7134066, numberOfCudaDevices = 4, resetType = 'NEAR_EARTH'):
         
-        H = fileHandler.readMatrixFromFile(projectDir + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False)
+        self.localPRNG = np.random.RandomState(seed)
+        if resetType == 'NEAR_EARTH':        
+            H = fileHandler.readMatrixFromFile(projectDir + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False)
+            self.state = copy.deepcopy(H)
+            self.resetValue = copy.deepcopy(H)
+        else:
+            if resetType == 'WORST_CODES':
+                self.resetMatricesPath = projectDir + '/codeMatrices/experimental/worstCodes/'
+            elif resetType == "BEST_CODES":
+                self.resetMatricesPath = projectDir + '/codeMatrices/experimental/bestCodes/'
+            else:
+                assert (resetType == 'MEDIAN_CODES') , 'Reset type has to be one of: NEAR_EARTH, WORST_CODES, MEDIAN_CODES'
+                self.resetMatricesPath = projectDir + '/codeMatrices/experimental/medianCodes/'
+            self.extractParityMatrix()
+        
         self.replacementOnly = replacementOnly
         self.messageSize = 7156
         self.codewordSize = 8176
         #self.SNRpoints = np.array([3.0, 3.2, 3.4, 3.6, 3.8], dtype = GENERAL_LDPC_ENV_TYPE)
         self.SNRpoints = np.array([3.0, 3.2, 3.4], dtype = GENERAL_LDPC_ENV_TYPE) #Omer Sella: removed last two snr points
         self.BERpoints = np.ones(len(self.SNRpoints), dtype = GENERAL_LDPC_ENV_TYPE)
-        self.state = copy.deepcopy(H)
-        self.resetValue = copy.deepcopy(H)
         self.circulantSize = 511
         # Omer Sella: should be made clear from the action space details
         self.xBits = 1
@@ -128,7 +141,6 @@ class LdpcEnv(gym.Env):
         self.accumulatedEvaluationTime = 0
         #berStats = self.evaluateCode()
         #self.scatterSnr, self.scatterBer, self.scatterItr, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = berStats.getStatsV2()
-        #self.calcReward("red")
         self.maximumNNZ = 64000
         #nearEart density 0.0005589714924538849
         self.targetDensity = 6.0/511 #0.0005589714924538849
@@ -137,11 +149,11 @@ class LdpcEnv(gym.Env):
         #unpaddedFirstRow, unpaddedSecondRow = self.uncompress()
         #assert np.all(unpaddedFirstRow == self.state[0,:])
         #assert np.all(unpaddedSecondRow == self.state[511,:])
-        self.localPRNG = np.random.RandomState(seed)
         self.hotBitsRange = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]
         self.cudaDevices = numberOfCudaDevices
         self.counter = 0
-        self.resetHammingDistance = resetHammingDistance
+        self.resetType = resetType
+        
 
         
         
@@ -149,23 +161,6 @@ class LdpcEnv(gym.Env):
     ## 01/01/2021 Omer Sella: I changed the step function to just check xEntropy of the next action, this is to see if the agent is learning sparsity.
     ## Happy new year !
     ## 04/05/2021 Omer Sella: I commented the xEntropy step function, back to evaluating actual codes.
-    """
-    def step(self, action):
-        done = False
-        # Get first line of new circulant
-        circulantFirstRow = action[self.xBits + self.yBits : ]
-        circulantDensity = np.sum(circulantFirstRow) / self.circulantSize
-        # Calculate the negative of cross entropy bentween bernouli with self.targetDensity and the circulant we got as a specific step !
-        logTargetProbs = np.log2(np.where(circulantFirstRow == 1, self.targetDensity, 1 - self.targetDensity))
-        sampledProbs = np.where(circulantFirstRow == 1, circulantDensity, 1 - circulantDensity)
-        reward = np.sum(sampledProbs * logTargetProbs)
-        #Omer Sella: note that cross entropy is: -1 * np.sum(sampledProbs * logTargetProbs)
-        print(reward)
-        if circulantDensity > 2 * self.targetDensity:
-            done = True
-        return self.observed_state, reward, done, {}
-        
-    """
     def step(self, action):
         done = False
         ## Omer Sella: the assertion that the action is of type int vector is for safety during developement and should be removed upon release
@@ -180,7 +175,8 @@ class LdpcEnv(gym.Env):
         yCoordinateBinary = action[self.xBits : self.xBits + self.yBits]
         #print(yCoordinateBinary.shape)
         yCoordinate = self.yCoordinateBinaryToInt.dot(yCoordinateBinary)
-        density = np.sum(self.state) / (self.messageSize * self.codewordSize)
+        # 26/05/2022 disabled density calc - it is no longer used.
+        #density = np.sum(self.state) / (self.messageSize * self.codewordSize)
         #print("*** density of state before action :" + str(density))
         if self.replacementOnly == True:
             xrCoordinateBinary = action[self.xBits + self.yBits : self.xBits + self.yBits + self.xBits]
@@ -212,73 +208,45 @@ class LdpcEnv(gym.Env):
         
         if status == 'OK':
             # Omer Sella: circulant change was legal and successful. Evaluate new code.
-            
-
             self.berStats = self.evaluateCode()
             self.scatterSnr, self.scatterBer, self.scatterItr, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = self.berStats.getStatsV2()
             #test = berStats.stats
             #print(test)
             self.BERpoints = berData
-             
-            #print("*** berData needs to be at least 2 points for a valid reward. berData is: " + str(self.BERpoints))
-            #print("*** and its length is " + str(len(self.BERpoints)))
-            
+            # berData needs to be at least 2 points for a valid reward. berData is: " + str(self.BERpoints))
+            # and its length is " + str(len(self.BERpoints)))
             reward = self.calcReward()
-
-
             #density = np.sum(self.state) / (self.messageSize * self.codewordSize)
-            #print("*** nnz of state after action :" + str(density))
-            
-            
-            
-            #if ( density < self.targetDensity):
-            #    #print("*** Going into evaluation")
-            #    self.berStats = self.evaluateCode()
-            #    self.scatterSnr, self.scatterBer, self.scatterItr, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = self.berStats.getStatsV2()
-            #    #test = berStats.stats
-            #    #print(test)
-            #    self.BERpoints = berData
-             
-            #    #print("*** berData needs to be at least 2 points for a valid reward. berData is: " + str(self.BERpoints))
-            #    #print("*** and its length is " + str(len(self.BERpoints)))
-            
-            #    reward = self.calcReward()
-            #else:
-            #    # Calculate the negative of cross entropy bentween bernouli with self.targetDensity and what we actually got as a ***state*** (and not the specific step !)
-            #    logTargetProbs = np.log2(np.where(self.state == 1, self.targetDensity, 1 - self.targetDensity))
-            #    sampledProbs = np.where(self.state == 1, density, 1 - density)
-            #    reward = np.sum(sampledProbs * logTargetProbs)
-            #    #Omer Sella: note that cross entropy is: -1 * np.sum(sampledProbs * logTargetProbs)
                 
         else:
             reward = self.rewardForIllegalAction
-        
-        #print("*** Finishing step. ")
-        #print("*** *** *** *** ***Reward == " + str(reward))
-        #print("*** *** *** *** *** Done == " + str(done))
-        #print("*** accumulated decoding time == " + str(self.accumulatedEvaluationTime))
-        if self.accumulatedEvaluationTime > LDPC_ENV_MAXIMUM_ACCUMULATED_DECODING_TIME:
-            done = True
-            #print("**** DECODING TIME EXHAUSTED" + str(self.accumulatedEvaluationTime))
         self.observed_state = self.compress()
+        ### OSS22: 13/06/2022 I'm trying something here, i.e., raising the done flag once a threshold has been met.
+        if reward > 0.396:
+            done = True
+        ### OSS22: 13/06/2022 I'm trying something here, i.e., raising the done flag once a threshold has been met.
         return self.observed_state, reward, done, {}
     
-      
-    def reset(self):
-        self.state = copy.deepcopy(self.resetValue)
-        self.observed_state = self.compress()
-        
-        #for i in range(self.xBits):
-        #    for j in range(self.yBits):
-        #        numberOfHotBits = self.localPRNG.choice(self.hotBitsRange, 1)
-        #        hotBits = self.localPRNG.choice(511, numberOfHotBits, replace = False)
-        #        newVector = np.zeros(511, dtype = LDPC_ENV_INT_DATA_TYPE)
-        #        newVector[hotBits] = 1
-        #        newCirculant = circulant(newVector).T
-        #        self.replaceCirculant(i, j, newCirculant)
+    def extractParityMatrix(self):
+        resetFile = self.localPRNG.choice(os.listdir(self.resetMatricesPath))
+        resetFilePath = self.resetMatricesPath + resetFile
+        self.state = scipy.io.loadmat(resetFilePath)['parityMatrix']
+        return
 
-        #berStats = self.evaluateCode()
-        #snrAxis, averageSnrAxis, berData, averageNumberOfIterations = berStats.getStats()
+    def reset(self):
+        
+        if self.resetType == "NEAR_EARTH":
+            self.state = copy.deepcopy(self.resetValue)
+        else:
+            # Choose at random a matrix that represents a really bad code, or:
+            # Choose at random a matrix from a pool of not so good and not so bad codes
+            # depending on self.resetType
+            self.extractParityMatrix()
+            
+        
+            
+            
+        self.observed_state = self.compress()
         self.BERpoints = np.ones(len(self.SNRpoints), dtype = GENERAL_LDPC_ENV_TYPE)
         self.accumulatedEvaluationTime = 0
         return self.observed_state
@@ -292,24 +260,14 @@ class LdpcEnv(gym.Env):
     
     def replaceCirculant(self, xCoordinate, yCoordinate, newCirculant):
         
-        m,n = self.resetValue.shape
+        m,n = self.state.shape
         #print('*****')
         #print(newCirculant.shape)
         circulantSize =  newCirculant.shape[0]
         status = 'NA'
-        #print("*** circulant size is: ")
-        #print(circulantSize)
-        #print("*** xCoordinate is: ")
-        #print(xCoordinate)
-        #print("*** yCoordinate is: ")
-        #print(yCoordinate)
         if (xCoordinate > (2 ** self.xBits)) or (yCoordinate > (2 ** self.yBits)):
             status = 'Illegal action'
         else:      
-            #print(xCoordinate * circulantSize)
-            #print((xCoordinate + 1) * circulantSize)
-            #print(yCoordinate * circulantSize)
-            #print((yCoordinate + 1) * circulantSize)
             self.state[xCoordinate * circulantSize : (xCoordinate + 1) * circulantSize, yCoordinate * circulantSize : (yCoordinate + 1) * circulantSize] = newCirculant
             #common.updateCirculantImage(self.ax, self.fig, xCoordinate, yCoordinate, newCirculant)
             status = 'OK'
@@ -317,14 +275,13 @@ class LdpcEnv(gym.Env):
         return status
     
     def calcReward(self, colour = None):
-        # Omer Sella: fit a line to the snr / ber data, and return the slope.
+        # Omer Sella: fit a line to the snr / ber data, and return the area between the line and the constant function 1.
         if len(self.BERpoints) < 2:
             # You need at least two points to fit a line
             reward = self.rewardForBadCandidate
         else:
                         
             # Fit a line through the data #OSS 26/12/2021 this is now proivided by a function from common
-            #p = np.polyfit(self.scatterSnr, self.scatterBer, LDPC_POLYNOMIAL_ORDER)
             # OSS 26/12/2021 adjusted the reward function to be less sensitive to 0 BER data points
             snr, ber, p1, trendP, itr = common.recursiveLinearFit(self.scatterSnr, self.scatterBer)
 
@@ -354,25 +311,13 @@ class LdpcEnv(gym.Env):
         seeds = self.localPRNG.randint(0, LDPC_ENV_MAX_SEED, self.cudaDevices, dtype = LDPC_ENV_SEED_DATA_TYPE)
         seed = self.localPRNG.randint(0, LDPC_ENV_MAX_SEED, 1, dtype = LDPC_ENV_SEED_DATA_TYPE)
         #seed = np.random.randint(0, LDPC_ENV_MAX_SEED, 1, dtype = LDPC_ENV_SEED_DATA_TYPE)
-        #transmissions = np.arange(0, self.ldpcDecoderNumOfTransmissions, 1, dtype = LDPC_ENV_INT_DATA_TYPE)
-        
-        #SNR_iterable = list([self.SNRpoints])  * self.ldpcDecoderNumOfTransmissions
-        #messageSize_iterable = list([self.messageSize])  * self.ldpcDecoderNumOfTransmissions
-        #codewordSize_iterable = list([self.codewordSize]) * self.ldpcDecoderNumOfTransmissions
-        #numberOfIterations_iterable = list([self.ldpcDecoderNumOfIterations]) * self.ldpcDecoderNumOfTransmissions
-        #H_iterable = list([self.state]) * self.ldpcDecoderNumOfTransmissions
-        
-        
         start = time.time()        
         berStats = common.berStatistics(self.codewordSize)
         # OSS: I'm commenting out evaluateCodeCuda in order to use the wrapper that utilises multiple GPUs
         #berStats = ldpcCUDA.evaluateCodeCuda(seed, self.SNRpoints, self.ldpcDecoderNumOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None', cudaDeviceNumber = self.cudaDevices)
         berStats = ldpcCUDA.evaluateCodeCudaWrapper(seeds, self.SNRpoints, self.ldpcDecoderNumOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None' , numberOfCudaDevices = self.cudaDevices)
         snrAxis, averageSnrAxis, berData, averageNumberOfIterations = berStats.getStats()
-        #end = time.time()
-        #print('Time it took for code evaluation == %d' % (end-start))
-        #print("berDecoded " + str(berData))
-        #self.accumulatedEvaluationTime = self.accumulatedEvaluationTime + (end-start)
+        
 
         return berStats
     
