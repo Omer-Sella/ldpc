@@ -191,7 +191,7 @@ class logger():
                 if isinstance(value, np.ndarray):
                     valueString = np.array2string(value, max_line_width = UTILITY_FUNCTIONS_BIG_NUMBER, threshold = UTILITY_FUNCTIONS_BIG_NUMBER)
                 elif hasattr(value, "__float__"):
-                    valueString = "%8.3g"%value
+                    valueString = "%8.5g"%value
                 else:
                     valueString = value
                 print(stringFormat%(key, valueString))
