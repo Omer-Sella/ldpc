@@ -509,8 +509,11 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
                     # only save EpRet / EpLen if trajectory finished
                     #print("*** PPO acknowledges that the episode terminated")
                     #print("*** EpRet debug. ep_ret == " + str(ep_ret))
-                    logger.store(EpRet=ep_ret, EpLen=ep_len)
+                    #logger.store(EpRet=ep_ret, EpLen=ep_len)
+                    pass
                 o, ep_ret, ep_len = env.reset(), 0, 0
+            # OSS22 15/06/2022 cheasy and dirty fix. It's just to investigate if done flag can help the agent perform better.
+            logger.store(EpRet=ep_ret, EpLen=ep_len)
             
             
 

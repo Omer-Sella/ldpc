@@ -222,8 +222,8 @@ class LdpcEnv(gym.Env):
             reward = self.rewardForIllegalAction
         self.observed_state = self.compress()
         ### OSS22: 13/06/2022 I'm trying something here, i.e., raising the done flag once a threshold has been met.
-        if reward > 0.396:
-            done = True
+        #if (reward < 0.386):
+        #    done = True
         ### OSS22: 13/06/2022 I'm trying something here, i.e., raising the done flag once a threshold has been met.
         return self.observed_state, reward, done, {}
     
