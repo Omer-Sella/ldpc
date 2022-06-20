@@ -136,7 +136,7 @@ class logger():
         #OSS 10/01/2022 removed mpi stuff 
         #if  mpiProcessID() == 0:
             if logPath == None:
-                self.logPath = str(PROJECT_PATH) + "/temp/experiments/%i" %int(time.time())
+                self.logPath = str(PROJECT_PATH) + "/temp/experiments/" + str(int(time.time())) + "_" + str(fileName) + "/experiment.txt"
             else:
                 self.logPath = logPath
             if os.path.exists(self.logPath):
@@ -172,10 +172,8 @@ class logger():
         self.currentRow[key] = value
         return 'OK'
         
-    def dumpLogger(self):
+    def dumpLogger(self, verbose = 'No'):
         if True:
-        #OSS 10/01/2022 removed mpi stuff
-        #if mpiProcessID() == 0:
             values = []
             keyLengths = []
             for key in self.columnKeys:
@@ -185,7 +183,8 @@ class logger():
             keyString = '%'+'%d'%maximalKeyLength
             stringFormat = "| " + keyString + "s | %15s |"
             numberOfDashes = 22 + maximalKeyLength
-            print("-"*numberOfDashes)
+            if verbose == 'Yes':
+                print("-"*numberOfDashes)
             for key in self.columnKeys:
                 value = self.currentRow.get(key, "")
                 if isinstance(value, np.ndarray):
@@ -194,9 +193,11 @@ class logger():
                     valueString = "%8.5g"%value
                 else:
                     valueString = value
-                print(stringFormat%(key, valueString))
+                if verbose == 'Yes':
+                    print(stringFormat%(key, valueString))
                 values.append(valueString)
-            print("-"*numberOfDashes, flush=True)
+            if verbose == 'Yes':
+                print("-"*numberOfDashes, flush=True)
             if self.fileName is not None:
                 with open(os.path.join(self.logPath, self.fileName), 'a') as fid:
                     fid.write("\t".join(map(str,values))+"\n")

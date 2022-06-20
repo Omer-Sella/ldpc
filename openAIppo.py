@@ -258,8 +258,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     # Omer Sella: this is my logger and plotter:
     simpleKeys = ['Observation', 'iAction', 'jAction', 'kAction', 'hotBitsAction', 'Reward', 
                   'epochNumber', 'stepNumber', 'actorEntropy', 'logP',
-                  'logpI', 'logpJ', 'logpK', 'iEntropy', 'jEntropy', 'kEntropy', 'coordinatesEntropy']
-    myLogger = osslogger(keys = simpleKeys, logPath = experimentDataDir)
+                  'logpI', 'logpJ', 'logpK', 'iEntropy', 'jEntropy', 'kEntropy', 'coordinatesEntropy', 'vValue']
+    myLogger = osslogger(keys = simpleKeys, logPath = experimentDataDir, fileName = str(seed))
     #logger.save_config(locals())
     myPlotter = ossplotter(50)
 
@@ -467,6 +467,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             myLogger.keyValue('Reward', r)
             myLogger.keyValue('epochNumber', epoch)
             myLogger.keyValue('stepNumber', t)
+            myLogger.keyValue('vValue', v)
             ################################
             myLogger.dumpLogger()
             ################################
