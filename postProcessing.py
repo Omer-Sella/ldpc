@@ -13,6 +13,8 @@ import seaborn as sns
 import copy
 import common
 import fileHandler
+from plotly.offline import plot
+import plotly.graph_objects as go
 
 
 
@@ -339,11 +341,14 @@ def postMortem(filePath = None, baseline = None):
     
     imageName = pathBreakdown[0] + "/policy.png"
     figPolicy.tight_layout()
+    figPolicy.show()
     figPolicy.savefig(fname = imageName)
     
     imageName = pathBreakdown[0] + "/performance.png"
     figPerformance.tight_layout()
+    figPerformance.show()
     figPerformance.savefig(fname = imageName)
+    
     
     
     ########################################### New flow #########################################
@@ -442,6 +447,18 @@ def extractCodes(dataFrame, path = None, best = 0.395, worst = 0.3855, experimen
 def crawler(pathToExperiments):
     return
     
+
+def analysisOfTwoPopulations(dataFrame):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=list(range(dataFrame.Reward.count())), y=list(dataFrame.Reward) ))
+    # Set title
+    fig.update_layout(title_text="Reward as a function of time")
+    # style all the traces
+    fig.update_traces(hoverinfo="name+x+text", line={"width": 0.5}, marker={"size": 8}, mode="lines+markers", showlegend=False)
+    plot(fig, auto_open=True)
     
+    return
+
+
 
     

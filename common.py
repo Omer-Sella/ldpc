@@ -391,6 +391,30 @@ def test_uncompress():
     parityMatrix = uncompress(compressedMatrix)
     return parityMatrix
 
+def countMatrixCycles(row1, row2, circulantSize):
+    # Assume two top rows are given and that they make A QC matrix H
+    idx1 = np.where(row1 == 1)
+    idx2 = np.where(row2 == 1)
+    
+    idxList = []
+    
+    for i in range(len(circulantSize - 1)):
+        idxList.append(list((idx1 + 1) % 511) + list ((idx2 + 1) % 511))
+        
+    #so now, idxList[j] are the (row) coordinates in column j that have a 1 in them
+    totalNumberOf4Cycles = 0
+    for j in range(len(idxList) - 1 ):
+        setJ = set(idxList[j])
+        for k in range(j + 1 , len(idxList)):
+            localNumberOf4Cycles = 0
+            colIntersection = setJ.intersect(set(idxList[k]))
+            if len(colIntersection) > 1:
+                localNumberOf4Cycles = len(colIntersection) * (len(colIntersection) - 1)
+                totalNumberOf4Cycles = totalNumberOf4Cycles + localNumberOf4Cycles
+    return totalNumberOf4Cycles
+                
+                
+
 
 #class statistics():
 #    self.

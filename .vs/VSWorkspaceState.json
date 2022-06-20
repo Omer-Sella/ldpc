@@ -1,7 +1,10 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\gym-ldpc",
+    "\\gym-ldpc\\gym_ldpc",
+    "\\gym-ldpc\\gym_ldpc\\envs"
   ],
-  "SelectedNode": "\\ldpcCUDA.py",
+  "SelectedNode": "\\openAIppo.py",
   "PreviewInSolutionExplorer": false
 }
