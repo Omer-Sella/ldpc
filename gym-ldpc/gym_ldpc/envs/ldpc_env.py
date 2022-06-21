@@ -78,7 +78,7 @@ class LdpcEnv(gym.Env):
     metadata = {'render.modes': ['rgb']}
 
   
-    def __init__(self, replacementOnly=False, seed=7134066, numberOfCudaDevices = 4, resetType = 'NEAR_EARTH'):
+    def __init__(self, replacementOnly=False, seed=7134066, numberOfCudaDevices = 4, resetType = 'NEAR_EARTH', noActionMode = 'Enabled'):
         
         self.localPRNG = np.random.RandomState(seed)
         if resetType == 'NEAR_EARTH':        
@@ -153,6 +153,7 @@ class LdpcEnv(gym.Env):
         self.cudaDevices = numberOfCudaDevices
         self.counter = 0
         self.resetType = resetType
+        self.noActionMode = noActionMode
         
 
         
@@ -167,7 +168,10 @@ class LdpcEnv(gym.Env):
         #print("*** ")
         #print(action.dtype)
         #assert(action.dtype == 'int32'), "Action vector was not int32 type. Any int type will do."
-        assert(action.shape[0] == self.xBits + self.yBits + self.circulantSize)
+        if self.noActionMode == 'Enabled':
+            assert(action.shape[0] == self.xBits + self.yBits + self.circulantSize + 1)
+        else:
+            assert(action.shape[0] == self.xBits + self.yBits + self.circulantSize)
         # First we need to unpack the action from a vector into x,y coordinates, and then either a circulant or replacement coordinates (depending on the environment type as set in self.replacementOnly)
         xCoordinateBinary = action[0 : self.xBits]
         #print(xCoordinateBinary.shape)
@@ -194,13 +198,15 @@ class LdpcEnv(gym.Env):
             else:
                 status = 'FAILED'
             #print(status)
-            
+        if self.noActionMode == 'Enabled':
+            if action[-1] == 1: # the actor is telling us to invalidate the rest of the action if action[-1] == 1
+                status = 'OK'
+            else:
+                circulantFirstRow = action[self.xBits + self.yBits : -1]
+                newCirculant = circulant(circulantFirstRow).T
+                status = self.replaceCirculant(xCoordinate, yCoordinate, newCirculant)
         else:
-            #print(self.xBits)
-            #print(self.yBits)
             circulantFirstRow = action[self.xBits + self.yBits : ]
-            #print(circulantFirstRow.shape)
-            #assert(len(circulantFirstRow)) == self.circulantSize
             newCirculant = circulant(circulantFirstRow).T
             status = self.replaceCirculant(xCoordinate, yCoordinate, newCirculant)
         

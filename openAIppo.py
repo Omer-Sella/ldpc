@@ -142,7 +142,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), 
         save_freq=10, envCudaDevices = 4, experimentDataDir = None,
-        entropyCoefficient0 = 0.01, entropyCoefficient1 = 0.01, entropyCoefficient2 = 0.01, policyCoefficient = 1.0, resetType = 'WORST_CODES'):
+        entropyCoefficient0 = 0.01, entropyCoefficient1 = 0.01, entropyCoefficient2 = 0.01, policyCoefficient = 1.0, resetType = 'WORST_CODES', actionInvalidator = 'Enabled'):
     """
     Proximal Policy Optimization (by clipping), 
 
@@ -273,7 +273,10 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     #Omer Sella: I changed the environment seed to be the same as the ppo seed.
     env = env_fn(x = seed, y = envCudaDevices, z = resetType)
     obs_dim = env.observation_space.shape
-    act_dim = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS #env.action_space.shape
+    if actionInvalidator == 'Enabled':
+        act_dim = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS + 1#env.action_space.shape
+    else:
+        act_dim = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS #env.action_space.shape
 
     # Create actor-critic module
     #OVERRIDE_OBSERVATION_SPACE_DIM = np.zeros(2048)
@@ -282,7 +285,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     # Omer Sella: this is where I need to plant my AC
     #ac = actor_critic(env.observation_space, env.action_space, **ac_kwargs)
     #ac = actor_critic(OVERRIDE_OBSERVATION_SPACE_DIM, OVERRIDE_ACTION_SPACE_DIM, **ac_kwargs)
-    ac = models.openAIActorCritic(int, 2048, int, INTERNAL_ACTION_SPACE_SIZE, 64, MAXIMUM_NUMBER_OF_HOT_BITS, [64,64] , actorCriticDevice = 'cpu')
+    ac = models.openAIActorCritic(int, 2048, int, INTERNAL_ACTION_SPACE_SIZE, 64, MAXIMUM_NUMBER_OF_HOT_BITS, [64,64] , actorCriticDevice = 'cpu', actionInvalidator = actionInvalidator)
     # Sync params across processes
     #sync_params(ac) #OSS 07/01/2022 commenting out since removing mpi functionality
 

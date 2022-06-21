@@ -195,6 +195,7 @@ def postMortem(filePath = None, baseline = None):
     figPolicy, axPolicy = plt.subplots(3,3)
     figPerformance, axPerformance = plt.subplots(1,2)
     
+    
     #df.Reward.plot(ax=ax[0,0], subplots=True)
     xmin = 0
     xmax = len(df) - 1
@@ -215,6 +216,25 @@ def postMortem(filePath = None, baseline = None):
     
 ### general actor information
     #dfRewardAvg = dfEpochNumber.Reward.mean() #sum() / dfEpochNumber.stepNumber.max()
+    
+    #if 'vValue' in df.keys():
+    #    figV, axV = plt.subplots(1,2)
+    #    rewardGroupByEpochSeries = dfEpochNumber.vValue
+    #    countV, numberOfEpochs, minV, maxV, avgV, medianV, rawData = seriesGBtoArray(rewardGroupByEpochSeries)
+    #    xRange = np.arange(numberOfEpochs)
+    #    axV[0].plot(xRange, avgV)
+    #    axV[0].plot(xRange, minV, 'r-')
+    #    axV[0].plot(xRange, maxV, color = 'green', marker = '+')
+    #    axV[0].plot(xRange, medianV, color = 'blue', marker = 'd')
+    #    #axPerformance[1].scatter(xRange, rawData)
+    #   #dfEpochNumber.Reward.plot(ax = axPerformance[1])
+    #    axV.scatter(np.arange(len(np.array(df.vValue))), np.array(df.vValue))
+    #    pathBreakdown = os.path.split(filePath)
+    #    imageName = pathBreakdown[0] + "/vValue.png"
+    #    figV.tight_layout()
+    #    figV.show()
+    #    figV.savefig(fname = imageName)
+        
     
     ax[0,0].plot(xRange, avgV)#dfRewardAvg.plot(by = 'epochNumber', ax = ax[0,0], subplots = True)
     axPerformance[0].plot(xRange, avgV)

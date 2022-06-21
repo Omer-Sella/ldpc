@@ -172,7 +172,7 @@ class logger():
         self.currentRow[key] = value
         return 'OK'
         
-    def dumpLogger(self, verbose = 'No'):
+    def dumpLogger(self, verbose = 'Yes'):
         if True:
             values = []
             keyLengths = []
