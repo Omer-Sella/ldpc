@@ -256,9 +256,10 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
 
     # Omer Sella: this is my logger and plotter:
-    simpleKeys = ['Observation', 'iAction', 'jAction', 'kAction', 'hotBitsAction', 'Reward', 
-                  'epochNumber', 'stepNumber', 'actorEntropy', 'logP',
-                  'logpI', 'logpJ', 'logpK', 'iEntropy', 'jEntropy', 'kEntropy', 'coordinatesEntropy', 'vValue']
+    if actionInvalidator == 'Enabled':
+        simpleKeys = ['Observation', 'iAction', 'jAction', 'kAction', 'hotBitsAction', 'Reward', 'epochNumber', 'stepNumber', 'actorEntropy', 'logP', 'logpI', 'logpJ', 'logpK', 'iEntropy', 'jEntropy', 'kEntropy', 'coordinatesEntropy', 'vValue', 'noAction']
+    else:
+        simpleKeys = ['Observation', 'iAction', 'jAction', 'kAction', 'hotBitsAction', 'Reward', 'epochNumber', 'stepNumber', 'actorEntropy', 'logP', 'logpI', 'logpJ', 'logpK', 'iEntropy', 'jEntropy', 'kEntropy', 'coordinatesEntropy', 'vValue']
     myLogger = osslogger(keys = simpleKeys, logPath = experimentDataDir, fileName = str(seed))
     #logger.save_config(locals())
     myPlotter = ossplotter(50)
@@ -458,6 +459,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             myLogger.keyValue('jAction', a[1])
             myLogger.keyValue('kAction', a[2])
             myLogger.keyValue('hotBitsAction', a[3])
+            if actionInvalidator == 'Enabled':
+                myLogger.keyValue('noAction', a[4])
             myLogger.keyValue('logpI', logpList[0].item())
             myLogger.keyValue('logpJ', logpList[1].item())
             myLogger.keyValue('logpK', logpList[2].item())

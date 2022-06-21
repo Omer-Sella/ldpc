@@ -698,7 +698,7 @@ class openAIActorCritic(nn.Module):
         
         entropySummed = entropy.sum(dim = -1, keepdim = False)
         if self.actionInvalidator == 'Enabled':
-            a = [i, j, k, noAction, coordinates, ppoBufferAction, envAction]
+            a = [i, j, k, coordinates, noAction, ppoBufferAction, envAction]
         else:
             a = [i, j, k, coordinates, ppoBufferAction, envAction]
         return a, v.detach().numpy(), logPSummed, entropySummed, logp_list, entropy_list
