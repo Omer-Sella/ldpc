@@ -558,7 +558,7 @@ class openAIActorWithStopping(Actor):
             
             
             if action is not None:
-                noAction = action[:, 3 + self.maximumNumberOfHotBits : 3 + self.maximumNumberOfHotBits + 1]
+                noAction = action[:, 3] # + self.maximumNumberOfHotBits : 3 + self.maximumNumberOfHotBits + 1]
             elif self.training:
                 noAction = noActionCategoricalDistribution.sample()
             else:
@@ -572,7 +572,7 @@ class openAIActorWithStopping(Actor):
             # In this part we choose k coordinates, where: k <= maximumNumberOfHotBits <= circulantSize 
             # In practice we choose maximumNumberOfHotBits coordinates, and use only the first k of them
             if action is not None:
-                coordinates = action[:, 3 : 3 + self.maximumNumberOfHotBits]
+                coordinates = action[:, 4 : 4 + self.maximumNumberOfHotBits]
                 numberOfObservations = coordinates.shape[0]
                 #print(coordinates.shape[0])
                 coordinateEntropies = torch.zeros((numberOfObservations, self.maximumNumberOfHotBits))
@@ -631,7 +631,7 @@ class openAIActorWithStopping(Actor):
                 coordinates = np.int32(coordinates)
                 
                 
-            return noAction, i, j, k, coordinates, logpNoAction, logpI, logpJ, logpK, logProbCoordinates, noActionDistributionEntropy, iDistributionEntropy, jDistributionEntropy, kDistributionEntropy, coordinateEntropies
+            return i, j, k, noAction, coordinates, logpI, logpJ, logpK, logpNoAction, logProbCoordinates, iDistributionEntropy, jDistributionEntropy, kDistributionEntropy, noActionDistributionEntropy, coordinateEntropies
 
 class openAIActorCritic(nn.Module):
 
@@ -649,9 +649,9 @@ class openAIActorCritic(nn.Module):
 
     def step(self, obs, actions = None):
         if self.actionInvalidator == 'Enabled':
-            noAction, i, j, k, coordinates, logpNoAction, logpI, logpJ, logpK, logProbCoordinates, noActionDistributionEntropy, iDistributionEntropy, jDistributionEntropy, kDistributionEntropy, coordinateEntropies = self.pi.step(obs, actions)
+            i, j, k, noAction, coordinates, logpNoAction, logpI, logpJ, logpK, logProbCoordinates, noActionDistributionEntropy, iDistributionEntropy, jDistributionEntropy, kDistributionEntropy, coordinateEntropies = self.pi.step(obs, actions)
         else:
-            noAction, i, j, k, coordinates, logpNoAction, logpI, logpJ, logpK, logProbCoordinates, noActionDistributionEntropy, iDistributionEntropy, jDistributionEntropy, kDistributionEntropy, coordinateEntropies = self.pi.step(obs, actions)
+            i, j, k, coordinates, logpI, logpJ, logpK, logProbCoordinates, iDistributionEntropy, jDistributionEntropy, kDistributionEntropy, coordinateEntropies = self.pi.step(obs, actions)
         v = self.v(obs)
         vector = np.zeros(CIRCULANT_SIZE, dtype = np.int32)
         # Omer Sella: if action is None, then k is an integer >= 0 and all is ok to use it as an index.
@@ -663,8 +663,8 @@ class openAIActorCritic(nn.Module):
                 xCoordinate = numToBits(i, 1)
                 yCoordinate = numToBits(j, 4)
                 noAction = np.int32(noAction)
-                ppoBufferAction = np.hstack((np.hstack(([i,j,k], coordinates)),noAction))
-                envAction = np.hstack((np.hstack((np.hstack((xCoordinate, yCoordinate)), vector)),noAction))
+                ppoBufferAction = np.hstack(([i,j,k, noAction], coordinates))
+                envAction = np.hstack((np.hstack((np.hstack((xCoordinate, yCoordinate)),vector )), noAction))
             else:
                 vector[coordinates[0: k]] = 1
                 xCoordinate = numToBits(i, 1)
