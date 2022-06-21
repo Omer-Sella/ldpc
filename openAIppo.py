@@ -601,7 +601,6 @@ if __name__ == '__main__':
     parser.add_argument('--steps', type=int, default=32)
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--envCudaDevices', type=int, default=1)
-    #parser.add_argument('--epochs', type=int, default=25) #Omer Sella: I have the 25 option for testing
     parser.add_argument('--entropyCoefficient0', type=float, default = 0.01)
     parser.add_argument('--entropyCoefficient1', type=float, default = 0.01)
     parser.add_argument('--entropyCoefficient2', type=float, default = 0.01)
