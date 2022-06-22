@@ -142,7 +142,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), 
         save_freq=10, envCudaDevices = 4, experimentDataDir = None,
-        entropyCoefficient0 = 0.01, entropyCoefficient1 = 0.01, entropyCoefficient2 = 0.01, policyCoefficient = 1.0, resetType = 'WORST_CODES', actionInvalidator = 'Enabled'):
+        entropyCoefficient0 = 0.01, entropyCoefficient1 = 0.01, entropyCoefficient2 = 0.01, entropyCoefficientNoAction = 0.01, policyCoefficient = 1.0, resetType = 'WORST_CODES', actionInvalidator = 'Enabled'):
     """
     Proximal Policy Optimization (by clipping), 
 
@@ -322,6 +322,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         iEntropy = actorEntropyList[0].mean().item()
         jEntropy = actorEntropyList[1].mean().item()
         kEntropy = actorEntropyList[2].mean().item()
+        noActionEntropy = actorEntropyList[3].mean().item()
         #coordinatesEntropy = actorEntropyList[3].mean().item()
        
         
@@ -338,7 +339,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         #########
         #OSS: we are testing a hypothesis, that the entropy for choice of i collapses too fast. So I'm replacing ent with iEntropy and let's see what happens
         #totalLoss = policyCoefficient * loss_pi + entropyCoefficient * ent
-        totalLoss = policyCoefficient * loss_pi + entropyCoefficient0 * iEntropy + entropyCoefficient1 * jEntropy + entropyCoefficient2 * kEntropy# + entropyCoefficient3 * coordinatesEntropy
+        totalLoss = policyCoefficient * loss_pi + entropyCoefficient0 * iEntropy + entropyCoefficient1 * jEntropy + entropyCoefficient2 * kEntropy + entropyCoefficientNoAction * noActionEntropy
         
         return totalLoss, pi_info
 
@@ -604,6 +605,7 @@ if __name__ == '__main__':
     parser.add_argument('--entropyCoefficient0', type=float, default = 0.01)
     parser.add_argument('--entropyCoefficient1', type=float, default = 0.01)
     parser.add_argument('--entropyCoefficient2', type=float, default = 0.01)
+    parser.add_argument('--entropyCoefficientNoAction', type=float, default = 0.01)
     parser.add_argument('--policyCoefficient', type=float, default = 1.0)
     parser.add_argument('--exp_name', type=str, default='ppo')
     args = parser.parse_args()

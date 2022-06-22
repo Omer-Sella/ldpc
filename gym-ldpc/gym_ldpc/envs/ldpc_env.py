@@ -90,6 +90,8 @@ class LdpcEnv(gym.Env):
                 self.resetMatricesPath = projectDir + '/codeMatrices/experimental/worstCodes/'
             elif resetType == "BEST_CODES":
                 self.resetMatricesPath = projectDir + '/codeMatrices/experimental/bestCodes/'
+            elif resetType == "ZERO_CIRCULANT_CODES":
+                self.resetMatricesPath = projectDir + '/codeMatrices/experimental/zeroCirculantMatrices/'
             else:
                 assert (resetType == 'MEDIAN_CODES') , 'Reset type has to be one of: NEAR_EARTH, WORST_CODES, MEDIAN_CODES'
                 self.resetMatricesPath = projectDir + '/codeMatrices/experimental/medianCodes/'
