@@ -78,7 +78,7 @@ class LdpcEnv(gym.Env):
     metadata = {'render.modes': ['rgb']}
 
   
-    def __init__(self, replacementOnly=False, seed=7134066, numberOfCudaDevices = 4, resetType = 'NEAR_EARTH', noActionMode = 'Enabled'):
+    def __init__(self, replacementOnly=False, seed=7134066, numberOfCudaDevices = 4, resetType = 'NEAR_EARTH', noActionMode = 'Disabled'):
         
         self.localPRNG = np.random.RandomState(seed)
         if resetType == 'NEAR_EARTH':        
