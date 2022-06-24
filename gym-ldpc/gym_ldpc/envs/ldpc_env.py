@@ -317,12 +317,12 @@ class LdpcEnv(gym.Env):
         seeds = self.localPRNG.randint(0, LDPC_ENV_MAX_SEED, self.cudaDevices, dtype = LDPC_ENV_SEED_DATA_TYPE)
         seed = self.localPRNG.randint(0, LDPC_ENV_MAX_SEED, 1, dtype = LDPC_ENV_SEED_DATA_TYPE)
         #seed = np.random.randint(0, LDPC_ENV_MAX_SEED, 1, dtype = LDPC_ENV_SEED_DATA_TYPE)
-        start = time.time()        
+        #start = time.time()        
         berStats = common.berStatistics(self.codewordSize)
         # OSS: I'm commenting out evaluateCodeCuda in order to use the wrapper that utilises multiple GPUs
         #berStats = ldpcCUDA.evaluateCodeCuda(seed, self.SNRpoints, self.ldpcDecoderNumOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None', cudaDeviceNumber = self.cudaDevices)
         berStats = ldpcCUDA.evaluateCodeCudaWrapper(seeds, self.SNRpoints, self.ldpcDecoderNumOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None' , numberOfCudaDevices = self.cudaDevices)
-        snrAxis, averageSnrAxis, berData, averageNumberOfIterations = berStats.getStats()
+        #snrAxis, averageSnrAxis, berData, averageNumberOfIterations = berStats.getStats()
         
 
         return berStats

@@ -193,7 +193,8 @@ def postMortem(filePath = None, baseline = None):
     
     fig, ax = plt.subplots(4,4, figsize = (16, 16))
     figPolicy, axPolicy = plt.subplots(3,3)
-    figPerformance, axPerformance = plt.subplots(1,2)
+    figPerformance0, axPerformance0 = plt.subplots()
+    figPerformance1, axPerformance1 = plt.subplots()
     
     
     #df.Reward.plot(ax=ax[0,0], subplots=True)
@@ -237,13 +238,13 @@ def postMortem(filePath = None, baseline = None):
         
     
     ax[0,0].plot(xRange, avgV)#dfRewardAvg.plot(by = 'epochNumber', ax = ax[0,0], subplots = True)
-    axPerformance[0].plot(xRange, avgV)
-    axPerformance[0].plot(xRange, minV, 'r-')
-    axPerformance[0].plot(xRange, maxV, color = 'green', marker = '+')
-    axPerformance[0].plot(xRange, medianV, color = 'blue', marker = 'd')
+    axPerformance0.plot(xRange, avgV, label = 'Avergae')
+    axPerformance0.plot(xRange, minV, 'r-', label = 'Minimum')
+    axPerformance0.plot(xRange, maxV, color = 'green', marker = '+', label = 'Maximum')
+    axPerformance0.plot(xRange, medianV, color = 'blue', marker = 'd', label = 'Median')
     #axPerformance[1].scatter(xRange, rawData)
     #dfEpochNumber.Reward.plot(ax = axPerformance[1])
-    axPerformance[1].scatter(np.arange(len(np.array(df.Reward))), np.array(df.Reward))
+    axPerformance1.scatter(np.arange(len(np.array(df.Reward))), np.array(df.Reward))
     xmin = 0
     xmax = numberOfEpochs
     if baseline != None: 
@@ -252,9 +253,13 @@ def postMortem(filePath = None, baseline = None):
     ax[0,0].set_title('Averaged undiscounted reward as a function of epoch number')
     ax[0,0].set_ylabel('Reward')
     ax[0,0].set_xlabel('Epoch number')
-    axPerformance[0].set_title('Averaged undiscounted reward as a function of epoch number')
-    axPerformance[0].set_ylabel('Reward')
-    axPerformance[0].set_xlabel('Epoch number')
+    axPerformance0.set_title('Averaged undiscounted reward as a function of epoch number', fontsize = 18)
+    axPerformance0.set_ylabel('Reward', fontsize = 18)
+    axPerformance0.set_xlabel('Epoch number', fontsize = 18)
+    legend = axPerformance0.legend(loc='upper left', shadow=True, fontsize='18')
+    axPerformance1.set_title('Undiscounted reward as a function of step number', fontsize = 18)
+    axPerformance1.set_ylabel('Reward', fontsize = 18)
+    axPerformance1.set_xlabel('Step number', fontsize = 18)
     
     df.logP.plot(ax=ax[1,0])
     ax[1,0].set_title('log probability')
@@ -364,10 +369,15 @@ def postMortem(filePath = None, baseline = None):
     figPolicy.show()
     figPolicy.savefig(fname = imageName)
     
-    imageName = pathBreakdown[0] + "/performance.png"
-    figPerformance.tight_layout()
-    figPerformance.show()
-    figPerformance.savefig(fname = imageName)
+    imageName = pathBreakdown[0] + "/performance0.png"
+    figPerformance0.tight_layout()
+    figPerformance0.show()
+    figPerformance0.savefig(fname = imageName)
+    
+    imageName = pathBreakdown[0] + "/performance1.png"
+    figPerformance1.tight_layout()
+    figPerformance1.show()
+    figPerformance1.savefig(fname = imageName)
     
     
     

@@ -97,7 +97,7 @@ def plotSNRvsNumberOfIterations(SNRaxis, numberOfIterations, figureNumber = 2, f
     plt.tight_layout()
     #plt.show()
     if fileName != None:
-        plt.savefig(fileName, format='png', dpi=2000)
+        plt.savefig(fileName, format='png', dpi=400)
     
 
 def plotSNRvsBER(SNRaxis, BERdata, fileName = None, inputLabel = 'baselineCode', figureNumber = 1, figureName = ''):
@@ -312,27 +312,27 @@ def recursiveLinearFit(xData, yData, numberOfIterations = 10, earlyStopping = Fa
             
 
 
-def plotEvaluationData(snr, ber, linearFit = True, fillBetween = True):
-    
-    optimalParameters, _ = pieceWiseFit(snr, ber )
-    p = np.polyfit(snr, ber, 1)
-    print(p)
-    trendP = np.poly1d(p)
-    print(trendP)
-    slope = p[0]
-    bias = p[1]
+def plotEvaluationData(snr = None, ber = None, linearFit = True, fillBetween = True):
+    #optimalParameters, _ = pieceWiseFit(snr, ber )
+    #p = np.polyfit(snr, ber, 1)
+    #print(p)
+    #trendP = np.poly1d(p)
+    #print(trendP)
+    #slope = p[0]
+    #bias = p[1]
     fig, ax = plt.subplots()
     ax.scatter(snr, ber)
+    _, _, p, trendP, iterations = recursiveLinearFit(snr, ber, numberOfIterations = 10, earlyStopping = False)
     ax.plot(snr, trendP(snr), color = 'g')
-    ax.plot(snr, pieceWiseLinear(snr, *optimalParameters), color = 'r')
+    #ax.plot(snr, pieceWiseLinear(snr, *optimalParameters), color = 'r')
     ax.set_ylabel('Bit error rate', size = 18)
     ax.set_xlabel('Signal to noise ratio', size = 18)
     ax.set_title('Evaluation data', size = 18)
     #ax.set_xticks(ber)
     #ax.set_xticklabels(snr)
     #ax.legend()
-    region = np.arange(2.9,3.9,0.1)
-    ax.fill_between(region, trendP(region), 0.035, color = '#FFA500', alpha = 0.5)
+    region = np.arange(3.0,3.4,0.1)
+    ax.fill_between(region, trendP(region), color = '#FFA500', alpha = 0.5)
     plt.show()
     #reward = -1 * p[0]
     #reward =  0.5 * slope * (self.SNRpoints[-1] ** 2)  + bias * self.SNRpoints[-1] - ( 0.5 * slope * (self.SNRpoints[0] ** 2)  + bias * self.SNRpoints[0])
@@ -391,33 +391,60 @@ def test_uncompress():
     parityMatrix = uncompress(compressedMatrix)
     return parityMatrix
 
-def countMatrixCycles(row1, row2, circulantSize):
+def countMatrixCycles(H):
     # Assume two top rows are given and that they make A QC matrix H
-    idx1 = np.where(row1 == 1)
-    idx2 = np.where(row2 == 1)
     
+    m,n = H.shape
     idxList = []
     
-    for i in range(len(circulantSize - 1)):
-        idxList.append(list((idx1 + 1) % 511) + list ((idx2 + 1) % 511))
-        
+    for j in range(n):
+        a = np.where(H[:,j] == 1)[0]
+        b = a.tolist()
+        idxList.append( b )
+    
+    print(idxList)
     #so now, idxList[j] are the (row) coordinates in column j that have a 1 in them
     totalNumberOf4Cycles = 0
     for j in range(len(idxList) - 1 ):
         setJ = set(idxList[j])
         for k in range(j + 1 , len(idxList)):
             localNumberOf4Cycles = 0
-            colIntersection = setJ.intersect(set(idxList[k]))
+            colIntersection = setJ.intersection(set(idxList[k]))
             if len(colIntersection) > 1:
                 localNumberOf4Cycles = len(colIntersection) * (len(colIntersection) - 1)
                 totalNumberOf4Cycles = totalNumberOf4Cycles + localNumberOf4Cycles
     return totalNumberOf4Cycles
                 
                 
+def characteriseMatrixFiles(pathToFiles):
+    import scipy
+    import os
+    import ldpcCUDA
+    fileList = os.listdir(pathToFiles)
+    SNRpoints = [3.0, 3.2, 3.4]
+    resultsList = []
+    for f in fileList:
+        pathToSingleFile = pathToFiles + f
+        H = scipy.io.loadmat(pathToSingleFile)['parityMatrix']
+        seed = np.random.randint(0, 2^31 -1,  1, dtype = COMMON_INT_DATA_TYPE)
+        #start = time.time()        
+        berStats = berStatistics(COMMON_PARITY_MATRIX_DIM_1)
+        # OSS: I'm commenting out evaluateCodeCuda in order to use the wrapper that utilises multiple GPUs
+        #berStats = ldpcCUDA.evaluateCodeCuda(seed, self.SNRpoints, self.ldpcDecoderNumOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None', cudaDeviceNumber = self.cudaDevices)
+        berStats = ldpcCUDA.evaluateCodeCuda(seed, SNRpoints, numberOfIterations = 60, parityMatrix = H, numOfTransmissions = 50, G = 'None' , cudaDeviceNumber = 0)
+        scatterSnr, scatterBer, scatterItr, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = berStats.getStatsV2()
+        snr, ber, p1, trendP, itr = recursiveLinearFit(scatterSnr, scatterBer)
+        pConst = np.poly1d([1])
+        pTotalInteg = (pConst - p1).integ()
+        reward = pTotalInteg(SNRpoints[-1]) - pTotalInteg(SNRpoints[0])
+        totalNumberOf4Cycles = countMatrixCycles(H)
+        densityDistribution = np.sum(H, axis = 1)
+        density = np.sum(densityDistribution) / (COMMON_PARITY_MATRIX_DIM_0 * COMMON_PARITY_MATRIX_DIM_1)
+        resultItem = [f, H, reward, scatterSnr, scatterBer, p1, trendP, totalNumberOf4Cycles, density, densityDistribution]
+        resultsList.append(resultItem)
+    return resultsList
 
 
-#class statistics():
-#    self.
 
 def main():
     test_uncompress()
