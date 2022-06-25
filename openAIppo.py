@@ -623,7 +623,7 @@ if __name__ == '__main__':
     import os
     experimentTime = time.time()
     PROJECT_PATH = os.environ.get('LDPC')
-    experimentDataDir = PROJECT_PATH + "/temp/experiments/" + str(int(experimentTime) + "/" + str(args.seed) + "/"
+    experimentDataDir = PROJECT_PATH + "/temp/experiments/" + str(int(experimentTime)) + "/" + str(args.seed) + "/"
     logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, data_dir = experimentDataDir)
 
     ppo(lambda x = 8200, y = 0, z = 'WORST_CODES': gym.make(args.env, seed = x, numberOfCudaDevices = y, resetType = z), #Omer Sella: Actor_Critic is now embedded and thus commented actor_critic=core.MLPActorCritic,
