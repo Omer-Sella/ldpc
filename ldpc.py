@@ -21,7 +21,7 @@ sys.path.insert(1, projectDir)
 
 import fileHandler
 import common
-LDPC_LOCAL_PRNG = np.random.RandomState(7134066)
+LDPC_GLOBAL_PRNG = np.random.RandomState(7134066)
 # LDPC_**_DATA_TYPE stores the data type over which all arithmetic is done.
 # It is a nice way of changing the data type of the entire implementation at one place.
 LDPC_DATA_TYPE = np.int64
@@ -350,6 +350,7 @@ def testModulationAndSlicingRoundTrip():
 def evaluateCode(numberOfTransmissions, seed, SNRpoints, messageSize, codewordSize, numberOfIterations, H, G = 'None' ):
     # Concurrent futures require the seed to be between 0 and 2**32 -1
     #assert (np.dtype(seed) == np.int32)
+    # note there is no usage of messageSize - keep it that way.
     assert (seed > 0)
     assert hasattr(SNRpoints, "__len__")
     localPrng = np.random.RandomState(seed)
@@ -369,7 +370,7 @@ def evaluateCode(numberOfTransmissions, seed, SNRpoints, messageSize, codewordSi
         SNR = SNRpoints[s]
         for k in range(numberOfTransmissions):
             
-            dirtyModulated, sigma, sigmaActual = addAWGN(modulatedCodeword, codewordSize, SNR, LDPC_LOCAL_PRNG) 
+            dirtyModulated, sigma, sigmaActual = addAWGN(modulatedCodeword, codewordSize, SNR, localPrng) 
             senseword = slicer(dirtyModulated, codewordSize)            
             berUncoded = 0
             berDecoded = 0
@@ -386,6 +387,31 @@ def evaluateCode(numberOfTransmissions, seed, SNRpoints, messageSize, codewordSi
         numberOfBits = numberOfTransmissions * codewordSize
         print(numberOfBits / timeTotal)
     return berStats
+
+def evaluateCodeWrapper(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , numberOfCores = 8):
+    
+    # This is a multiprocessing wrapper for evaluateCodeCuda.
+    # No safety of len(seeds) == numberOfCudaDevices
+    # No safety of cuda devices exist
+    # Number of iterations must be divisible by numberOfCudaDevices
+    localPRNG = np.random.RandomState(seed)
+    seeds = localPRNG.randint(0, LDPC_MAX_SEED, numberOfCores, dtype = LDPC_SEED_DATA_TYPE)
+    print(seeds)
+    berStats = common.berStatistics()
+    newNumOfTransmissions = numOfTransmissions // numberOfCores
+    messageSize = 16*1021- (2*1021)
+    codewordSize = 16*1021
+    
+    #Temporarily disabled for debug of cu_init error
+    #print("*** debugging multiple futures. NumberOfCudaDevices: " + str(numberOfCudaDevices))
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        results = {executor.submit(evaluateCode, newNumOfTransmissions, seeds[coreNumber], SNRpoints, messageSize, codewordSize, numberOfIterations, H = parityMatrix,  G = 'None'): coreNumber for coreNumber in range(numberOfCores)}
+        #print(results)
+    for result in concurrent.futures.as_completed(results):
+        #print(result.result())
+        berStats = berStats.add(result.result())
+    return berStats
+
 
 
 def evaluateCodeAtSingleTransmission(seed, SNRpoints, messageSize, codewordSize, numberOfIterations, H, G = 'None' ):
@@ -413,7 +439,7 @@ def evaluateCodeAtSingleTransmission(seed, SNRpoints, messageSize, codewordSize,
             message = localPrng.randint(0, 2, messageSize, dtype = LDPC_INT_DATA_TYPE)
             codeword = G.dot(message) % 2    
         modulatedCodeword = modulate(codeword, codewordSize)    
-        dirtyModulated, sigma, sigmaActual = addAWGN(modulatedCodeword, codewordSize, SNR, LDPC_LOCAL_PRNG) 
+        dirtyModulated, sigma, sigmaActual = addAWGN(modulatedCodeword, codewordSize, SNR, localPrng) 
         dirtyModulated = copy.copy(modulatedCodeword)
         dirtyModulated[0] = dirtyModulated[0] * -1
         
@@ -437,7 +463,8 @@ def constantFunction(const):
 
 def testCodeUsingMultiprocessing(seed, SNRpoints, messageSize, codewordSize, numberOfIterations, numberOfTransmissions, H, method = None, reference = None, G = 'None'):
     bStats = common.berStatistics(codewordSize)
-    seeds = LDPC_LOCAL_PRNG.randint(0, LDPC_MAX_SEED, numberOfTransmissions, dtype = LDPC_SEED_DATA_TYPE) 
+    localPrng = np.random.RandomState(seed)
+    seeds = localPrng.randint(0, LDPC_MAX_SEED, numberOfTransmissions, dtype = LDPC_SEED_DATA_TYPE) 
     
     mesL = [messageSize] * numberOfTransmissions
     cwsL = [codewordSize] * numberOfTransmissions
@@ -500,7 +527,7 @@ def testNearEarth(numOfTransmissions = 50):
     #print("berDecoded " + str(c))
     return bStats
 
-def testBeast(numOfTransmissions = 50):
+def testBeast(numOfTransmissions = 16*1):
     print("*** testing beast")
     beastParity = fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 2042, 16336, 1021, True, False, False)
     #numOfTransmissions = 50
@@ -514,11 +541,11 @@ def testBeast(numOfTransmissions = 50):
     #bStats = evaluateCode(numOfTransmissions, 460101, roi, messageSize, codewordSize, numOfIterations, nearEarthParity)    
     #for i in range(numOfTransmissions):
     #    bStats = evaluateCodeAtSingleTransmission(460101, roi, messageSize, codewordSize, numOfIterations, nearEarthParity)    
-    bStats = evaluateCode(numberOfTransmissions = numOfTransmissions, seed = 460101, SNRpoints = roi, messageSize = messageSize, codewordSize = codewordSize, numberOfIterations = numOfIterations, H = beastParity, G = 'None' )
-    #bStats = testCodeUsingMultiprocessing(460101, roi, messageSize, codewordSize, numOfIterations, numOfTransmissions, beastParity)
+    #bStats = evaluateCode(numberOfTransmissions = numOfTransmissions, seed = 460101, SNRpoints = roi, messageSize = messageSize, codewordSize = codewordSize, numberOfIterations = numOfIterations, H = beastParity, G = 'None' )
+    bStats = evaluateCodeWrapper(seed = 460101, SNRpoints = roi, numberOfIterations = numOfIterations, numOfTransmissions = numOfTransmissions, parityMatrix = beastParity, numberOfCores = 16)
     end = time.time()
     print('****Time it took for code evaluation == %d' % (end-start))
-    print('****Throughput == '+str((8176*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
+    print('****Throughput == '+str((16336*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
     #a, b, c, d = bStats.getStats(codewordSize)
     #print("berDecoded " + str(c))
     return bStats
@@ -553,6 +580,8 @@ def main():
     #bStats = testWifi()
     #bStats = testNearEarth()
     bStats = testBeast()
+    scatterSNR, scatterBER, scatterITR, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = bStats.getStatsV2(16336)
+    common.plotEvaluationData(scatterSNR, scatterBER)
     return bStats
     
 if __name__ == '__main__':

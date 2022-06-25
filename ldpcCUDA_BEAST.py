@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Sat Jun 25 10:05:39 2022
+
+@author: omers
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Fri Mar  20 16:53 2020
 
 @author: Omer
@@ -39,49 +46,55 @@ import common
 import sys
 sys.path.insert(1, projectDir)
 
+
+LDPC_LOCAL_PRNG = np.random.RandomState(7134066)
+CIRCULANT_SIZE = 1021
+
 def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , cudaDeviceNumber = 0):
+    
+    
     from numba import cuda, float32, int32
     cuda.select_device(cudaDeviceNumber)
-    device = cuda.get_current_device()
-    LDPC_LOCAL_PRNG = np.random.RandomState(7134066)
-    LDPC_MAX_SEED = 2**31 - 1
-    LDPC_SEED_DATA_TYPE = np.int64
+    #device = cuda.get_current_device()
+    
+    #LDPC_MAX_SEED = 2**31 - 1
+    #LDPC_SEED_DATA_TYPE = np.int64
     # Omer Sella: in an ideal world, the value written in BIG_NUMBER would be the maximal value of float32, where float32 is on the GPU.
     BIG_NUMBER = float32(10000)
-    MATRIX_DIM0 = np.int32(1022)
-    MATRIX_DIM1 = 8176
-    CODEWORDSIZE = MATRIX_DIM1
-    VECTOR_DIM = MATRIX_DIM0
-    SHARED_SIZE_0 = 1024 # AND NOT MATRIX_DIM0
-    SHARED_SIZE_1 = 8196
-    CONST1 = MATRIX_DIM0
-    CONST2 = MATRIX_DIM1
-    THREADS_PER_BLOCK = 512
-    BLOCKS_PER_GRID_DIM0 = (MATRIX_DIM0 + (THREADS_PER_BLOCK - 1)) // THREADS_PER_BLOCK
-    BLOCKS_PER_GRID_DIM1 = (MATRIX_DIM1 + (THREADS_PER_BLOCK - 1)) // THREADS_PER_BLOCK
+    MATRIX_DIM0 = int32(2 * CIRCULANT_SIZE)
+    MATRIX_DIM1 = int32(16 * CIRCULANT_SIZE)
+    #CODEWORDSIZE = MATRIX_DIM1
+    #VECTOR_DIM = MATRIX_DIM0
+    #SHARED_SIZE_0 = 2 * (CIRCULANT_SIZE + 3 ) # AND NOT MATRIX_DIM0
+    #SHARED_SIZE_1 = 16336
+    #CONST1 = MATRIX_DIM0
+    #CONST2 = MATRIX_DIM1
+    THREADS_PER_BLOCK = 1024#512 #maybe 1024 ??
+    BLOCKS_PER_GRID_DIM0 = 2 #(MATRIX_DIM0 + (THREADS_PER_BLOCK - 1)) // THREADS_PER_BLOCK # in dim0 there are 2 blocks
+    BLOCKS_PER_GRID_DIM1 = 16 #(MATRIX_DIM1 + (THREADS_PER_BLOCK - 1)) // THREADS_PER_BLOCK # 
     LDPC_CUDA_INT_DATA_TYPE = np.int32
 
-    SHARED_MEM_VERTICAL_RECUTION = 512
-    THREADS_PER_BLOCK_VERTICAL_SUM = (512, 1)
+    SHARED_MEM_VERTICAL_RECUTION = CIRCULANT_SIZE + 3
+    THREADS_PER_BLOCK_VERTICAL_SUM = (CIRCULANT_SIZE + 3, 1)
 
-    BLOCKS_PER_GRID_X_VERTICAL_SUM = math.ceil(512 / THREADS_PER_BLOCK_VERTICAL_SUM[0])
+    BLOCKS_PER_GRID_X_VERTICAL_SUM = math.ceil((CIRCULANT_SIZE +3) / THREADS_PER_BLOCK_VERTICAL_SUM[0])
     BLOCKS_PER_GRID_Y_VERTICAL_SUM = math.ceil(MATRIX_DIM1 / THREADS_PER_BLOCK_VERTICAL_SUM[1])
     BLOCKS_PER_GRID_VERTICAL_SUM = (BLOCKS_PER_GRID_X_VERTICAL_SUM, BLOCKS_PER_GRID_Y_VERTICAL_SUM)
 
-    SHARED_MEMORY_SIZE_LOCATE_TWO_SMALLEST_HORIZONTAL = 1024
-    THREADS_PER_BLOCK_LOCATE_TWO_SMALLEST_HORIZONTAL_2D = (1,1022)
+    SHARED_MEMORY_SIZE_LOCATE_TWO_SMALLEST_HORIZONTAL = 2 * (CIRCULANT_SIZE + 3) #Complete circulant size to power of 4
+    THREADS_PER_BLOCK_LOCATE_TWO_SMALLEST_HORIZONTAL_2D = (1,2 * CIRCULANT_SIZE)
     BLOCKS_PER_GRID_X_LOCATE_TWO_SMALLEST_HORIZONTAL_2D = math.ceil(MATRIX_DIM0 / THREADS_PER_BLOCK_LOCATE_TWO_SMALLEST_HORIZONTAL_2D[0])
     BLOCKS_PER_GRID_Y_LOCATE_TWO_SMALLEST_HORIZONTAL_2D = 1 #math.ceil(MATRIX_DIM1 / THREADS_PER_BLOCK_LOCATE_TWO_SMALLEST_HORIZONTAL_2D[1])
     BLOCKS_PER_GRID_LOCATE_TWO_SMALLEST_HORIZONTAL_2D = (BLOCKS_PER_GRID_X_LOCATE_TWO_SMALLEST_HORIZONTAL_2D, BLOCKS_PER_GRID_Y_LOCATE_TWO_SMALLEST_HORIZONTAL_2D)
 
-    THREADS_PER_BLOCK_PRODUCE_NEW_MATRIX_2D = (2,511)
+    THREADS_PER_BLOCK_PRODUCE_NEW_MATRIX_2D = (2,CIRCULANT_SIZE)
     # (511,2) 576.11 micro
     # (1022,1) 724.48 micro
     # (2,511) 472.58 micro
     BLOCKS_PER_GRID_X_PRODUCE_NEW_MATRIX_2D = math.ceil(MATRIX_DIM0 / THREADS_PER_BLOCK_PRODUCE_NEW_MATRIX_2D[0])
     BLOCKS_PER_GRID_Y_PRODUCE_NEW_MATRIX_2D = math.ceil(MATRIX_DIM1 / THREADS_PER_BLOCK_PRODUCE_NEW_MATRIX_2D[1])
     BLOCKS_PER_GRID_PRODUCE_NEW_MATRIX_2D = (BLOCKS_PER_GRID_X_PRODUCE_NEW_MATRIX_2D, BLOCKS_PER_GRID_Y_PRODUCE_NEW_MATRIX_2D)
-    THREADS_PER_BLOCK_MATRIX_MINUS_2D = (1,1022)
+    THREADS_PER_BLOCK_MATRIX_MINUS_2D = (1,2 * CIRCULANT_SIZE)
     # (2,511) 295 micro
     # (511,2) 1.64 mili
     # (2,1022) Doesn't work
@@ -91,7 +104,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
     BLOCKS_PER_GRID_Y_MATRIX_MINUS_2D = math.ceil(MATRIX_DIM1 / THREADS_PER_BLOCK_MATRIX_MINUS_2D[1])
     BLOCKS_PER_GRID_MATRIX_MINUS_2D = (BLOCKS_PER_GRID_X_MATRIX_MINUS_2D, BLOCKS_PER_GRID_Y_MATRIX_MINUS_2D)
 
-    THREADS_PER_BLOCK_BINARY_CALC = (1022,1)
+    THREADS_PER_BLOCK_BINARY_CALC = (CIRCULANT_SIZE,1)
     BLOCKS_PER_GRID_X_BINARY = math.ceil(MATRIX_DIM0 / THREADS_PER_BLOCK_BINARY_CALC[0])
     BLOCKS_PER_GRID_Y_BINARY = math.ceil(MATRIX_DIM1 / THREADS_PER_BLOCK_BINARY_CALC[1])
     BLOCKS_PER_GRID_BINARY_CALC = (BLOCKS_PER_GRID_X_BINARY, BLOCKS_PER_GRID_Y_BINARY)
@@ -180,10 +193,18 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
             partialSecondSmallest = cuda.shared.array(SHARED_MEMORY_SIZE_LOCATE_TWO_SMALLEST_HORIZONTAL, dtype = float32)
             argminSmallest = cuda.shared.array(SHARED_MEMORY_SIZE_LOCATE_TWO_SMALLEST_HORIZONTAL, dtype = float32)
             if (cuda.threadIdx.x == 0):
-                partialSmallest[1022] = BIG_NUMBER
-                partialSmallest[1023] = BIG_NUMBER
-                partialSecondSmallest[1023] = BIG_NUMBER
-                partialSecondSmallest[1023] = BIG_NUMBER
+                partialSmallest[2 * CIRCULANT_SIZE] = BIG_NUMBER
+                partialSmallest[2 * CIRCULANT_SIZE + 1] = BIG_NUMBER
+                partialSmallest[2 * CIRCULANT_SIZE + 2] = BIG_NUMBER
+                partialSmallest[2 * CIRCULANT_SIZE + 3] = BIG_NUMBER
+                partialSmallest[2 * CIRCULANT_SIZE + 4] = BIG_NUMBER
+                partialSmallest[2 * CIRCULANT_SIZE + 5] = BIG_NUMBER
+                partialSecondSmallest[2 * CIRCULANT_SIZE] = BIG_NUMBER
+                partialSecondSmallest[2 * CIRCULANT_SIZE + 1] = BIG_NUMBER
+                partialSecondSmallest[2 * CIRCULANT_SIZE + 2] = BIG_NUMBER
+                partialSecondSmallest[2 * CIRCULANT_SIZE + 3] = BIG_NUMBER
+                partialSecondSmallest[2 * CIRCULANT_SIZE + 4] = BIG_NUMBER
+                partialSecondSmallest[2 * CIRCULANT_SIZE + 5] = BIG_NUMBER
             cuda.syncthreads()
             row,col = cuda.grid(2)
             threadIdxX = cuda.threadIdx.y
@@ -198,11 +219,11 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                 cuda.syncthreads()
 
     
-            s = 512
+            s = 1024
             if (threadIdxX < s):
                 partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX] = twoElementsMergeSort(partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX], partialSmallest[threadIdxX + s], partialSecondSmallest[threadIdxX + s], argminSmallest[threadIdxX + s])
                 cuda.syncthreads()
-            s = 256
+            s = 512
             while (s > 0):
                 if (threadIdxX < s):
                     partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX] = twoElementsMergeSort(partialSmallest[threadIdxX], partialSecondSmallest[threadIdxX], argminSmallest[threadIdxX], partialSmallest[threadIdxX + s], partialSecondSmallest[threadIdxX + s], argminSmallest[threadIdxX + s])
@@ -574,9 +595,6 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
         numOfTransmissions_device = cuda.to_device(numOfTransmissions)
 
         for s in range(numberOfSNRpoints):
-            start = 0
-            end = 0
-            totalTime = 0
             for t in range(numOfTransmissions):
                 fromChannel_host, sigma, sigmaActual = addAWGN(modulatedCodeword, MATRIX_DIM1, SNRpoints[s], localPrng) 
                 softVector_host = copy.copy(fromChannel_host)
@@ -596,13 +614,13 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                 # Check if fromChannel makes a codeword    
                 slicerCuda[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device, binaryVector_device)
                 
-                resetVector[1022, 1](isCodewordVector_device)
+                resetVector[2 * CIRCULANT_SIZE, 1](isCodewordVector_device)
                 
                 calcBinaryProduct2[BLOCKS_PER_GRID_BINARY_CALC, THREADS_PER_BLOCK_BINARY_CALC](parityMatrix_device, binaryVector_device, isCodewordVector_device)
                 
-                mod2Vector[16, 511](isCodewordVector_device)
+                mod2Vector[16, CIRCULANT_SIZE](isCodewordVector_device)
                 
-                checkIsCodeword[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](isCodewordVector_device, result_device)
+                checkIsCodeword[2, 1021](isCodewordVector_device, result_device)
                 
                 #OSS: the syntax "if result_device[0] == 0" casuses a cuMemcpyDtoH error. I', replacing it with a numpy operation for debug
                 #OSS: 12/11/2021 it wasn't the syntax, the bug occured before it in mod2Vector, but was only raised after the == check.
@@ -616,7 +634,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                     findMinimaAndNumberOfNegatives[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](parityMatrix_device, matrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device)
                     numberOfNegativesToProductOfSigns[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](numberOfNegatives_device,productOfSigns_device)  
                     locateTwoSmallestHorizontal2DV2[BLOCKS_PER_GRID_LOCATE_TWO_SMALLEST_HORIZONTAL_2D, THREADS_PER_BLOCK_LOCATE_TWO_SMALLEST_HORIZONTAL_2D](matrix_device, parityMatrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device)
-                    signReduceHorizontal[1022, 1](matrix_device, productOfSigns_device)  
+                    signReduceHorizontal[2 * CIRCULANT_SIZE, 1](matrix_device, productOfSigns_device)  
                     produceNewMatrix2D[BLOCKS_PER_GRID_PRODUCE_NEW_MATRIX_2D, THREADS_PER_BLOCK_PRODUCE_NEW_MATRIX_2D](parityMatrix_device, matrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device, productOfSigns_device, newMatrix_device)
                     matrixSumVertical[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](newMatrix_device, softVector_device)
                     #sumReduction2DVertical[BLOCKS_PER_GRID_VERTICAL_SUM, THREADS_PER_BLOCK_VERTICAL_SUM](newMatrix_device, softVector_device)
@@ -628,9 +646,9 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                     cudaPlusDim1[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device,fromChannel_device)
                     slicerCuda[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device, binaryVector_device)
                     
-                    resetVector[1022, 1](isCodewordVector_device)
+                    resetVector[2 * CIRCULANT_SIZE, 1](isCodewordVector_device)
                     calcBinaryProduct2[BLOCKS_PER_GRID_BINARY_CALC, THREADS_PER_BLOCK_BINARY_CALC](parityMatrix_device, binaryVector_device, isCodewordVector_device)
-                    mod2Vector[16, 511](isCodewordVector_device)
+                    mod2Vector[16, CIRCULANT_SIZE](isCodewordVector_device)
                     
                     checkIsCodeword[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](isCodewordVector_device, result_device)
                     
@@ -733,9 +751,9 @@ def evaluateMatrixAndEpsilon(parityMatrix, epsilon, numberOfIterations = 50, cud
                 
         # Check if fromChannel makes a codeword    
         slicerCuda[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](softVector_device, binaryVector_device)
-        resetVector[1022, 1](isCodewordVector_device)
+        resetVector[2 * CIRCULANT_SIZE, 1](isCodewordVector_device)
         calcBinaryProduct2[BLOCKS_PER_GRID_BINARY_CALC, THREADS_PER_BLOCK_BINARY_CALC](parityMatrix_device, binaryVector_device, isCodewordVector_device)
-        mod2Vector[16, 511](isCodewordVector_device)
+        mod2Vector[16, CIRCULANT_SIZE](isCodewordVector_device)
         checkIsCodeword[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](isCodewordVector_device, result_device)
                 
         if result_device[0] == 0 :
@@ -749,7 +767,7 @@ def evaluateMatrixAndEpsilon(parityMatrix, epsilon, numberOfIterations = 50, cud
             findMinimaAndNumberOfNegatives[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](parityMatrix_device, matrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device)
             numberOfNegativesToProductOfSigns[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](numberOfNegatives_device,productOfSigns_device)  
             locateTwoSmallestHorizontal2DV2[BLOCKS_PER_GRID_LOCATE_TWO_SMALLEST_HORIZONTAL_2D, THREADS_PER_BLOCK_LOCATE_TWO_SMALLEST_HORIZONTAL_2D](matrix_device, parityMatrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device)
-            signReduceHorizontal[1022, 1](matrix_device, productOfSigns_device)  
+            signReduceHorizontal[2 * CIRCULANT_SIZE, 1](matrix_device, productOfSigns_device)  
             produceNewMatrix2D[BLOCKS_PER_GRID_PRODUCE_NEW_MATRIX_2D, THREADS_PER_BLOCK_PRODUCE_NEW_MATRIX_2D](parityMatrix_device, matrix_device, smallest_device, secondSmallest_device, locationOfMinimum_device, productOfSigns_device, newMatrix_device)
             matrixSumVertical[BLOCKS_PER_GRID_DIM1, THREADS_PER_BLOCK](newMatrix_device, softVector_device)
             
@@ -765,9 +783,9 @@ def evaluateMatrixAndEpsilon(parityMatrix, epsilon, numberOfIterations = 50, cud
                     
                     
                     
-            resetVector[1022, 1](isCodewordVector_device)
+            resetVector[2 * CIRCULANT_SIZE, 1](isCodewordVector_device)
             calcBinaryProduct2[BLOCKS_PER_GRID_BINARY_CALC, THREADS_PER_BLOCK_BINARY_CALC](parityMatrix_device, binaryVector_device, isCodewordVector_device)
-            mod2Vector[16, 511](isCodewordVector_device)
+            mod2Vector[16, CIRCULANT_SIZE](isCodewordVector_device)
                     
             checkIsCodeword[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](isCodewordVector_device, result_device)
             #temp_host = result_device.copy_to_host()
@@ -829,21 +847,21 @@ def evaluateMatrixAndEpsilon(parityMatrix, epsilon, numberOfIterations = 50, cud
 
 
 
-def testNearEarth(numOfTransmissions = 60, graphics = True):
+def testBeast(numOfTransmissions = 60, graphics = True):
     status = 'Near earth problem'
     print("*** in test near earth")
-    nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
+    beastParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 2 * 1021, 16 * 1021, 1021, True, False, False))
     #numOfTransmissions = 50
     roi = [3.0, 3.2 ,3.4, 3.6]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
-    codewordSize = 8176
-    messageSize = 7154
+    codewordSize = 16 * 1021
+    messageSize = 16 * 1021 - 2 * 1021
     numOfIterations = 50
 
     start = time.time()
-    bStats = evaluateCodeCuda(460101, roi, numOfIterations, nearEarthParity, numOfTransmissions)    
+    bStats = evaluateCodeCuda(460101, roi, numOfIterations, beastParity, numOfTransmissions)    
     end = time.time()
     print('Time it took for code evaluation == %d' % (end-start))
-    print('Throughput == '+str((8176*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
+    print('Throughput == '+str((codewordSize*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
     a, b, c, d = bStats.getStats(codewordSize)
     scatterSnr, scatterBer, scatterItr, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = bStats.getStatsV2()
     pConst = np.poly1d([1])
@@ -869,7 +887,7 @@ def testNearEarth(numOfTransmissions = 60, graphics = True):
 
 
 def testConcurrentFutures(numberOfCudaDevices = 1):
-    nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
+    nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 2 * CIRCULANT_SIZE, 16 * CIRCULANT_SIZE, CIRCULANT_SIZE, True, False, False))
     numOfTransmissions = 15
     roi = [3.0, 3.2 ,3.4, 3.6]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
     numOfIterations = 50
@@ -909,7 +927,7 @@ def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, 
 
         
 def main():
-    print("*** In ldpcCUDA.py main function.")
+    print("*** In ldpcCUDABEAST.py main function.")
     #status = testFindMinimum()
     #print(status)
     #status = testCheckUpdateAndSum()
@@ -920,12 +938,12 @@ def main():
     #print(status)
     
     #bStats, status = testNearEarth()
-    start = time.time()
+    #start = time.time()
     #bStats = testConcurrentFutures(numberOfCudaDevices = 1)
-    bStats = testNearEarth()
-    end =  time.time()
-    print("*** total running time == " + str(end - start))
-    print(bStats.getStats())
+    bStats = testBeast()
+    #end =  time.time()
+    #print("*** total running time == " + str(end - start))
+    #print(bStats.getStats())
     status = 0
     #testAsyncExec()
     return bStats, status
