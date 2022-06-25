@@ -629,6 +629,5 @@ if __name__ == '__main__':
     ppo(lambda x = 8200, y = 0, z = 'WORST_CODES': gym.make(args.env, seed = x, numberOfCudaDevices = y, resetType = z), #Omer Sella: Actor_Critic is now embedded and thus commented actor_critic=core.MLPActorCritic,
         ac_kwargs=dict(hidden_sizes=[args.hid]*args.l), gamma=args.gamma, 
         seed=args.seed, steps_per_epoch=args.steps, epochs=args.epochs,
-        logger_kwargs=logger_kwargs, envCudaDevices = args.envCudaDevices, experimentDataDir = experimentDataDir, 
-        entropyCoefficient0 = args.entropyCoefficient0, entropyCoefficient1 = args.entropyCoefficient1, entropyCoefficient2 = args.entropyCoefficient2, entropyCoefficientNoAction = args.entropyCoefficientNoAction, policyCoefficient = args.policyCoefficient, resetType = args.resetType, actionInvalidator = args.actionInvalidator)
+        logger_kwargs=logger_kwargs, envCudaDevices = args.envCudaDevices, experimentDataDir = experimentDataDir, entropyCoefficient0 = args.entropyCoefficient0, entropyCoefficient1 = args.entropyCoefficient1, entropyCoefficient2 = args.entropyCoefficient2, entropyCoefficientNoAction = args.entropyCoefficientNoAction, policyCoefficient = args.policyCoefficient, resetType = args.resetType, actionInvalidator = args.actionInvalidator)
         
