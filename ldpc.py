@@ -8,7 +8,7 @@ from numba import jit, int32, float32, jitclass, types, typed, boolean, float64,
 #import math
 import wifiMatrices
 
-projectDir = os.environ.get('SWIFT')
+projectDir = os.environ.get('LDPC')
 if projectDir == None:
     import pathlib
     projectDir = pathlib.Path(__file__).parent.absolute()
@@ -357,7 +357,7 @@ def evaluateCode(numberOfTransmissions, seed, SNRpoints, messageSize, codewordSi
     numberOfSNRpoints = len(SNRpoints)
     
     # init a new berStatistics object to collect statistics
-    berStats = common.berStatistics()#np.zeros(numberOfSNRpoints, dtype = LDPC_DECIMAL_DATA_TYPE)
+    berStats = common.berStatistics(codewordSize)#np.zeros(numberOfSNRpoints, dtype = LDPC_DECIMAL_DATA_TYPE)
     start = 0
     end = 0
     
@@ -435,8 +435,8 @@ def constantFunction(const):
     return g
 
 
-def testCodeUsingMultiprocessing(seed, SNRpoints, messageSize, codewordSize, numberOf                                                                                                Iterations, numberOfTransmissions, H, method = None, reference = None, G = 'None'):
-    bStats = common.berStatistics()
+def testCodeUsingMultiprocessing(seed, SNRpoints, messageSize, codewordSize, numberOfIterations, numberOfTransmissions, H, method = None, reference = None, G = 'None'):
+    bStats = common.berStatistics(codewordSize)
     seeds = LDPC_LOCAL_PRNG.randint(0, LDPC_MAX_SEED, numberOfTransmissions, dtype = LDPC_SEED_DATA_TYPE) 
     
     mesL = [messageSize] * numberOfTransmissions
@@ -500,6 +500,29 @@ def testNearEarth(numOfTransmissions = 50):
     #print("berDecoded " + str(c))
     return bStats
 
+def testBeast(numOfTransmissions = 50):
+    print("*** testing beast")
+    beastParity = fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 2042, 16336, 1021, True, False, False)
+    #numOfTransmissions = 50
+    roi = [3.0, 3.2, 3.4]
+    codewordSize = 16336
+    messageSize = (16336 - 2042)
+    numOfIterations = 50
+
+    start = time.time()
+    
+    #bStats = evaluateCode(numOfTransmissions, 460101, roi, messageSize, codewordSize, numOfIterations, nearEarthParity)    
+    #for i in range(numOfTransmissions):
+    #    bStats = evaluateCodeAtSingleTransmission(460101, roi, messageSize, codewordSize, numOfIterations, nearEarthParity)    
+    bStats = evaluateCode(numberOfTransmissions = numOfTransmissions, seed = 460101, SNRpoints = roi, messageSize = messageSize, codewordSize = codewordSize, numberOfIterations = numOfIterations, H = beastParity, G = 'None' )
+    #bStats = testCodeUsingMultiprocessing(460101, roi, messageSize, codewordSize, numOfIterations, numOfTransmissions, beastParity)
+    end = time.time()
+    print('****Time it took for code evaluation == %d' % (end-start))
+    print('****Throughput == '+str((8176*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
+    #a, b, c, d = bStats.getStats(codewordSize)
+    #print("berDecoded " + str(c))
+    return bStats
+
 
 def testWifi(numOfTransmissions = 50):
     print("*** test wifi is decomissioned !!!!")
@@ -528,7 +551,8 @@ def testWifi(numOfTransmissions = 50):
 def main():
     print("*** In ldpc.py main function.")
     #bStats = testWifi()
-    bStats = testNearEarth()
+    #bStats = testNearEarth()
+    bStats = testBeast()
     return bStats
     
 if __name__ == '__main__':
