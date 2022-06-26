@@ -381,11 +381,11 @@ def evaluateCode(numberOfTransmissions, seed, SNRpoints, messageSize, codewordSi
             #print("******** " + str(np.sum(decodedWord == codeword)))
             berDecoded = np.count_nonzero(decodedWord != codeword)
             berStats.addEntry(SNR, sigma, sigmaActual, berUncoded, berDecoded, iterationStoppedAt, numberOfIterations, status)
-        print("Time it took the decoder:")
-        print(timeTotal)
-        print("And the throughput is:")
+        #print("Time it took the decoder:")
+        #print(timeTotal)
+        #print("And the throughput is:")
         numberOfBits = numberOfTransmissions * codewordSize
-        print(numberOfBits / timeTotal)
+        #print(numberOfBits / timeTotal)
     return berStats
 
 def evaluateCodeWrapper(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTransmissions, G = 'None' , numberOfCores = 8):
@@ -396,9 +396,10 @@ def evaluateCodeWrapper(seed, SNRpoints, numberOfIterations, parityMatrix, numOf
     # Number of iterations must be divisible by numberOfCudaDevices
     localPRNG = np.random.RandomState(seed)
     seeds = localPRNG.randint(0, LDPC_MAX_SEED, numberOfCores, dtype = LDPC_SEED_DATA_TYPE)
-    print(seeds)
     berStats = common.berStatistics()
+    #It is assumed, i,.e., no safety, that the number of cores is => number of transmissions !!!!
     newNumOfTransmissions = numOfTransmissions // numberOfCores
+    
     messageSize = 16*1021- (2*1021)
     codewordSize = 16*1021
     

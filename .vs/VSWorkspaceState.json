@@ -1,9 +1,7 @@
 {
   "ExpandedNodes": [
-    "",
-    "\\gym-ldpc\\gym_ldpc",
-    "\\gym-ldpc\\gym_ldpc\\envs"
+    ""
   ],
-  "SelectedNode": "\\wifiMatrices.py",
+  "SelectedNode": "\\ldpc.py",
   "PreviewInSolutionExplorer": false
 }

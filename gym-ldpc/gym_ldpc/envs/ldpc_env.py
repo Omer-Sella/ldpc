@@ -15,6 +15,8 @@ from scipy import integrate
 import numpy as np
 import copy
 
+from models import CIRCULANT_SIZE
+
 GENERAL_LDPC_ENV_TYPE = np.float32
 LDPC_ENV_INT_DATA_TYPE = np.int32
 LDPC_ENV_SEED_DATA_TYPE = np.int32
@@ -46,6 +48,7 @@ from binarySpace import binarySpace
 from uint8Space import uint8Space
 import common
 import scipy
+import ldpc
 
 class LdpcEnv(gym.Env):
     """
@@ -78,11 +81,16 @@ class LdpcEnv(gym.Env):
     metadata = {'render.modes': ['rgb']}
 
   
-    def __init__(self, replacementOnly=False, seed=7134066, numberOfCudaDevices = 4, resetType = 'NEAR_EARTH', noActionMode = 'Disabled'):
+    def __init__(self, replacementOnly=False, seed=7134066, numberOfCudaDevices = 4, resetType = 'NEAR_EARTH', noActionMode = 'Disabled', circulantSize = 511, numberOfCores = None):
         
+        assert (resetType == 'BEAST' and circulantSize == 1021) or (circulantSize == 511), 'ldpc_env says: currently only BEAST resetType is supported for circulant size not equal 511 '
         self.localPRNG = np.random.RandomState(seed)
         if resetType == 'NEAR_EARTH':        
             H = fileHandler.readMatrixFromFile(projectDir + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False)
+            self.state = copy.deepcopy(H)
+            self.resetValue = copy.deepcopy(H)
+        elif resetType == 'BEAST':
+            H = fileHandler.readMatrixFromFile(projectDir + '/codeMatrices/nearEarthParity.txt', 2042, 16336, 1021, True, False, False)
             self.state = copy.deepcopy(H)
             self.resetValue = copy.deepcopy(H)
         else:
@@ -98,18 +106,23 @@ class LdpcEnv(gym.Env):
             self.extractParityMatrix()
         
         self.replacementOnly = replacementOnly
-        self.messageSize = 7156
-        self.codewordSize = 8176
+        self.circulantSize = circulantSize
+        self.powerOfTwoAfterCirculantSize = np.int32(2 ** (np.ceil(np.log2(self.circulantSize))))
+        if circulantSize == 511:
+            self.messageSize = 7156
+            self.codewordSize = 8176
+        else:
+            assert circulantSize == 1021 , "ldpc_env init says: only 511 and 1021 circulant sizes currently supported"
+            self.messageSize = 16 * self.circulantSize - 2 * self.circulantSize
+            self.codewordSize = 16 * self.circulantSize
         #self.SNRpoints = np.array([3.0, 3.2, 3.4, 3.6, 3.8], dtype = GENERAL_LDPC_ENV_TYPE)
-        self.SNRpoints = np.array([3.0, 3.2, 3.4], dtype = GENERAL_LDPC_ENV_TYPE) #Omer Sella: removed last two snr points
+        self.SNRpoints = np.array([3.0, 3.2, 3.4], dtype = GENERAL_LDPC_ENV_TYPE) #Omer Sella: removed last two snr points Carefull ! You need at least two different SNR points in an ascending order for reward calculation.
         self.BERpoints = np.ones(len(self.SNRpoints), dtype = GENERAL_LDPC_ENV_TYPE)
-        self.circulantSize = 511
         # Omer Sella: should be made clear from the action space details
         self.xBits = 1
         # Omer Sella: should be made clear from the action space details
         self.yBits = 4
         # Omer Sella: should be made clear from the action space details
-            
         if replacementOnly == False:
 
             self.action_space = binarySpace(self.xBits + self.yBits + self.circulantSize)
@@ -119,14 +132,37 @@ class LdpcEnv(gym.Env):
             self.actionBits = 2 * self.xBits + 2 * self.yBits
             
         
-        self.observation_space = uint8Space(2048)
-        self.observationUint8 = 2048
-        self.paddingLocations = (np.arange(16) + 1) * (self.circulantSize +1 ) - 1
-        self.compressionMask = np.ones(8192, dtype = bool)
-        self.compressionMask[self.paddingLocations] = False
+        #self.observation_space = uint8Space(2048)
+        
+        self.observation_space = uint8Space( np.int32(2 * 16 / 8 * self.powerOfTwoAfterCirculantSize))
+        #self.observationUint8 = 2048
+        self.observationUint8 = 2 * 16 / 8 * self.powerOfTwoAfterCirculantSize
+        if self.circulantSize == 511:
+            self.paddingLocations = (np.arange(16) + 1) * (self.circulantSize +1 ) - 1
+            self.compressionMask = np.ones(8192, dtype = bool)
+            self.compressionMask[self.paddingLocations] = False
+        else:           
+            #paddingLocationsInit = np.array([1021, 1022, 1023])
+            #for i in range(16):
+            #    paddingLocations = np.hstack( (paddingLocations, (paddingLocationsInit + self.powerOfTwoAfterCirculantSize * (i + 1))))
+            self.paddingLocations = np.array([1021,  1022,  1023,  2045,  2046,  2047,  3069,  3070, 3071,  4093,  
+                                              4094,  4095,  5117,  5118,  5119,  6141, 6142,  6143,  7165,  7166,  7167,  8189,  8190,  8191, 9213, 9214,  
+                                              9215, 10237, 10238, 10239, 11261, 11262, 11263, 12285, 12286, 12287, 13309, 13310, 13311, 14333, 14334, 14335, 
+                                              15357, 15358, 15359, 16381, 16382, 16383])
+            self.compressionMask = np.ones(16 * self.powerOfTwoAfterCirculantSize, dtype = bool)
+            self.compressionMask[self.paddingLocations] = False
+
         self.observed_state = self.compress()
         self.ldpcDecoderNumOfIterations = LDPC_ENV_NUMBER_OF_ITERATIONS
-        self.ldpcDecoderNumOfTransmissions = LDPC_ENV_NUMBER_OF_TRANSMISSIONS
+        if numberOfCores == None:
+            assert (circulantSize == 511)
+            self.ldpcDecoderNumOfTransmissions = LDPC_ENV_NUMBER_OF_TRANSMISSIONS
+        else:
+            self.numberOfCores = numberOfCores
+            if numberOfCores > LDPC_ENV_NUMBER_OF_TRANSMISSIONS:
+                self.ldpcDecoderNumOfTransmissions = numberOfCores
+            else:
+                self.ldpcDecoderNumOfTransmissions = LDPC_ENV_NUMBER_OF_TRANSMISSIONS
         self.xCoordinateBinaryToInt = np.flipud(2**np.arange(self.xBits))
         self.yCoordinateBinaryToInt = np.flipud(2**np.arange(self.yBits))
         self.seed = seed
@@ -157,6 +193,7 @@ class LdpcEnv(gym.Env):
         self.resetType = resetType
         self.noActionMode = noActionMode
         
+        
 
         
         
@@ -167,50 +204,54 @@ class LdpcEnv(gym.Env):
     def step(self, action):
         done = False
         ## Omer Sella: the assertion that the action is of type int vector is for safety during developement and should be removed upon release
-        #print("*** ")
-        #print(action.dtype)
         #assert(action.dtype == 'int32'), "Action vector was not int32 type. Any int type will do."
-        if self.noActionMode == 'Enabled':
-            assert(action.shape[0] == self.xBits + self.yBits + self.circulantSize + 1)
-        else:
-            assert(action.shape[0] == self.xBits + self.yBits + self.circulantSize)
+        
+        ###Omer Sella: taking this safety off for speedup
+        #if self.noActionMode == 'Enabled':
+        #    assert(action.shape[0] == self.xBits + self.yBits + self.circulantSize + 1)
+        #else:
+        #    assert(action.shape[0] == self.xBits + self.yBits + self.circulantSize)
         # First we need to unpack the action from a vector into x,y coordinates, and then either a circulant or replacement coordinates (depending on the environment type as set in self.replacementOnly)
         xCoordinateBinary = action[0 : self.xBits]
-        #print(xCoordinateBinary.shape)
         xCoordinate = self.xCoordinateBinaryToInt.dot(xCoordinateBinary)
         yCoordinateBinary = action[self.xBits : self.xBits + self.yBits]
-        #print(yCoordinateBinary.shape)
         yCoordinate = self.yCoordinateBinaryToInt.dot(yCoordinateBinary)
         # 26/05/2022 disabled density calc - it is no longer used.
         #density = np.sum(self.state) / (self.messageSize * self.codewordSize)
         #print("*** density of state before action :" + str(density))
-        if self.replacementOnly == True:
-            xrCoordinateBinary = action[self.xBits + self.yBits : self.xBits + self.yBits + self.xBits]
-            xrCoordinate = self.xCoordinateBinaryToInt.dot(xrCoordinateBinary)
-            yrCoordinateBinary = action[self.xBits + self.yBits + self.xBits : + self.xBits + self.yBits + self.xBits + self.yBits]
-            yrCoordinate = self.yCoordinateBinaryToInt.dot(yrCoordinateBinary)
+        
+        ### Omer Sella: I deprecated replacementOnly mode and noAction mode since I need the speedup for the circulantSize==1021 case
+        #if self.replacementOnly == True:
+        #    xrCoordinateBinary = action[self.xBits + self.yBits : self.xBits + self.yBits + self.xBits]
+        #    xrCoordinate = self.xCoordinateBinaryToInt.dot(xrCoordinateBinary)
+        #    yrCoordinateBinary = action[self.xBits + self.yBits + self.xBits : + self.xBits + self.yBits + self.xBits + self.yBits]
+        #    yrCoordinate = self.yCoordinateBinaryToInt.dot(yrCoordinateBinary)
             
-            xyCirculant = self.state[xCoordinate * self.circulantSize : (xCoordinate + 1) * self.circulantSize, yCoordinate * self.circulantSize : (yCoordinate + 1) * self.circulantSize]
-            xryrCirculant = self.state[xrCoordinate * self.circulantSize : (xrCoordinate + 1) * self.circulantSize, xrCoordinate * self.circulantSize : (xrCoordinate + 1) * self.circulantSize]
-            #print("Replace circulant " + str(xCoordinate) + " , " + str(yCoordinate) + " with " +str(xrCoordinate) + " , " + str(yrCoordinate))
-            status = self.replaceCirculant(xCoordinate, yCoordinate, xryrCirculant)            
-            if status == 'OK':
-                status = self.replaceCirculant(xrCoordinate, yrCoordinate, xyCirculant)
+        #    xyCirculant = self.state[xCoordinate * self.circulantSize : (xCoordinate + 1) * self.circulantSize, yCoordinate * self.circulantSize : (yCoordinate + 1) * self.circulantSize]
+        #    xryrCirculant = self.state[xrCoordinate * self.circulantSize : (xrCoordinate + 1) * self.circulantSize, xrCoordinate * self.circulantSize : (xrCoordinate + 1) * self.circulantSize]
+        #    #print("Replace circulant " + str(xCoordinate) + " , " + str(yCoordinate) + " with " +str(xrCoordinate) + " , " + str(yrCoordinate))
+        #    status = self.replaceCirculant(xCoordinate, yCoordinate, xryrCirculant)            
+        #    if status == 'OK':
+        #        status = self.replaceCirculant(xrCoordinate, yrCoordinate, xyCirculant)
             
-            else:
-                status = 'FAILED'
-            #print(status)
-        if self.noActionMode == 'Enabled':
-            if action[-1] == 1: # the actor is telling us to invalidate the rest of the action if action[-1] == 1
-                status = 'OK'
-            else:
-                circulantFirstRow = action[self.xBits + self.yBits : -1]
-                newCirculant = circulant(circulantFirstRow).T
-                status = self.replaceCirculant(xCoordinate, yCoordinate, newCirculant)
-        else:
-            circulantFirstRow = action[self.xBits + self.yBits : ]
-            newCirculant = circulant(circulantFirstRow).T
-            status = self.replaceCirculant(xCoordinate, yCoordinate, newCirculant)
+        #    else:
+        #        status = 'FAILED'
+        #    #print(status)
+        #else:
+        #    if self.noActionMode == 'Enabled':
+        #        if action[-1] == 1: # the actor is telling us to invalidate the rest of the action if action[-1] == 1
+        #            status = 'OK'
+        #        else:
+        #            circulantFirstRow = action[self.xBits + self.yBits : -1]
+        #            newCirculant = circulant(circulantFirstRow).T
+        #            status = self.replaceCirculant(xCoordinate, yCoordinate, newCirculant)
+        #    else:
+        #        circulantFirstRow = action[self.xBits + self.yBits : ]
+        #        newCirculant = circulant(circulantFirstRow).T
+        #        status = self.replaceCirculant(xCoordinate, yCoordinate, newCirculant)
+        circulantFirstRow = action[self.xBits + self.yBits : ]
+        newCirculant = circulant(circulantFirstRow).T
+        status = self.replaceCirculant(xCoordinate, yCoordinate, newCirculant)
         
         # Now evaluate the code
         
@@ -242,18 +283,13 @@ class LdpcEnv(gym.Env):
         return
 
     def reset(self):
-        
-        if self.resetType == "NEAR_EARTH":
+        if self.resetType == "NEAR_EARTH" or self.resetType == "BEAST":
             self.state = copy.deepcopy(self.resetValue)
         else:
             # Choose at random a matrix that represents a really bad code, or:
             # Choose at random a matrix from a pool of not so good and not so bad codes
             # depending on self.resetType
             self.extractParityMatrix()
-            
-        
-            
-            
         self.observed_state = self.compress()
         self.BERpoints = np.ones(len(self.SNRpoints), dtype = GENERAL_LDPC_ENV_TYPE)
         self.accumulatedEvaluationTime = 0
@@ -267,7 +303,6 @@ class LdpcEnv(gym.Env):
 
     
     def replaceCirculant(self, xCoordinate, yCoordinate, newCirculant):
-        
         m,n = self.state.shape
         #print('*****')
         #print(newCirculant.shape)
@@ -279,32 +314,23 @@ class LdpcEnv(gym.Env):
             self.state[xCoordinate * circulantSize : (xCoordinate + 1) * circulantSize, yCoordinate * circulantSize : (yCoordinate + 1) * circulantSize] = newCirculant
             #common.updateCirculantImage(self.ax, self.fig, xCoordinate, yCoordinate, newCirculant)
             status = 'OK'
-        
         return status
     
     def calcReward(self, colour = None):
         # Omer Sella: fit a line to the snr / ber data, and return the area between the line and the constant function 1.
-        if len(self.BERpoints) < 2:
-            # You need at least two points to fit a line
-            reward = self.rewardForBadCandidate
-        else:
-                        
-            # Fit a line through the data #OSS 26/12/2021 this is now proivided by a function from common
-            # OSS 26/12/2021 adjusted the reward function to be less sensitive to 0 BER data points
-            snr, ber, p1, trendP, itr = common.recursiveLinearFit(self.scatterSnr, self.scatterBer)
-
-
-            # Omer Sella: 16/06/2021 decided to use np polynomials. Also changed the reward to the area between
-            # the constant 1 and the fitted line.
-            #slope = p[0]
-            #bias = p[1]
-            # OSS: p1 is now an output of a function from common.py
-            #p1 = np.poly1d(p)
-            pTotalInteg = (self.pConst - p1).integ()
-            reward = pTotalInteg(self.SNRpoints[-1]) - pTotalInteg(self.SNRpoints[0])
-            #reward =  0.5 * slope * (self.SNRpoints[-1] ** 2)  + bias * self.SNRpoints[-1] - ( 0.5 * slope * (self.SNRpoints[0] ** 2)  + bias * self.SNRpoints[0])
-            #reward = -1 * reward
-            
+        # Fit a line through the data #OSS 26/12/2021 this is now proivided by a function from common
+        # OSS 26/12/2021 adjusted the reward function to be less sensitive to 0 BER data points
+        snr, ber, p1, trendP, itr = common.recursiveLinearFit(self.scatterSnr, self.scatterBer)
+        # Omer Sella: 16/06/2021 decided to use np polynomials. Also changed the reward to the area between
+        # the constant 1 and the fitted line.
+        #slope = p[0]
+        #bias = p[1]
+        # OSS: p1 is now an output of a function from common.py
+        #p1 = np.poly1d(p)
+        pTotalInteg = (self.pConst - p1).integ()
+        reward = pTotalInteg(self.SNRpoints[-1]) - pTotalInteg(self.SNRpoints[0])
+        #reward =  0.5 * slope * (self.SNRpoints[-1] ** 2)  + bias * self.SNRpoints[-1] - ( 0.5 * slope * (self.SNRpoints[0] ** 2)  + bias * self.SNRpoints[0])
+        #reward = -1 * reward  
         #common.updateBerVSnr(self.ax, self.fig, 1, 16, self.scatterSnr, self.scatterBer, colour)
         #common.updateReward(self.ax, self.fig, 0, 16, self.SNRpoints, slope * self.SNRpoints + bias, colour)
         return reward
@@ -316,29 +342,43 @@ class LdpcEnv(gym.Env):
     
 
     def evaluateCode(self):
-        seeds = self.localPRNG.randint(0, LDPC_ENV_MAX_SEED, self.cudaDevices, dtype = LDPC_ENV_SEED_DATA_TYPE)
-        seed = self.localPRNG.randint(0, LDPC_ENV_MAX_SEED, 1, dtype = LDPC_ENV_SEED_DATA_TYPE)
-        #seed = np.random.randint(0, LDPC_ENV_MAX_SEED, 1, dtype = LDPC_ENV_SEED_DATA_TYPE)
-        #start = time.time()        
-        berStats = common.berStatistics(self.codewordSize)
-        # OSS: I'm commenting out evaluateCodeCuda in order to use the wrapper that utilises multiple GPUs
-        #berStats = ldpcCUDA.evaluateCodeCuda(seed, self.SNRpoints, self.ldpcDecoderNumOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None', cudaDeviceNumber = self.cudaDevices)
-        berStats = ldpcCUDA.evaluateCodeCudaWrapper(seeds, self.SNRpoints, self.ldpcDecoderNumOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None' , numberOfCudaDevices = self.cudaDevices)
-        #snrAxis, averageSnrAxis, berData, averageNumberOfIterations = berStats.getStats()
-        
-
+        if self.circulantSize == 511:
+            seeds = self.localPRNG.randint(0, LDPC_ENV_MAX_SEED, self.cudaDevices, dtype = LDPC_ENV_SEED_DATA_TYPE)
+            seed = self.localPRNG.randint(0, LDPC_ENV_MAX_SEED, 1, dtype = LDPC_ENV_SEED_DATA_TYPE)
+            #seed = np.random.randint(0, LDPC_ENV_MAX_SEED, 1, dtype = LDPC_ENV_SEED_DATA_TYPE)
+            #start = time.time()        
+            berStats = common.berStatistics(self.codewordSize)
+            # OSS: I'm commenting out evaluateCodeCuda in order to use the wrapper that utilises multiple GPUs
+            #berStats = ldpcCUDA.evaluateCodeCuda(seed, self.SNRpoints, self.ldpcDecoderNumOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None', cudaDeviceNumber = self.cudaDevices)
+            berStats = ldpcCUDA.evaluateCodeCudaWrapper(seeds, self.SNRpoints, self.ldpcDecoderNumOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None' , numberOfCudaDevices = self.numberOfCores)
+            #snrAxis, averageSnrAxis, berData, averageNumberOfIterations = berStats.getStats()
+        else:
+            seed = self.localPRNG.randint(0, LDPC_ENV_MAX_SEED, 1, dtype = LDPC_ENV_SEED_DATA_TYPE)
+            berStats = common.berStatistics(self.codewordSize)
+            berStats = ldpc.evaluateCodeWrapper(seed, self.SNRpoints, self.ldpcDecoderNumOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None' , numberOfCores =  self.numberOfCores)
         return berStats
     
     def compress(self):
-        firstRow = self.state[0,:]
-        secondRow = self.state[511,:]
+        if self.circulantSize == 511:
+            firstRow = self.state[0,:]
+            secondRow = self.state[511,:]
         
-        paddedFirstRow = np.zeros(8192, dtype = np.dtype(firstRow[0])) #np.insert(firstRow, self.paddingLocations, 0)
-        paddedFirstRow[self.compressionMask] = firstRow
+            paddedFirstRow = np.zeros(8192, dtype = np.dtype(firstRow[0])) #np.insert(firstRow, self.paddingLocations, 0)
+            paddedFirstRow[self.compressionMask] = firstRow
         
-        paddedSecondRow = np.zeros(8192, dtype = np.dtype(secondRow[0])) #np.insert(secondRow, self.paddingLocations, 0)
-        paddedSecondRow[self.compressionMask] = secondRow
+            paddedSecondRow = np.zeros(8192, dtype = np.dtype(secondRow[0])) #np.insert(secondRow, self.paddingLocations, 0)
+            paddedSecondRow[self.compressionMask] = secondRow
+        else:
+            # Assuming circulantSize == 1021:
+            assert (self.circulantSize == 1021), "ldpc_env.py compress says: The only supported circulant sizes are currently 511 and 1021."
+            firstRow = self.state[0, :]
+            secondRow = self.state[self.circulantSize, :]
         
+            paddedFirstRow = np.zeros(16 * self.powerOfTwoAfterCirculantSize, dtype = np.dtype(firstRow[0])) #np.insert(firstRow, self.paddingLocations, 0)
+            paddedFirstRow[self.compressionMask] = firstRow
+        
+            paddedSecondRow = np.zeros(16 * self.powerOfTwoAfterCirculantSize, dtype = np.dtype(secondRow[0])) #np.insert(secondRow, self.paddingLocations, 0)
+            paddedSecondRow[self.compressionMask] = secondRow
         firstRow = np.packbits(paddedFirstRow)
         secondRow = np.packbits(paddedSecondRow)
         ##Omer Sella: Changed vstack to hstack, since ppo wants the data flattened anyway.

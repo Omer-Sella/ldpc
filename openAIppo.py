@@ -134,7 +134,7 @@ import models
 
 
 
-def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0, 
+def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=460101, 
         #Omer Sella: I replaced this: steps_per_epoch=4000, with this:
         steps_per_epoch=64,
         epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
@@ -142,7 +142,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), 
         save_freq=10, envCudaDevices = 4, experimentDataDir = None,
-        entropyCoefficient0 = 0.01, entropyCoefficient1 = 0.01, entropyCoefficient2 = 0.01, entropyCoefficientNoAction = 0.01, policyCoefficient = 1.0, resetType = 'WORST_CODES', actionInvalidator = 'Disabled'):
+        entropyCoefficient0 = 0.01, entropyCoefficient1 = 0.01, entropyCoefficient2 = 0.01, entropyCoefficientNoAction = 0.01, policyCoefficient = 1.0, resetType = 'BEAST', actionInvalidator = 'Disabled', actorInputSize = 4096, numberOfCores = 16):
     """
     Proximal Policy Optimization (by clipping), 
 
@@ -272,7 +272,11 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
     # Instantiate environment
     #Omer Sella: I changed the environment seed to be the same as the ppo seed.
-    env = env_fn(x = seed, y = envCudaDevices, z = resetType)
+    if actorInputSize == 4096:
+        env = env_fn(x = seed, y = envCudaDevices, z = resetType, c = 1021, p = numberOfCores)
+    else:
+        assert(actorInputSize == 2048)
+        env = env_fn(x = seed, y = envCudaDevices, z = resetType, c = 511, p = numberOfCores)
     obs_dim = env.observation_space.shape
     if actionInvalidator == 'Enabled':
         act_dim = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS + 1#env.action_space.shape
@@ -286,7 +290,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     # Omer Sella: this is where I need to plant my AC
     #ac = actor_critic(env.observation_space, env.action_space, **ac_kwargs)
     #ac = actor_critic(OVERRIDE_OBSERVATION_SPACE_DIM, OVERRIDE_ACTION_SPACE_DIM, **ac_kwargs)
-    ac = models.openAIActorCritic(int, 2048, int, INTERNAL_ACTION_SPACE_SIZE, 64, MAXIMUM_NUMBER_OF_HOT_BITS, [64,64] , actorCriticDevice = 'cpu', actionInvalidator = actionInvalidator)
+    ac = models.openAIActorCritic(int, actorInputSize, int, INTERNAL_ACTION_SPACE_SIZE, 64, MAXIMUM_NUMBER_OF_HOT_BITS, [64,64] , actorCriticDevice = 'cpu', actionInvalidator = actionInvalidator)
     # Sync params across processes
     #sync_params(ac) #OSS 07/01/2022 commenting out since removing mpi functionality
 
@@ -433,7 +437,6 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
         # Value function learning
         for i in range(train_v_iters):
-            #print("*** Value function training step %d..."%i)
             vf_optimizer.zero_grad()
             loss_v = compute_loss_v(data)
             loss_v.backward()
@@ -597,7 +600,8 @@ if __name__ == '__main__':
     multiprocessing.set_start_method('spawn')
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default= 'gym_ldpc:ldpc-v0')
-    parser.add_argument('--resetType', type=str, default= 'WORST_CODES')
+    #parser.add_argument('--resetType', type=str, default= 'WORST_CODES')
+    parser.add_argument('--resetType', type=str, default= 'BEAST')
     parser.add_argument('--actionInvalidator', type=str, default='Disabled')
     parser.add_argument('--hid', type=int, default=64)
     parser.add_argument('--l', type=int, default=2)
@@ -614,6 +618,9 @@ if __name__ == '__main__':
     parser.add_argument('--entropyCoefficientNoAction', type=float, default = 0.01)
     parser.add_argument('--policyCoefficient', type=float, default = 1.0)
     parser.add_argument('--exp_name', type=str, default='ppo')
+    parser.add_argument('--actorInputSize', type=int, default=4096) #Options are 2048 or 4096. No safety.
+    parser.add_argument('--numberOfCores', type=int, default=16) #Omer Sella: was 4 instead of 1    
+    parser.add_argument('--modelSaveFrequency', type=int, default=10) #Omer Sella: was 4 instead of 1    
     
     args = parser.parse_args()
     #OSS 10/01/2022 commented mpi_fork since mpi is not used.
@@ -626,8 +633,8 @@ if __name__ == '__main__':
     experimentDataDir = PROJECT_PATH + "/temp/experiments/" + str(int(experimentTime)) + "/" + str(args.seed) + "/"
     logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, data_dir = experimentDataDir)
 
-    ppo(lambda x = 8200, y = 0, z = 'WORST_CODES': gym.make(args.env, seed = x, numberOfCudaDevices = y, resetType = z), #Omer Sella: Actor_Critic is now embedded and thus commented actor_critic=core.MLPActorCritic,
+    ppo(lambda x = 8200, y = 0, z = 'WORST_CODES', c = 1021, p = 16: gym.make(args.env, seed = x, numberOfCudaDevices = y, resetType = z,  circulantSize = c, numberOfCores = p), #Omer Sella: Actor_Critic is now embedded and thus commented actor_critic=core.MLPActorCritic,
         ac_kwargs=dict(hidden_sizes=[args.hid]*args.l), gamma=args.gamma, 
-        seed=args.seed, steps_per_epoch=args.steps, epochs=args.epochs,
-        logger_kwargs=logger_kwargs, envCudaDevices = args.envCudaDevices, experimentDataDir = experimentDataDir, entropyCoefficient0 = args.entropyCoefficient0, entropyCoefficient1 = args.entropyCoefficient1, entropyCoefficient2 = args.entropyCoefficient2, entropyCoefficientNoAction = args.entropyCoefficientNoAction, policyCoefficient = args.policyCoefficient, resetType = args.resetType, actionInvalidator = args.actionInvalidator)
+        seed=args.seed, steps_per_epoch=args.steps, epochs=args.epochs,save_freq = args.modelSaveFrequency,
+        logger_kwargs=logger_kwargs, envCudaDevices = args.envCudaDevices, experimentDataDir = experimentDataDir, entropyCoefficient0 = args.entropyCoefficient0, entropyCoefficient1 = args.entropyCoefficient1, entropyCoefficient2 = args.entropyCoefficient2, entropyCoefficientNoAction = args.entropyCoefficientNoAction, policyCoefficient = args.policyCoefficient, resetType = args.resetType, actionInvalidator = args.actionInvalidator, actorInputSize = args.actorInputSize, numberOfCores = args.numberOfCores)
         
