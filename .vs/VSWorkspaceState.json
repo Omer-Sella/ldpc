@@ -1,6 +1,9 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\gym-ldpc",
+    "\\gym-ldpc\\gym_ldpc",
+    "\\gym-ldpc\\gym_ldpc\\envs"
   ],
   "SelectedNode": "\\ldpc.py",
   "PreviewInSolutionExplorer": false

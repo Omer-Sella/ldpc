@@ -419,7 +419,8 @@ def countMatrixCycles(H):
 def characteriseMatrixFiles(pathToFiles):
     import scipy
     import os
-    import ldpcCUDA
+    #import ldpcCUDA
+    import ldpc
     fileList = os.listdir(pathToFiles)
     SNRpoints = [3.0, 3.2, 3.4]
     resultsList = []
@@ -431,7 +432,8 @@ def characteriseMatrixFiles(pathToFiles):
         berStats = berStatistics(COMMON_PARITY_MATRIX_DIM_1)
         # OSS: I'm commenting out evaluateCodeCuda in order to use the wrapper that utilises multiple GPUs
         #berStats = ldpcCUDA.evaluateCodeCuda(seed, self.SNRpoints, self.ldpcDecoderNumOfIterations, self.state, self.ldpcDecoderNumOfTransmissions, G = 'None', cudaDeviceNumber = self.cudaDevices)
-        berStats = ldpcCUDA.evaluateCodeCuda(seed, SNRpoints, numberOfIterations = 60, parityMatrix = H, numOfTransmissions = 50, G = 'None' , cudaDeviceNumber = 0)
+        #berStats = ldpcCUDA.evaluateCodeCuda(seed, SNRpoints, numberOfIterations = 60, parityMatrix = H, numOfTransmissions = 50, G = 'None' , cudaDeviceNumber = 0)
+        berStats = ldpc.evaluateCodeWrapper(seed, SNRpoints, numberOfIterations = 60, parityMatrix = H, numOfTransmissions = 56, G = 'None' , numberOfCores = 56)
         scatterSnr, scatterBer, scatterItr, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = berStats.getStatsV2()
         snr, ber, p1, trendP, itr = recursiveLinearFit(scatterSnr, scatterBer)
         pConst = np.poly1d([1])
@@ -440,16 +442,22 @@ def characteriseMatrixFiles(pathToFiles):
         totalNumberOf4Cycles = countMatrixCycles(H)
         densityDistribution = np.sum(H, axis = 1)
         density = np.sum(densityDistribution) / (COMMON_PARITY_MATRIX_DIM_0 * COMMON_PARITY_MATRIX_DIM_1)
-        resultItem = [f, H, reward, scatterSnr, scatterBer, p1, trendP, totalNumberOf4Cycles, density, densityDistribution]
+        resultItem = [f, reward, scatterSnr, scatterBer, p1, trendP, totalNumberOf4Cycles, density, densityDistribution]
         resultsList.append(resultItem)
     return resultsList
 
 
 
 def main():
-    test_uncompress()
-    fig, ax = testGraphics()
-    return fig, ax
+    #test_uncompress()
+    #fig, ax = testGraphics()
+    #return fig, ax
+    import scipy
+    workspaceDict = {}
+    resultsList = characteriseMatrixFiles('/home/oss22/rds/ldpc/codeMatrices/experimental/worstCodes/')
+    workspaceDict['data'] = resultsList
+    scipy.io.savemat(('/home/oss22/rds/ldpc/codeMatrices/experimental/characterisationOfWorstCodes.mat'), workspaceDict)
+    return
 
 if __name__ == '__main__':
     main()
