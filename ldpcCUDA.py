@@ -922,7 +922,7 @@ def main():
     #bStats, status = testNearEarth()
     start = time.time()
     #bStats = testConcurrentFutures(numberOfCudaDevices = 1)
-    bStats = testNearEarth()
+    bStats = testNearEarth(graphics = False)
     end =  time.time()
     print("*** total running time == " + str(end - start))
     print(bStats.getStats())
@@ -936,4 +936,20 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    import argparse
+    # Omer Sella: this is critical - we are setting forking to spawn, otherwise utilisation of multiple GPUs doesn't work properly
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--testType', type=str, default='nearEarth') 
+    parser.add_argument('--numberOfCudaDevices', type=int, default= 1) 
+    parser.add_argument('--numberOfTransmissions', type=int, default= 56) 
+    parser.add_argument('--graphics', type=bool, default= False) 
+    args = parser.parse_args()
+
+    if args.testType == 'nearEarth':
+        start = time.time()
+        berStats = testNearEarth(numOfTransmissions = args.numberOfTransmissions, graphics = args.graphics)
+        end =  time.time()
+        print("*** total running time == " + str(end - start))
+    else:
+        main()
+    
