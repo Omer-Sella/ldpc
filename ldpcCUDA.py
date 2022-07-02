@@ -634,7 +634,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                     
                     checkIsCodeword[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](isCodewordVector_device, result_device)
                     
-                    if iterator % 6 == 0:
+                    if iterator % 1 == 0:
                         if result_device[0] == 0:
                             isCodeword = True
                     #if result_device[0] == 0:
@@ -834,7 +834,7 @@ def testNearEarth(numOfTransmissions = 60, graphics = True):
     print("*** in test near earth")
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
     #numOfTransmissions = 50
-    roi = [3.0, 3.2 ,3.4, 3.6]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
+    roi = [3.0]#, 3.2]# ,3.4, 3.6]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
     codewordSize = 8176
     messageSize = 7154
     numOfIterations = 50
@@ -941,7 +941,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--testType', type=str, default='nearEarth') 
     parser.add_argument('--numberOfCudaDevices', type=int, default= 1) 
-    parser.add_argument('--numberOfTransmissions', type=int, default= 56) 
+    parser.add_argument('--numberOfTransmissions', type=int, default= 60) 
     parser.add_argument('--graphics', type=bool, default= False) 
     args = parser.parse_args()
 
