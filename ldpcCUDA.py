@@ -634,7 +634,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                     
                     checkIsCodeword[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](isCodewordVector_device, result_device)
                     
-                    if iterator % 6 == 0:
+                    if iterator % 1 == 0:
                         if result_device[0] == 0:
                             isCodeword = True
                     #if result_device[0] == 0:
@@ -941,7 +941,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--testType', type=str, default='nearEarth') 
     parser.add_argument('--numberOfCudaDevices', type=int, default= 1) 
-    parser.add_argument('--numberOfTransmissions', type=int, default= 56) 
+    parser.add_argument('--numberOfTransmissions', type=int, default= 60) 
     parser.add_argument('--graphics', type=bool, default= False) 
     args = parser.parse_args()
 

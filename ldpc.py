@@ -505,11 +505,11 @@ def testCodeUsingMultiprocessing(seed, SNRpoints, messageSize, codewordSize, num
 
 
 
-def testNearEarth(numOfTransmissions = 50):
+def testNearEarth(numOfTransmissions = 60, cores = 1):
     print("*** in test near earth")
     nearEarthParity = fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False)
     #numOfTransmissions = 50
-    roi = [3.0, 3.2, 3.4,3.6]#np.arange(3, 3.8, 0.2)
+    roi = [3.0, 3.2, 3.4]#,3.6]#np.arange(3, 3.8, 0.2)
     codewordSize = 8176
     messageSize = 7154
     numOfIterations = 50
@@ -580,9 +580,24 @@ def main():
     print("*** In ldpc.py main function.")
     #bStats = testWifi()
     #bStats = testNearEarth()
-    bStats = testBeast()
-    scatterSNR, scatterBER, scatterITR, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = bStats.getStatsV2(16336)
-    common.plotEvaluationData(scatterSNR, scatterBER)
+    seed = 7134066
+    nearEarthParity = fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False)
+    #numOfTransmissions = 50
+    roi = [3.0, 3.2, 3.4]#,3.6]#np.arange(3, 3.8, 0.2)
+    codewordSize = 8176
+    messageSize = 7154
+    numOfIterations = 50
+    numOfTransmissions = 56
+
+    for i in [1,2,4,7,8, 14, 28, 56]:
+        start = time.time()
+        bStats = evaluateCodeWrapper(seed = seed, SNRpoints = roi, numberOfIterations = numOfIterations parityMatrix = nearEarthParity numOfTransmissions = numOfTransmissions, G = 'None' , numberOfCores = i)
+        end = time.time()
+        print('Time it took for code evaluation == %d' % (end-start))
+        print('Throughput == '+str((8176*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
+    #bStats = testBeast()
+    #scatterSNR, scatterBER, scatterITR, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = bStats.getStatsV2(16336)
+    #common.plotEvaluationData(scatterSNR, scatterBER)
     return bStats
     
 if __name__ == '__main__':
