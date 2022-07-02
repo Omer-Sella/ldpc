@@ -399,9 +399,10 @@ def evaluateCodeWrapper(seed, SNRpoints, numberOfIterations, parityMatrix, numOf
     berStats = common.berStatistics()
     #It is assumed, i,.e., no safety, that the number of cores is => number of transmissions !!!!
     newNumOfTransmissions = numOfTransmissions // numberOfCores
-    
-    messageSize = 16*1021- (2*1021)
-    codewordSize = 16*1021
+    #circulantSize = 1021
+    circulantSize = 511
+    messageSize = 16*circulantSize- (2 * circulantSize)
+    codewordSize = 16 * circulantSize
     
     #Temporarily disabled for debug of cu_init error
     #print("*** debugging multiple futures. NumberOfCudaDevices: " + str(numberOfCudaDevices))
@@ -589,12 +590,12 @@ def main():
     numOfIterations = 50
     numOfTransmissions = 56
 
-    for i in [1,2,4,7,8, 14, 28, 56]:
-        start = time.time()
-        bStats = evaluateCodeWrapper(seed = seed, SNRpoints = roi, numberOfIterations = numOfIterations parityMatrix = nearEarthParity numOfTransmissions = numOfTransmissions, G = 'None' , numberOfCores = i)
-        end = time.time()
-        print('Time it took for code evaluation == %d' % (end-start))
-        print('Throughput == '+str((8176*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
+    #for i in [2,4,8,16]:
+    start = time.time()
+    bStats = evaluateCodeWrapper(seed = seed, SNRpoints = roi, numberOfIterations = numOfIterations, parityMatrix = nearEarthParity, numOfTransmissions = numOfTransmissions, G = 'None' , numberOfCores = 16)
+    end = time.time()
+    print('Time it took for code evaluation == %d' % (end-start))
+    print('Throughput == '+str((8176*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
     #bStats = testBeast()
     #scatterSNR, scatterBER, scatterITR, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = bStats.getStatsV2(16336)
     #common.plotEvaluationData(scatterSNR, scatterBER)
