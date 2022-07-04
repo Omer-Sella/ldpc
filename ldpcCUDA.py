@@ -834,7 +834,7 @@ def testNearEarth(numOfTransmissions = 60, graphics = True):
     print("*** in test near earth")
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
     #numOfTransmissions = 50
-    roi = [3.0]#, 3.2]# ,3.4, 3.6]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
+    roi = [3.0, 3.2 ,3.4]#, 3.6]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
     codewordSize = 8176
     messageSize = 7154
     numOfIterations = 50
@@ -871,7 +871,7 @@ def testNearEarth(numOfTransmissions = 60, graphics = True):
 def testConcurrentFutures(numberOfCudaDevices = 1):
     nearEarthParity = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
     numOfTransmissions = 15
-    roi = [3.0, 3.2 ,3.4, 3.6]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
+    roi = [3.0, 3.2 ,3.4]#, 3.6]#,3.6, 3.8]#[28, 29, 30, 31]##np.arange(3, 3.8, 0.2)
     numOfIterations = 50
     seeds = LDPC_LOCAL_PRNG.randint(0, LDPC_MAX_SEED, numberOfCudaDevices, dtype = LDPC_SEED_DATA_TYPE) 
     berStats = common.berStatistics()
@@ -906,6 +906,21 @@ def evaluateCodeCudaWrapper(seeds, SNRpoints, numberOfIterations, parityMatrix, 
         berStats = berStats.add(result.result())   
     return berStats
             
+def testEvaluateCodeCudaWrapper(seed, SNRpoints, numberOfIterations, parityMatrix = None, numOfTransmissions = 60, G = 'None' , numberOfCudaDevices = 4):
+    if parityMatrix == None:
+        parityMatrix = np.int32(fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False))
+    LDPC_LOCAL_PRNG = np.random.RandomState(seed)
+    codewordSize = 8176
+    seeds = LDPC_LOCAL_PRNG.randint(0, 2 ** 32 - 1, numberOfCudaDevices, dtype = np.int64)
+    for i in np.arange(0, numberOfCudaDevices):
+        start = time.time()
+        bStats = evaluateCodeCudaWrapper(seeds = seeds, SNRpoints = SNRpoints, numberOfIterations = numberOfIterations, parityMatrix = parityMatrix, numOfTransmissions = numOfTransmissions, G = 'None' , numberOfCudaDevices = (1 + i))
+        #bStats = testNearEarth(graphics = False)
+        end =  time.time()
+        print("*** total running time == " + str(end - start))
+        print("And the throughput is: ")
+        print(numOfTransmissions * codewordSize / (end-start))
+    return bStats
 
         
 def main():
@@ -920,12 +935,20 @@ def main():
     #print(status)
     
     #bStats, status = testNearEarth()
-    start = time.time()
-    #bStats = testConcurrentFutures(numberOfCudaDevices = 1)
-    bStats = testNearEarth(graphics = False)
-    end =  time.time()
-    print("*** total running time == " + str(end - start))
-    print(bStats.getStats())
+    roi = [3.0, 3.2, 3.4]
+    numberOfIterations = 50
+    numberOfTransmissions = 60
+    codewordSize = 8176
+    for i in [1,2,3,4]:
+        start = time.time()
+        bStats = testEvaluateCodeCudaWrapper(seed = 7134066, SNRpoints = roi, numberOfIterations = numberOfIterations, parityMatrix = None, numOfTransmissions = numberOfTransmissions, G = 'None' , numberOfCudaDevices = i)
+        #bStats = testNearEarth(graphics = False)
+        end =  time.time()
+        print("*** total running time == " + str(end - start))
+        print("And the throughput is: ")
+        print(numberOfTransmissions * codewordSize / (end-start))
+
+    #print(bStats.getStats())
     status = 0
     #testAsyncExec()
     return bStats, status
@@ -942,6 +965,8 @@ if __name__ == '__main__':
     parser.add_argument('--testType', type=str, default='nearEarth') 
     parser.add_argument('--numberOfCudaDevices', type=int, default= 1) 
     parser.add_argument('--numberOfTransmissions', type=int, default= 60) 
+    parser.add_argument('--numberOfIterations', type=int, default= 50) 
+    parser.add_argument('--seed', type=int, default= 7134066) 
     parser.add_argument('--graphics', type=bool, default= False) 
     args = parser.parse_args()
 
@@ -950,6 +975,11 @@ if __name__ == '__main__':
         berStats = testNearEarth(numOfTransmissions = args.numberOfTransmissions, graphics = args.graphics)
         end =  time.time()
         print("*** total running time == " + str(end - start))
+    elif args.testType == 'scaling':
+        roi = [3.0, 3.2, 3.4]
+        bStats = testEvaluateCodeCudaWrapper(seed = args.seed, SNRpoints = roi, numberOfIterations = args.numberOfIterations, 
+                                             parityMatrix = None, numOfTransmissions = args.numberOfTransmissions, 
+                                             G = 'None' , numberOfCudaDevices = args.numberOfCudaDevices)
     else:
         main()
     
