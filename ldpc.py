@@ -590,12 +590,12 @@ def main():
     numOfIterations = 50
     numOfTransmissions = 56
 
-    #for i in [2,4,8,16]:
-    start = time.time()
-    bStats = evaluateCodeWrapper(seed = seed, SNRpoints = roi, numberOfIterations = numOfIterations, parityMatrix = nearEarthParity, numOfTransmissions = numOfTransmissions, G = 'None' , numberOfCores = 16)
-    end = time.time()
-    print('Time it took for code evaluation == %d' % (end-start))
-    print('Throughput == '+str((8176*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
+    for i in [2,4,8,16]:
+        start = time.time()
+        bStats = evaluateCodeWrapper(seed = seed, SNRpoints = roi, numberOfIterations = numOfIterations, parityMatrix = nearEarthParity, numOfTransmissions = numOfTransmissions, G = 'None' , numberOfCores = i)
+        end = time.time()
+        print('Time it took for code evaluation == %d' % (end-start))
+        print('Throughput == '+str((8176*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
     #bStats = testBeast()
     #scatterSNR, scatterBER, scatterITR, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = bStats.getStatsV2(16336)
     #common.plotEvaluationData(scatterSNR, scatterBER)

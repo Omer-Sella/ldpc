@@ -84,6 +84,90 @@ def plotDecoderThroughput():
     return
 
 
+def plotScaledDecoderThroughput():
+    #Data for this plot extracted from characterizeldpcpy.txt
+    numberOfMachinesAxis = [1 , 2 , 4, 7, 8, 14, 28, 56]
+    throughputLDPCpy60iterations = [2588.17, 4997.35, 9080.05, 14581.85, 16934.22, 24602.00, 39834.56, 46943.14] #
+    timeLDPCpy60iterations = [530, 274, 151, 94, 81, 55, 34, 29]
+    # Time it took for code evaluation == 530
+    # Throughput == 2588.178104046601bits per second.
+    # Time it took for code evaluation == 274
+    # Throughput == 4997.352684607575bits per second.
+    # Time it took for code evaluation == 151
+    # Throughput == 9080.055400734267bits per second.
+    # Time it took for code evaluation == 94
+    # Throughput == 14581.85126641784bits per second.
+    # Time it took for code evaluation == 81
+    # Throughput == 16934.22920544373bits per second.
+    # Time it took for code evaluation == 55
+    # Throughput == 24602.00985078495bits per second.
+    # Time it took for code evaluation == 34
+    # Throughput == 39834.5693941861bits per second.
+    # Time it took for code evaluation == 29
+    # Throughput == 46943.14096669355bits per second.
+   
+    #throughput50iterationsCUDARTX3080 = [17069.332, 25092.035, 42335.236, 48736.194] #RTX3080 3.0 3.2 3.4 3.6 200 transmisions iterator frequency check == 6
+    #ldpcMyImplementation200Iterations = [80.905, 713.747, 3462.618, 6923.815] #Intel Xeon single core
+    #   D:\ldpc\ldpc.py:105: NumbaDeprecationWarning: ←[1mThe 'numba.jitclass' decorator has moved to 'numba.experimental.jitclass' to better reflect the experimental nature of the functionality. Please update your imports to accommodate this change and see https://numba.pydata.org/numba-doc/latest/reference/deprecation.html#change-of-jitclass-location for the time frame.←[0m
+  # *** In ldpc.py main function.
+  # *** in test near earth
+  # Time it took the decoder:
+  #     5052.834857702255
+  #     And the throughput is:
+  #         80.90507833970636
+  #         Time it took the decoder:
+  #             572.751580953598
+  #             And the throughput is:
+  #                 713.7474842398022
+  #                 Time it took the decoder:
+  #                     118.06094360351562
+  #                     And the throughput is:
+  #                         3462.6184369055536
+  #                         Time it took the decoder:
+  #                             59.04259371757507
+  #                             And the throughput is:
+  #                                 6923.815067397919
+  #                                 ****Time it took for code evaluation == 5807
+  #                                 ****Throughput == 281.57104700395854bits per second.
+
+    x = np.arange(len(numberOfMachinesAxis))  # the label locations
+    width = 0.35  # the width of the bars
+
+    fig, ax = plt.subplots()
+    #rects1 = ax.bar(x, throughputLDPCpy60iterations, width, label='ldpc.py @ maximum 50 iterations, 60 samples per SNR point')
+    #rects2 = ax.bar(x + width/2, throughput50iterationsCUDARTX3080, width, label='ldpcCUDA.py @ maximum 50 iterations')
+    line = ax.plot(numberOfMachinesAxis, throughputLDPCpy60iterations, linewidth=8, markersize=30, linestyle='dashed', mfc = 'red', mec = 'red', marker = 'p', label='ldpc.py @ maximum 50 iterations, 60 samples per SNR point')
+    # Add some text for labels, title and custom x-axis tick labels, etc.
+    ax.grid(visible = True, which = 'both')
+    #ax.set_ylabel('Time [second]', size = 42)
+    ax.set_ylabel('Throughput [bits / second]', size = 42)
+    ax.set_xlabel('Number of cores used', size = 42)
+    ax.set_title('Decoder throughput for ldpc.py at 56 samples per SNR point, 50 iterations per sample.', size = 42)
+    #ax.set_title('Decoder evaluation time for ldpc.py at 56 samples per SNR point, 50 iterations per sample.', size = 42)
+    ax.set_xticks(numberOfMachinesAxis)
+    ax.set_xticklabels(numberOfMachinesAxis)
+    #ax.set_yticks(timeLDPCpy60iterations)
+    #ax.set_yticklabels(timeLDPCpy60iterations)
+    ax.set_yticks(throughputLDPCpy60iterations)
+    ax.set_yticklabels(throughputLDPCpy60iterations)
+    ax.tick_params(axis='x', labelsize=42)
+    ax.tick_params(axis='y', labelsize=42)
+    ax.legend(fontsize = 42)
+
+    #autolabel(rects1, ax)
+    #autolabel(rects2, ax)
+
+    
+    plt.grid(True, which="both", linewidth = 4)
+    #plt.tick_params(axis='both',  labelsize=42)
+    
+    fig.tight_layout()
+    plt.savefig('d:/pythonArt/ldpcPYscaling.png', format='png', dpi=300)
+    plt.show()
+    
+    return
+
+
 def plotSNRvsNumberOfIterations(SNRaxis, numberOfIterations, figureNumber = 2, fileName = None):
     plt.figure(figureNumber)
     #plt.clf()

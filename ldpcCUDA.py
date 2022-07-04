@@ -634,7 +634,7 @@ def evaluateCodeCuda(seed, SNRpoints, numberOfIterations, parityMatrix, numOfTra
                     
                     checkIsCodeword[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](isCodewordVector_device, result_device)
                     
-                    if iterator % 1 == 0:
+                    if iterator % 6 == 0:
                         if result_device[0] == 0:
                             isCodeword = True
                     #if result_device[0] == 0:
