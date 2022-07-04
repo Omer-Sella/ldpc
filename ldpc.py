@@ -589,7 +589,6 @@ def main():
     messageSize = 7154
     numOfIterations = 50
     numOfTransmissions = 56
-
     for i in [1,2,4,7,8, 14, 28, 56]:
         start = time.time()
         bStats = evaluateCodeWrapper(seed = seed, SNRpoints = roi, numberOfIterations = numOfIterations, parityMatrix = nearEarthParity, numOfTransmissions = numOfTransmissions, G = 'None' , numberOfCores = i)
