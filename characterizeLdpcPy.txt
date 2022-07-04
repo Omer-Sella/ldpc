@@ -1,0 +1,17 @@
+*** In ldpc.py main function.
+Time it took for code evaluation == 530
+Throughput == 2588.178104046601bits per second.
+Time it took for code evaluation == 274
+Throughput == 4997.352684607575bits per second.
+Time it took for code evaluation == 151
+Throughput == 9080.055400734267bits per second.
+Time it took for code evaluation == 94
+Throughput == 14581.85126641784bits per second.
+Time it took for code evaluation == 81
+Throughput == 16934.22920544373bits per second.
+Time it took for code evaluation == 55
+Throughput == 24602.00985078495bits per second.
+Time it took for code evaluation == 34
+Throughput == 39834.5693941861bits per second.
+Time it took for code evaluation == 29
+Throughput == 46943.14096669355bits per second.
