@@ -399,9 +399,9 @@ def evaluateCodeWrapper(seed, SNRpoints, numberOfIterations, parityMatrix, numOf
     berStats = common.berStatistics()
     #It is assumed, i,.e., no safety, that the number of cores is => number of transmissions !!!!
     newNumOfTransmissions = numOfTransmissions // numberOfCores
-    #circulantSize = 1021
     circulantSize = 511
-    messageSize = 16*circulantSize- (2 * circulantSize)
+    #circulantSize = 1021
+    messageSize = 16 * circulantSize - (2 * circulantSize)
     codewordSize = 16 * circulantSize
     
     #Temporarily disabled for debug of cu_init error
@@ -589,8 +589,7 @@ def main():
     messageSize = 7154
     numOfIterations = 50
     numOfTransmissions = 56
-
-    for i in [2,4,8,16]:
+    for i in [1,2,4,7,8, 14, 28, 56]:
         start = time.time()
         bStats = evaluateCodeWrapper(seed = seed, SNRpoints = roi, numberOfIterations = numOfIterations, parityMatrix = nearEarthParity, numOfTransmissions = numOfTransmissions, G = 'None' , numberOfCores = i)
         end = time.time()
