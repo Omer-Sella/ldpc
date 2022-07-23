@@ -23,7 +23,7 @@ REWARD_FOR_NEAR_EARTH_3_0_TO_3_4 = 0.3965108116285836
 MAXIMAL_NUMBER_OF_BEST_CODES = 20
 POST_MORTEM_SEED = 42 + 61017406 + 1
 POST_MORTEM_SNR_POINTS = [3.0, 3.2,3.4,3.6]
-POST_MORTEM_NUMBER_OF_TRANSMISSIONS = 30
+POST_MORTEM_NUMBER_OF_TRANSMISSIONS = 40
 POST_MORTEM_NUMBER_OF_ITERATIONS = 50
 
 
@@ -54,7 +54,7 @@ def postMortemBestCodes(filePath = None, baseline = REWARD_FOR_NEAR_EARTH_3_0_TO
         
 
 
-def postMortemHeatMaps(dataFrame = None, axI = None, axJ = None, axK = None, filePath = None):
+def postMortemHeatMaps(dataFrame = None, epochLength = 38, axI = None, axJ = None, axK = None, filePath = None):
     plt.style.use("seaborn")
     if filePath != None:
         df = pd.read_csv(filePath, sep = '\t')
@@ -62,17 +62,7 @@ def postMortemHeatMaps(dataFrame = None, axI = None, axJ = None, axK = None, fil
     else:
         df = dataFrame
 
-    
-    # Get number of unique epochs
-    numberOfEpochs = len(np.unique(df.epochNumber))
-    
-    # Try to get number of interactions per epoch
-    epochLength = len(df) % numberOfEpochs
-    if epochLength == 0:
-        epochLength = len(df) / numberOfEpochs
-    else:
-        epochLength = 1
-        
+      
     
     
     # For getting the info from the dataframes - https://stackoverflow.com/questions/39250504/count-occurrences-in-dataframe
@@ -89,12 +79,16 @@ def postMortemHeatMaps(dataFrame = None, axI = None, axJ = None, axK = None, fil
     gb3 = gb2.size().unstack(fill_value = 0)
     iActionHeatMapArray = gb3.to_numpy().T
     
-    #if axI == None:
-    #    axI, fig2 = plt.subplots(figsize = iActionHeatMapArray.shape)
-            
-    #axI = sns.heatmap( iActionHeatMapArray / epochLength, linewidth = 1 , annot = True)
-    #axI.set_title( "HeatMap of choices of i (row number in the parity matrix)" )
+    figI,axI = plt.subplots()
     
+    
+    if axI != None:
+        axI, fig2 = plt.subplots()       
+        axI = sns.heatmap( iActionHeatMapArray / epochLength, linewidth = 0.5 , annot = True, cbar_kws={'label': 'Probability'})
+        axI.figure.axes[-1].yaxis.label.set_size(24)
+        axI.set_title( 'Heat map representing Agent\'s probability of choosing between 0 and 1 over epochs (row number in the parity matrix array structure)', size = 24)
+        axI.set_xlabel('Epoch Number')
+        axI.tick_params(axis = 'both', labelsize = 24)
     
     #if filePath != None:
     #    imageName = pathBreakdown[0] + "/heatMapI.png"
@@ -112,8 +106,13 @@ def postMortemHeatMaps(dataFrame = None, axI = None, axJ = None, axK = None, fil
     gb3 = gb2.size().unstack(fill_value = 0)
     jActionHeatMapArray = gb3.to_numpy().T
     
-    #if axJ == None:
-    #    axJ, fig1 = plt.subplots(figsize = jActionHeatMapArray.shape)
+    if axJ == None:
+        axJ, fig1 = plt.subplots()
+        axJ = sns.heatmap( jActionHeatMapArray / epochLength, linewidth = 0.5 , annot = True, cbar_kws={'label': 'Probability'})
+        axJ.figure.axes[-1].yaxis.label.set_size(24)
+        axJ.set_title( 'Heat map representing Agent\'s probability of choosing between 0 - 15 over epochs (column number in the parity matrix array structure)', size = 24)
+        axJ.set_xlabel('Epoch Number')
+        axJ.tick_params(axis = 'both', labelsize = 24)
     
     #axJ = sns.heatmap( jActionHeatMapArray / epochLength, linewidth = 1 , annot = True)
     #axJ.set_title( "HeatMap of choices of j (column number in the parity matrix)" )
@@ -135,10 +134,14 @@ def postMortemHeatMaps(dataFrame = None, axI = None, axJ = None, axK = None, fil
     gb3 = gb2.size().unstack(fill_value = 0)
     kActionHeatMapArray = gb3.to_numpy().T
     
-    #if axJ == None:
-    #    axJ, fig3 = plt.subplots(figsize = kActionHeatMapArray.shape)
-    #axJ = sns.heatmap( kActionHeatMapArray / epochLength, linewidth = 1 , annot = True)
-    #axJ.set_title( "HeatMap of choices of k (number of hot bits)" )
+    if axK == None:
+        axK, fig3 = plt.subplots()
+        axK = sns.heatmap( kActionHeatMapArray / epochLength, linewidth = 0.5 , annot = True, cbar_kws={'label': 'Probability'})
+        axK.figure.axes[-1].yaxis.label.set_size(24)
+        axK.set_title( 'Heat map representing Agent\'s probability of between k = 1..7 non zero coordinates over epochs ', size = 24, cbar_kws={'label': 'Probability'})
+        axK.set_xlabel('Epoch Number')
+        axK.tick_params(axis = 'both', labelsize = 24)
+    
     
     #if filePath != None:
     #    imageName = pathBreakdown[0] + "/heatMapK.png"
@@ -476,7 +479,56 @@ def extractCodes(dataFrame, path = None, best = 0.395, worst = 0.3855, experimen
     
 def crawler(pathToExperiments):
     return
+
+def calcReward(parityMatrix):
+    roi = [3.0, 3.2, 3.4]
+    pConst = np.poly1d([1])
+    berStats =  ldpcCUDA.evaluateCodeCuda(POST_MORTEM_SEED, roi, POST_MORTEM_NUMBER_OF_ITERATIONS, parityMatrix, POST_MORTEM_NUMBER_OF_TRANSMISSIONS, G = 'None', cudaDeviceNumber = 0 )
+    scatterSNR, scatterBER, scatterITR, snrAxis, averageSnrAxis, berData, averageNumberOfIterations = berStats.getStatsV2(8176)
+    snr, ber, p1, trendP, itr = common.recursiveLinearFit(scatterSNR, scatterBER)
+    common.plotEvaluationData(snr = scatterSNR, ber = scatterBER, linearFit = True, fillBetween = True)
+    pTotalInteg = (pConst - p1).integ()
+    reward = pTotalInteg(roi[-1]) - pTotalInteg(roi[0])
+    return reward
+
+def extractObservation(df, epochNumber, stepNumber):
+    epochDF = df[df['epochNumber'] == epochNumber]
+    singleCode = epochDF[epochDF['stepNumber'] == stepNumber].Observation
+    for compressedMatrix in singleCode:
+        compressedMatrix = compressedMatrix.strip('[')
+        compressedMatrix = compressedMatrix.strip(']')
+        compressedMatrix = compressedMatrix.split()
+        compressedMatrix = np.asarray(compressedMatrix)
+        compressedMatrix = compressedMatrix.astype(np.uint8)
+        parityMatrix = common.uncompress(compressedMatrix)
+        reward = calcReward(parityMatrix)#print(parityMatrix.shape)
+        
+    return reward, parityMatrix
     
+def observationAction(observationOld, i, j, k, hotBitsAction):
+    observation = copy.deepcopy(observationOld)
+    from scipy.linalg import circulant
+    circulantSize = 511
+    circulantFirstRow = np.zeros(circulantSize, dtype = np.int64)
+    # This is a bug fix. apparently the coordinates set to one are 511 - hotBitCoordinates
+    hotBitsAction = 511 - hotBitsAction
+    circulantFirstRow[hotBitsAction[0:k]] = 1
+    newCirculant = circulant(circulantFirstRow)
+    observation[i * circulantSize : (i + 1) * circulantSize, j * circulantSize : (j + 1) * circulantSize] = newCirculant
+    reward = calcReward(observation)
+    return observation, reward
+
+
+def loadModel
+
+def retrieveAction(presentH, nextH):
+    for i in range(2):
+        for j in range(16):
+            if not np.all(presentH[i*511 : (i+1)*511, j*511 : (j+1)*511] == nextH[i*511 : (i+1)*511, j*511 : (j+1)*511]):
+                print(i)
+                print(j)
+                print(np.where(nextH[i*511, j*511 : (j+1)*511] != 0))
+    return
 
 def analysisOfTwoPopulations(dataFrame):
     fig = go.Figure()

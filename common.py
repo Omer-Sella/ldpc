@@ -87,8 +87,46 @@ def plotDecoderThroughput():
 def plotScaledDecoderThroughput():
     #Data for this plot extracted from characterizeldpcpy.txt
     numberOfMachinesAxis = [1 , 2 , 4, 7, 8, 14, 28, 56]
-    throughputLDPCpy60iterations = [2588.17, 4997.35, 9080.05, 14581.85, 16934.22, 24602.00, 39834.56, 46943.14] #
-    timeLDPCpy60iterations = [530, 274, 151, 94, 81, 55, 34, 29]
+    numberOfCudaDevicesAxis60Transmissions = [1, 2, 3, 4]
+    numberOfCudaDevicesAxis56Transmissions = [1, 2, 4]
+    throughputLDPCpy50iterations56Transmissions = [2588.17, 4997.35, 9080.05, 14581.85, 16934.22, 24602.00, 39834.56, 46943.14] #
+    timeLDPCpy50iterations56Transmissions = [530, 274, 151, 94, 81, 55, 34, 29]
+    throughputLDPCCUDA50iterations60Transmissions = [11164.47, 18834.05, 26284.90, 30246.79] #
+    timeLDPCCUDA50iterations60Transmissions = [43.93, 26.04, 18.66, 16.21]
+    timeLDPCCUDA50iterations56Transmissions = [41.12, 23.58, 15.50]
+    
+    # (wilkes1) python ldpcCUDA.py --testType scaling --numberOfTransmissions 60 --numberOfCudaDevices 4
+    # *** total running time == 43.939358949661255
+    # And the throughput is:
+    #     11164.477855992523
+    #     *** total running time == 26.046438932418823
+    #     And the throughput is:
+    #         18834.05256560513
+    #         *** total running time == 18.66318678855896
+    #         And the throughput is:
+    #             26284.900084734007
+    #             *** total running time == 16.218575716018677
+    #             And the throughput is:
+    #                 30246.799015494704
+
+#     (wilkes1) python ldpcCUDA.py --testType scaling --numberOfTransmissions 56 --numberOfCudaDevices 4
+# *** total running time == 41.12965536117554
+# And the throughput is:
+# 11132.01644845764
+# *** total running time == 23.585680961608887
+# And the throughput is:
+# 19412.45625874724
+# *** total running time == 17.94859004020691
+# And the throughput is:
+# 25509.30178773652
+# *** total running time == 15.509621381759644
+# And the throughput is:
+# 29520.77221810646
+    
+
+
+
+
     # Time it took for code evaluation == 530
     # Throughput == 2588.178104046601bits per second.
     # Time it took for code evaluation == 274
@@ -130,26 +168,27 @@ def plotScaledDecoderThroughput():
   #                                 ****Time it took for code evaluation == 5807
   #                                 ****Throughput == 281.57104700395854bits per second.
 
-    x = np.arange(len(numberOfMachinesAxis))  # the label locations
+    x = np.arange(len(numberOfCudaDevicesAxis56Transmissions))  # the label locations
     width = 0.35  # the width of the bars
 
     fig, ax = plt.subplots()
     #rects1 = ax.bar(x, throughputLDPCpy60iterations, width, label='ldpc.py @ maximum 50 iterations, 60 samples per SNR point')
     #rects2 = ax.bar(x + width/2, throughput50iterationsCUDARTX3080, width, label='ldpcCUDA.py @ maximum 50 iterations')
-    line = ax.plot(numberOfMachinesAxis, throughputLDPCpy60iterations, linewidth=8, markersize=30, linestyle='dashed', mfc = 'red', mec = 'red', marker = 'p', label='ldpc.py @ maximum 50 iterations, 60 samples per SNR point')
+    line = ax.plot(numberOfCudaDevicesAxis56Transmissions, timeLDPCCUDA50iterations56Transmissions, linewidth=8, markersize=30, 
+                   linestyle='dashed', mfc = 'red', mec = 'red', marker = 'p', label='ldpcCUDA.py @ maximum 50 iterations, 56 samples per SNR point')
     # Add some text for labels, title and custom x-axis tick labels, etc.
     ax.grid(visible = True, which = 'both')
     #ax.set_ylabel('Time [second]', size = 42)
-    ax.set_ylabel('Throughput [bits / second]', size = 42)
-    ax.set_xlabel('Number of cores used', size = 42)
-    ax.set_title('Decoder throughput for ldpc.py at 56 samples per SNR point, 50 iterations per sample.', size = 42)
+    ax.set_ylabel('Time [second]', size = 42)
+    ax.set_xlabel('Number of GPUs used', size = 42)
+    ax.set_title('Decoder evaluation time for ldpcCUDA.py at 56 samples per SNR point, 50 iterations per sample.', size = 42)
     #ax.set_title('Decoder evaluation time for ldpc.py at 56 samples per SNR point, 50 iterations per sample.', size = 42)
-    ax.set_xticks(numberOfMachinesAxis)
-    ax.set_xticklabels(numberOfMachinesAxis)
+    ax.set_xticks(numberOfCudaDevicesAxis56Transmissions)
+    ax.set_xticklabels(numberOfCudaDevicesAxis56Transmissions)
     #ax.set_yticks(timeLDPCpy60iterations)
     #ax.set_yticklabels(timeLDPCpy60iterations)
-    ax.set_yticks(throughputLDPCpy60iterations)
-    ax.set_yticklabels(throughputLDPCpy60iterations)
+    ax.set_yticks(timeLDPCCUDA50iterations56Transmissions)
+    ax.set_yticklabels(timeLDPCCUDA50iterations56Transmissions)
     ax.tick_params(axis='x', labelsize=42)
     ax.tick_params(axis='y', labelsize=42)
     ax.legend(fontsize = 42)
@@ -184,7 +223,7 @@ def plotSNRvsNumberOfIterations(SNRaxis, numberOfIterations, figureNumber = 2, f
         plt.savefig(fileName, format='png', dpi=400)
     
 
-def plotSNRvsBER(SNRaxis, BERdata, fileName = None, inputLabel = 'baselineCode', figureNumber = 1, figureName = ''):
+def plotSNRvsBER(SNRaxis = None, BERdata = None, fileName = None, inputLabel = 'baselineCode', figureNumber = 1, figureName = ''):
     snrBaseline = np.array([ 2. ,  2.5,  3. ,  3.5,  4. ,  4.5,  5. ,  5.5,  6. ,  6.5,  7. ,
          7.5,  8. ,  8.5,  9. ,  9.5, 10. ])
     berPam2 = np.array([3.75061284e-02, 2.96552876e-02, 2.28784076e-02, 1.71725417e-02,
@@ -198,29 +237,37 @@ def plotSNRvsBER(SNRaxis, BERdata, fileName = None, inputLabel = 'baselineCode',
     berNearEarthAxis = np.array([0.02354207, 0.013591, 0.01078767, 0]) # 0.02217123, 0.01199022, 0.00777593, 0.00305577, 0.00045499
     #timeStamp = str(time.time())
     #fileName = "./" + timeStamp + fileName
-    #fig, ax = plt.subplots()
+    fig, ax = plt.subplots()
     #plt.figure(figureNumber)
     #plt.clf()
-    plt.ylabel('Output Bit Error Ratio (BER)',fontsize=16)
-    plt.xlabel('Signal to noise ratio (SNR)',fontsize=16)
-    plt.title(figureName)
     
-    #plt.semilogy(snrBaseline, berPam2, '--b', linewidth = 2, label = 'Uncoded PAM 2')
-    plt.plot(snrBaseline, berPam2, '--b', linewidth = 2, label = 'Uncoded PAM 2')
+    ax.set_ylabel('Output Bit Error Ratio (BER)',fontsize=24)
+    ax.set_xlabel('Signal to noise ratio (SNR)',fontsize=24)
+    ax.set_title(figureName)
+    
+    ax.semilogy(snrBaseline, berPam2, '--b', linewidth = 4, label = 'Uncoded PAM 2')
+    ax.axhline(y = 0.01,  color = 'red', linewidth = 4, linestyle = ':')
+    #ax.arrow(2, 0.05, -2, -0.4, head_width = 0.05, head_length = 0.1)
+    ax.annotate('Start at y = 0.01', xy=(2, 0.01), xytext=(3, 0.05), size=18, arrowprops=dict(arrowstyle='->'));
+    ax.annotate('Intersection at x ~ 4.3', xy=(4.3, 0.01), xytext=(3, 0.001), size=18, arrowprops=dict(arrowstyle='->'));
+    ax.axvline(x = 4.3, color = 'red', linewidth = 4, linestyle = ':')
+    #plt.plot(snrBaseline, berPam2, '--b', linewidth = 2, label = 'Uncoded PAM 2')
     
     #plt.semilogy(SNRaxis, BERdata, '^', linewidth = 3, label=inputLabel)
-    plt.plot(SNRaxis, BERdata, '^', linewidth = 3, label=inputLabel)
+    if SNRaxis is not None:
+        assert (len(BERdata) == len(SNRaxis))
+        ax.plot(SNRaxis, BERdata, '^', linewidth = 3, label=inputLabel)
     
     #plt.semilogy(snrActualNearEarthAxis, berNearEarthAxis, '*', linewidth = 3, label = 'NearEarthActual')
     #plt.plot(snrActualNearEarthAxis, berNearEarthAxis, '*', linewidth = 3, label = 'NearEarthActual')
     
-    plt.tick_params(axis='both',  labelsize=16)
+    ax.tick_params(axis='both',  labelsize=16)
     #fig.set_size_inches(6.25, 6)
-    plt.grid(True, which="both")
-    plt.tight_layout()
+    ax.grid(True, which="both")
+    #ax.tight_layout()
     #plt.show()
     if fileName != None:
-        plt.savefig(fileName, format='png', dpi=2000)
+        fig.savefig(fileName, format='png', dpi=150)
     #return timeStamp
     
 class berStatistics:
@@ -537,10 +584,10 @@ def main():
     #fig, ax = testGraphics()
     #return fig, ax
     import scipy
-    workspaceDict = {}
-    resultsList = characteriseMatrixFiles('/home/oss22/rds/ldpc/codeMatrices/experimental/worstCodes/')
-    workspaceDict['data'] = resultsList
-    scipy.io.savemat(('/home/oss22/rds/ldpc/codeMatrices/experimental/characterisationOfWorstCodes.mat'), workspaceDict)
+    #workspaceDict = {}
+    #resultsList = characteriseMatrixFiles('/home/oss22/rds/ldpc/codeMatrices/experimental/worstCodes/')
+    #workspaceDict['data'] = resultsList
+    #scipy.io.savemat(('/home/oss22/rds/ldpc/codeMatrices/experimental/characterisationOfWorstCodes.mat'), workspaceDict)
     return
 
 if __name__ == '__main__':

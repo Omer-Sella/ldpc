@@ -771,7 +771,7 @@ def evaluateMatrixAndEpsilon(parityMatrix, epsilon, numberOfIterations = 50, cud
                     
             checkIsCodeword[BLOCKS_PER_GRID_DIM0, THREADS_PER_BLOCK](isCodewordVector_device, result_device)
             #temp_host = result_device.copy_to_host()
-            if iterator % 6 == 0:
+            if iterator % 10 == 0:
                 if result_device[0] == 0:
                     isCodeword = True
                     #print("Decoding stopped at iteration " + str(iterator))
