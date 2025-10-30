@@ -259,7 +259,10 @@ def plotResults(path, makeMat = False):
             else:
                 pass
     return evalTimes, evaluationFaildAt, numberOfIterationsAtHigh
-        
+
+
+
+
         
 #plt.imshow(nearEarthParity)
     

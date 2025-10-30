@@ -5,6 +5,5 @@
     "\\gym-ldpc\\gym_ldpc",
     "\\gym-ldpc\\gym_ldpc\\envs"
   ],
-  "SelectedNode": "\\ldpcCUDA.py",
   "PreviewInSolutionExplorer": false
 }

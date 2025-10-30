@@ -4,7 +4,7 @@ import time
 import concurrent.futures
 import os
 import copy
-from numba import jit, int32, float32, jitclass, types, typed, boolean, float64, int64
+from numba import jit, int32, float32, types, typed, boolean, float64, int64#, jitclass
 #import math
 import wifiMatrices
 
@@ -29,7 +29,7 @@ LDPC_INT_DATA_TYPE = np.int64
 LDPC_DECIMAL_DATA_TYPE = np.float64
 LDPC_SEED_DATA_TYPE = np.int64
 # Omer Sella: Major breakdown warning: the bool data type is used to create a mask. Replacing it with int32 breaks the decoder.
-LDPC_BOOL_DATA_TYPE = boolean
+LDPC_BOOL_DATA_TYPE = np.bool_
 # Omer Sella: seeds can be integers between 0 and 2**31 - 1
 LDPC_MAX_SEED = 2**31 - 1
 
@@ -72,7 +72,7 @@ specForVariableNode = [
     ('presentState', float64),
     
 ]
-@jitclass(specForVariableNode)
+#@jitclass(specForVariableNode)
 class variableNode:
 # a variableNode is merely a memory element. 
     def __init__(self, identity):
@@ -100,9 +100,10 @@ specForCheckNode = [
     ('magnitudeVector', NUMBA_FLOAT[:]),
     ('connectedVariableNodes', NUMBA_INT[:]),
     ('variableIDtoIndexDictionary', types.DictType(*key_value_types)),
-    ('mask', LDPC_BOOL_DATA_TYPE[:]),
+    #('mask', LDPC_BOOL_DATA_TYPE[:]),
+    ('mask', LDPC_BOOL_DATA_TYPE),
     ]
-@jitclass(specForCheckNode)
+#@jitclass(specForCheckNode)
 class checkNode:
 # A check node is where most of the logic is done.
 # Every check node has an id (this is redundant in serial execution, but may make things easier when moving to an asynchronous implementation)
@@ -435,7 +436,7 @@ def constantFunction(const):
     return g
 
 
-def testCodeUsingMultiprocessing(seed, SNRpoints, messageSize, codewordSize, numberOf                                                                                                Iterations, numberOfTransmissions, H, method = None, reference = None, G = 'None'):
+def testCodeUsingMultiprocessing(seed, SNRpoints, messageSize, codewordSize, numberOfIterations, numberOfTransmissions, H, method = None, reference = None, G = 'None'):
     bStats = common.berStatistics()
     seeds = LDPC_LOCAL_PRNG.randint(0, LDPC_MAX_SEED, numberOfTransmissions, dtype = LDPC_SEED_DATA_TYPE) 
     
@@ -477,7 +478,7 @@ def testCodeUsingMultiprocessing(seed, SNRpoints, messageSize, codewordSize, num
 
 
 
-def testNearEarth(numOfTransmissions = 50):
+def testNearEarth(numOfTransmissions = 10):
     print("*** in test near earth")
     nearEarthParity = fileHandler.readMatrixFromFile(str(projectDir) + '/codeMatrices/nearEarthParity.txt', 1022, 8176, 511, True, False, False)
     #numOfTransmissions = 50
@@ -488,16 +489,16 @@ def testNearEarth(numOfTransmissions = 50):
 
     start = time.time()
     
-    #bStats = evaluateCode(numOfTransmissions, 460101, roi, messageSize, codewordSize, numOfIterations, nearEarthParity)    
+    bStats = evaluateCode(numOfTransmissions, 460101, roi, messageSize, codewordSize, numOfIterations, nearEarthParity)    
     #for i in range(numOfTransmissions):
     #    bStats = evaluateCodeAtSingleTransmission(460101, roi, messageSize, codewordSize, numOfIterations, nearEarthParity)    
         
-    bStats = testCodeUsingMultiprocessing(460101, roi, messageSize, codewordSize, numOfIterations, numOfTransmissions, nearEarthParity)
+    #bStats = testCodeUsingMultiprocessing(460101, roi, messageSize, codewordSize, numOfIterations, numOfTransmissions, nearEarthParity)
     end = time.time()
     print('****Time it took for code evaluation == %d' % (end-start))
     print('****Throughput == '+str((8176*len(roi)*numOfTransmissions)/(end-start)) + 'bits per second.')
-    #a, b, c, d = bStats.getStats(codewordSize)
-    #print("berDecoded " + str(c))
+    a, b, c, d = bStats.getStats(codewordSize)
+    print("berDecoded " + str(c))
     return bStats
 
 
