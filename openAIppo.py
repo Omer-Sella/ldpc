@@ -1,10 +1,8 @@
 import numpy as np
-
-
-
 import torch
+import qecc
 from torch.optim import Adam
-import gym
+import gymnasium as gym
 import time
 import os
 import copy
@@ -215,7 +213,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             still profiting (improving the objective function)? The new policy 
             can still go farther than the clip_ratio says, but it doesn't help
             on the objective anymore. (Usually small, 0.1 to 0.3.) Typically
-            denoted by :math:`\epsilon`. 
+            denoted by :math:epsilon. 
 
         pi_lr (float): Learning rate for policy optimizer.
 
@@ -546,7 +544,9 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default= 'gym_ldpc:ldpc-v0')
+    parser.add_argument('--env', type=str, default= 'bbcode-v0')
+    parser.add_argument('--L', type=int, default= 6)
+    parser.add_argument('--M', type=int, default= 6)
     parser.add_argument('--hid', type=int, default=64)
     parser.add_argument('--l', type=int, default=2)
     parser.add_argument('--gamma', type=float, default=0.99)
@@ -570,7 +570,12 @@ if __name__ == '__main__':
     experimentDataDir = PROJECT_PATH + "/temp/experiments/%i" %int(experimentTime)
     logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, data_dir = experimentDataDir)
 
-    ppo(lambda x = 8200, y = 0: gym.make(args.env, seed = x, numberOfCudaDevices = y), #Omer Sella: Actor_Critic is now embedded and thus commented actor_critic=core.MLPActorCritic,
+    # ppo(lambda x = 8200, y = 0: gym.make(args.env, seed = x, numberOfCudaDevices = y), #Omer Sella: Actor_Critic is now embedded and thus commented actor_critic=core.MLPActorCritic,
+    #     ac_kwargs=dict(hidden_sizes=[args.hid]*args.l), gamma=args.gamma, 
+    #     seed=args.seed, steps_per_epoch=args.steps, epochs=args.epochs,
+    #     logger_kwargs=logger_kwargs, envCudaDevices = args.envCudaDevices, experimentDataDir = experimentDataDir)
+
+    ppo(lambda x = 8200, y = 0: gym.make(args.env, l = args.L, m = args.M, seed = x, numberOfCudaDevices = y), #Omer Sella: Actor_Critic is now embedded and thus commented actor_critic=core.MLPActorCritic,
         ac_kwargs=dict(hidden_sizes=[args.hid]*args.l), gamma=args.gamma, 
         seed=args.seed, steps_per_epoch=args.steps, epochs=args.epochs,
         logger_kwargs=logger_kwargs, envCudaDevices = args.envCudaDevices, experimentDataDir = experimentDataDir)

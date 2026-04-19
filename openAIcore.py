@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.signal
-from gym.spaces import Box, Discrete
+from gymnasium import spaces#.spaces import Box, Discrete
 
 
 import torch
@@ -153,15 +153,8 @@ class MLPActorCritic(nn.Module):
         ## Omer Sella: 01/12/2020 added a hack to include binarySpace which is almost the same as discrete space. Here 2 replaces action_space.n, because action_space.n is only for discrete and marks how many points in the discrete space
         
         else:
-            #print('***action space is not box or discrete, assuming binary: ')
-            #print("obs_dim == ")
-            #print(obs_dim)
-            #print("action_space == ")
-            #print(action_space)
-            #print("action_space.shape[0] == ")
-            #print(action_space.shape[0])
             self.pi = MLPCategoricalActor(obs_dim, 516, hidden_sizes, activation) #Omer Sella: temporary fix, 516 is the action space size.
-            #print("*** Great success !")
+            
 
         # build value function
         self.v  = MLPCritic(obs_dim, hidden_sizes, activation)
@@ -172,10 +165,6 @@ class MLPActorCritic(nn.Module):
             a = pi.sample()
             logp_a = self.pi._log_prob_from_distribution(pi, a)
             v = self.v(obs)
-            #print("*** actor_critic step debug***")
-            #print("*** action:")
-            #print(a)
-            #print(a.shape)
             a = a.numpy().astype(int)
             v = v.numpy()
             logp_a = logp_a.numpy()

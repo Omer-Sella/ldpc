@@ -15,6 +15,7 @@ import torch
 import os.path as osp, time, atexit, os
 import warnings
 from mpi_tools import proc_id, mpi_statistics_scalar
+ #Omer: temporary fix to avoid importing mpi_tools
 from serialization_utils import convert_json
 import time
 import os
