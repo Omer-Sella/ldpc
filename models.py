@@ -452,7 +452,9 @@ class openAIActorCritic(nn.Module):
     def __init__(self, observationSpaceType, observationSpaceSize, actionSpaceType, actionSpaceSize, hiddenEncoderSize, maximumNumberOfHotBits, hiddenLayerParameters, actorCriticDevice = 'cpu'):
     
         super().__init__()
+        # Initialize a policy 
         self.pi = openAIActor(observationSpaceType, observationSpaceSize, actionSpaceType, actionSpaceSize, hiddenEncoderSize, maximumNumberOfHotBits, hiddenLayerParameters, actorCriticDevice)
+        # Initialize a valuation
         self.v  = explicitMLP(observationSpaceSize, 1, [hiddenEncoderSize, hiddenEncoderSize])
 
     #def step(self, obs):
@@ -537,5 +539,4 @@ def testActorCritic():
      return 'OK'
 
 if __name__ == '__main__':
-    print("***You hit play on the wrong file #**hole... modulu ...")
     testActorCritic()

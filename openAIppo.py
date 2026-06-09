@@ -5,137 +5,30 @@ from torch.optim import Adam
 import gymnasium as gym
 import time
 import os
-import copy
 projectDir = os.environ.get('LDPC')
 if projectDir == None:
     import pathlib
     projectDir = pathlib.Path(__file__).parent.absolute()
-import openAIcore as core
+#import openAIcore as core
 from logx import EpochLogger
 from mpi_pytorch import setup_pytorch_for_mpi, sync_params, mpi_avg_grads
 from mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
 from utilityFunctions import plotter as ossplotter
 from utilityFunctions import logger as osslogger
-#OSS 26/11/2021 moved beffur to a separate module so importing everything from there.
-from buffer import *
+
+from buffer2 import *
+import qeccActorCritic
 
 
-OBSERVATION_DATA_TYPE = np.float32
-INTERNAL_ACTION_DATA_TYPE = np.float32
+def countVariables(module):
+    return sum([np.prod(p.shape) for p in module.parameters()])
 
-epochs = 5
-numberOfStepsPerEpoch = 10
-seed = 7134066
-localRandom = np.random.RandomState(seed)
-maximumEpisodeLength = 3
-clipRatio = 0.2
-policyLearningRate = 3e-4
-valueFunctionLearningRate = 1e-3
-#loggerKeyWords = ['value', 'EpRet', 'Episode length', ]
-policyTrainIterations = 80
-targetKL = 1.5 * 0.01
-valueFunctionTrainIterations = 80
-loggerPath = str(projectDir) + "/temp/"
-MAXIMUM_NUMBER_OF_HOT_BITS = 7
-INTERNAL_ACTION_SPACE_SIZE = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS
-SAVE_MODEL_FREQUENCY = 10
-NUMBER_OF_GPUS_PER_NODE = 2
-
-# Number of entropy elements is depends on the model. At the this time we have i,j,k and we don't include entropy for number of coordinates selection.
-NUMBER_OF_ENTROPY_ELEMENTS = 3 
-OPEN_AI_PPO_NUMBER_OF_BUFFERS = 1
-
-import models
-
-
-# OSS 26/11/2021 I'm temporarily placin the buffer function under comment, since I'm migrating it to a separate module
-#class PPOBuffer:
-#    """
-#    A buffer for storing trajectories experienced by a PPO agent interacting
-#    with the environment, and using Generalized Advantage Estimation (GAE-Lambda)
-#    for calculating the advantages of state-action pairs.
-#    """
-
-#    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95):
-#        self.obs_buf = np.zeros(core.combined_shape(size, obs_dim), dtype=np.float32)
-#        self.act_buf = np.zeros(core.combined_shape(size, act_dim), dtype=np.float32)
-#        self.adv_buf = np.zeros(size, dtype=np.float32)
-#        self.rew_buf = np.zeros(size, dtype=np.float32)
-#        self.ret_buf = np.zeros(size, dtype=np.float32)
-#        self.val_buf = np.zeros(size, dtype=np.float32)
-#        self.ent_buf = np.zeros(size, dtype=np.float32)
-#        self.entropyList_buf = np.zeros((size, NUMBER_OF_ENTROPY_ELEMENTS), dtype=np.float32)
-        
-#        self.logp_buf = np.zeros(size, dtype=np.float32)
-#        self.gamma, self.lam = gamma, lam
-#        self.ptr, self.path_start_idx, self.max_size = 0, 0, size
-
-#    def store(self, obs, act, rew, val, logp, ent, entropyArray):
-#        """
-#        Append one timestep of agent-environment interaction to the buffer.
-#        """
-#        assert self.ptr < self.max_size     # buffer has to have room so you can store
-#        self.obs_buf[self.ptr] = obs
-#        self.act_buf[self.ptr] = act
-#        self.rew_buf[self.ptr] = rew
-#        self.val_buf[self.ptr] = val
-#        self.logp_buf[self.ptr] = logp
-#        self.ent_buf[self.ptr] = ent
-#        self.entropyList_buf[self.ptr] = entropyArray
-#        self.ptr += 1
-
-#    def finish_path(self, last_val=0):
-#        """
-#        Call this at the end of a trajectory, or when one gets cut off
-#        by an epoch ending. This looks back in the buffer to where the
-#        trajectory started, and uses rewards and value estimates from
-#        the whole trajectory to compute advantage estimates with GAE-Lambda,
-#        as well as compute the rewards-to-go for each state, to use as
-#        the targets for the value function.
-
-#        The "last_val" argument should be 0 if the trajectory ended
-#        because the agent reached a terminal state (died), and otherwise
-#        should be V(s_T), the value function estimated for the last state.
-#        This allows us to bootstrap the reward-to-go calculation to account
-#        for timesteps beyond the arbitrary episode horizon (or epoch cutoff).
-#        """
-
-#        path_slice = slice(self.path_start_idx, self.ptr)
-#        rews = np.append(self.rew_buf[path_slice], last_val)
-#        vals = np.append(self.val_buf[path_slice], last_val)
-        
-#        # the next two lines implement GAE-Lambda advantage calculation
-#        deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
-#        self.adv_buf[path_slice] = core.discount_cumsum(deltas, self.gamma * self.lam)
-        
-#        # the next line computes rewards-to-go, to be targets for the value function
-#        self.ret_buf[path_slice] = core.discount_cumsum(rews, self.gamma)[:-1]
-        
-#        self.path_start_idx = self.ptr
-
-#    def get(self):
-#        """
-#        Call this at the end of an epoch to get all of the data from
-#        the buffer, with advantages appropriately normalized (shifted to have
-#        mean zero and std one). Also, resets some pointers in the buffer.
-#        """
-#        assert self.ptr == self.max_size    # buffer has to be full before you can get
-#        self.ptr, self.path_start_idx = 0, 0
-#        # the next two lines implement the advantage normalization trick
-#        adv_mean, adv_std = mpi_statistics_scalar(self.adv_buf)
-#        self.adv_buf = (self.adv_buf - adv_mean) / adv_std
-#        data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
-#                    adv=self.adv_buf, logp=self.logp_buf, ent=self.ent_buf)
-#        return {k: torch.as_tensor(v, dtype=torch.float32) for k,v in data.items()}
-
-
-
-def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0, 
+def ppo(env_fn, seed=0, 
         #Omer Sella: I replaced this: steps_per_epoch=4000, with this:
-        steps_per_epoch=64,
+        steps_per_epoch=256,
         epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, 
-        max_ep_len=32,#max_ep_len=1000,
+        max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), 
         save_freq=10, envCudaDevices = 4, experimentDataDir = None,
         entropyCoefficient = 0.0, policyCoefficient = 1.0):
@@ -243,18 +136,17 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     """
 
 
-    # Special function to avoid certain slowdowns from PyTorch + MPI combo.  
-    #setup_pytorch_for_mpi() #OSS 07/01/2022 commented this since no mpi will be used.
-
     # Set up logger and save configuration
     logger = EpochLogger(**logger_kwargs)
     logger.save_config(locals())
 
 
     # Omer Sella: this is my logger and plotter:
-    simpleKeys = ['Observation', 'iAction', 'jAction', 'kAction', 'hotBitsAction', 'Reward', 
-                  'epochNumber', 'stepNumber', 'actorEntropy', 'logP',
-                  'logpI', 'logpJ', 'logpK', 'iEntropy', 'jEntropy', 'kEntropy', 'coordinatesEntropy']
+    #simpleKeys = ['Observation', 'iAction', 'jAction', 'kAction', 'hotBitsAction', 'Reward', 
+    #              'epochNumber', 'stepNumber', 'actorEntropy', 'logP',
+    #              'logpI', 'logpJ', 'logpK', 'iEntropy', 'jEntropy', 'kEntropy', 'coordinatesEntropy']
+    simpleKeys = ['Observation', 'Reward', 
+                  'epochNumber', 'stepNumber', 'actorEntropy', 'logP']
     myLogger = osslogger(keys = simpleKeys, logPath = experimentDataDir)
     #logger.save_config(locals())
     myPlotter = ossplotter(50)
@@ -266,147 +158,92 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
 
     # Instantiate environment
-    #env = env_fn(gpuDevice = (proc_id() % NUMBER_OF_GPUS_PER_NODE))
-    #print("*** debugging cuda device")
-    #print(envCudaDevice)
-    env = env_fn(x = 7134066, y = envCudaDevices)
-    #print(env.gpuDeviceNumber)
-    #print(env.gpuDeviceNumber)
-    #print(env.gpuDeviceNumber)
-    obs_dim = env.observation_space.shape
-    act_dim = 1 + 1 + 1 + MAXIMUM_NUMBER_OF_HOT_BITS #env.action_space.shape
+    env = env_fn()
+    # Get the dimension of the observation space
+    observationDimension = env.observation_space.shape[0]
+    # Get the dimension of the action space
+    actionDimension = env.action_space.shape[0]
 
     # Create actor-critic module
-    #OVERRIDE_OBSERVATION_SPACE_DIM = np.zeros(2048)
-    #OVERRIDE_ACTION_SPACE_DIM = np.zeros(516)
-    
-    # Omer Sella: this is where I need to plant my AC
-    #ac = actor_critic(env.observation_space, env.action_space, **ac_kwargs)
-    #ac = actor_critic(OVERRIDE_OBSERVATION_SPACE_DIM, OVERRIDE_ACTION_SPACE_DIM, **ac_kwargs)
-    ac = models.openAIActorCritic(int, 2048, int, INTERNAL_ACTION_SPACE_SIZE, 64, MAXIMUM_NUMBER_OF_HOT_BITS, [64,64] , actorCriticDevice = 'cpu')
+    ac = qeccActorCritic.qeccActorCritic(observationSpaceType = bool, 
+                                         observationSpaceSize = observationDimension, 
+                                         actionSpaceType = int, 
+                                         actionSpaceSize = actionDimension,
+                                         policyHiddenLayers = [64,64] , 
+                                         valuationHiddenLayers = [64,64])
     # Sync params across processes
     sync_params(ac)
 
     # Count variables
-    var_counts = tuple(core.count_vars(module) for module in [ac.pi, ac.v])
+    
+    var_counts = tuple(countVariables(module) for module in [ac.policy, ac.valuation])
     logger.log('\nNumber of parameters: \t pi: %d, \t v: %d\n'%var_counts)
 
     # Set up experience buffer
     local_steps_per_epoch = int(steps_per_epoch / num_procs())
-    #OSS 29/11/2021 commented the buffer and switched to buffer container
-    #OSS 07/01/2021 reinstated the regular buffer in an attempt to isolate conc fututres bug.
-    buf = PPOBuffer(obs_dim, act_dim, local_steps_per_epoch, gamma, lam)
-    #buf = PPOBufferContainer(obs_dim, act_dim, local_steps_per_epoch, OPEN_AI_PPO_NUMBER_OF_BUFFERS, gamma, lam)
+    buf = PPOBuffer(observationDimension, actionDimension, local_steps_per_epoch, gamma, lam)
+    
+    
     # Set up function for computing PPO policy loss
     def compute_loss_pi(data):
-        obs, act, adv, logp_old, entropy_old = data['obs'], data['act'], data['adv'], data['logp'], data['ent']
-
+        #obs, act, adv, logp_old, entropy_old = data['obs'], data['act'], data['adv'], data['logp'], data['ent']
+        obs, act, adv, logp_old = data['obs'], data['act'], data['adv'], data['logp']
         # Policy loss
-        # Omer Sella: This is where we need ac.pi to accept both observations AND actions
-        #pi, logp = ac.pi(obs, act)
-        _, _, logp, actorEntropy, _, actorEntropyList = ac.step(obs, act)
+        # Omer Sella: This is where we need ac.policy to accept both observations AND actions
+        pi, logp = ac.policy(obs, act)
         ratio = torch.exp(logp - logp_old)
-        
         clip_adv = torch.clamp(ratio, 1-clip_ratio, 1+clip_ratio) * adv
         loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
-
-        
-        ent = actorEntropy.mean().item()
-        #print(actorEntropyList[0])
-        #print(actorEntropyList[0].mean())
-        #print(actorEntropyList[0].mean().item())
-        
-        iEntropy = actorEntropyList[0].mean().item()
-       
         
         # Useful extra info
         approx_kl = (logp_old - logp).mean().item()
-        
+        ent = pi.entropy().mean().item()
         clipped = ratio.gt(1+clip_ratio) | ratio.lt(1-clip_ratio)
         clipfrac = torch.as_tensor(clipped, dtype=torch.float32).mean().item()
         pi_info = dict(kl=approx_kl, ent=ent, cf=clipfrac)
-        #myLogger.keyValue('kl', kl)
-        #myLogger.keyValue('entropy', ent)
-        #myLogger.keyValue('clippedFrac', clipfrac)
         
-        #########
-        #OSS: we are testing a hypothesis, that the entropy for choice of i collapses too fast. So I'm replacing ent with iEntropy and let's see what happens
-        #totalLoss = policyCoefficient * loss_pi + entropyCoefficient * ent
-        totalLoss = policyCoefficient * loss_pi + entropyCoefficient * iEntropy
-        
-        return totalLoss, pi_info
+        return loss_pi, pi_info
 
     # Set up function for computing value loss
     def compute_loss_v(data):
         obs, ret = data['obs'], data['ret']
-        return ((ac.v(obs) - ret)**2).mean()
+        return ((ac.valuation(obs) - ret)**2).mean()
 
     # Set up optimizers for policy and value function
-    pi_optimizer = Adam(ac.pi.parameters(), lr=pi_lr)
-    vf_optimizer = Adam(ac.v.parameters(), lr=vf_lr)
+    pi_optimizer = Adam(ac.policy.parameters(), lr=pi_lr)
+    vf_optimizer = Adam(ac.valuation.parameters(), lr=vf_lr)
 
     # Set up model saving
     logger.setup_pytorch_saver(ac)
 
     def update():
-        #OSS 29/11/2021 I'm moving the code from buffer to buffer container, so updtae() merges the buffers into a single one and resets the bufferContainer.
-        # OSS 07/01/2022 I'm reinstating a simple buffer implementation.
-        #flatBuffer = buf.flattenBuffer()
-        #data = flatBuffer.get()
-        data = buf.get() #OSS 07/01/2022 double check for correctness.
-
-        #############################
-        ## For debug puposes only ! 
-        ## Debugging conc futures
-        #next_o, r, d, _ = env.step(a[-1])
-        #print("*** debugging conc futures - did I make it inside the update, after the get() ?") YES !
-        ## Did it work ?  YES !
-        #############################
-
-
+        data = buf.get()
+        
         pi_l_old, pi_info_old = compute_loss_pi(data)
         pi_l_old = pi_l_old.item()
         v_l_old = compute_loss_v(data).item()
 
-        #############################
-        ## For debug puposes only ! 
-        ## Debugging conc futures
-        #next_o, r, d, _ = env.step(a[-1])
-        #print("*** debugging conc futures - did I make it inside the update, after computing loss ?") Yes !
-        ## Did it work ? Yes !
-        #############################
-
         # Train policy with multiple steps of gradient descent
         for i in range(train_pi_iters):
-            #print("*** Policy training step %d..."%i)
+
             pi_optimizer.zero_grad()
             loss_pi, pi_info = compute_loss_pi(data)
             kl = mpi_avg(pi_info['kl'])
-            assert(kl == pi_info['kl'])
-            #print("*** Understanding early stopping to due kl:")
-            #print(kl)
             if kl > 1.5 * target_kl:
                 logger.log('Early stopping at step %d due to reaching max kl.'%i)
                 break
             loss_pi.backward()
-            mpi_avg_grads(ac.pi)    # average grads across MPI processes
+            mpi_avg_grads(ac.policy)    # average grads across MPI processes
             pi_optimizer.step()
-        #############################
-        ## For debug puposes only ! 
-        ## Debugging conc futures
-        next_o, r, d, _ = env.step(a[-1])
-        print("*** debugging conc futures - did I make it inside the update, after train_pi_iters?")
-        ## Did it work ?  No !
-        #############################
+        
         logger.store(StopIter=i)
 
         # Value function learning
         for i in range(train_v_iters):
-            #print("*** Value function training step %d..."%i)
             vf_optimizer.zero_grad()
             loss_v = compute_loss_v(data)
             loss_v.backward()
-            mpi_avg_grads(ac.v)    # average grads across MPI processes
+            mpi_avg_grads(ac.valuation)    # average grads across MPI processes
             vf_optimizer.step()
 
         # Log changes from update
@@ -418,29 +255,23 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
     # Prepare for interaction with environment
     start_time = time.time()
-    o, ep_ret, ep_len = env.reset(), 0, 0
+    o, info = env.reset()
+    ep_ret = 0
+    ep_len = 0
     
 
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
         for t in range(local_steps_per_epoch):
-            print("*** step number: " + str(t))
             myLogger.keyValue('Observation', o)
-            a, v, logp, actorEntropy, logpList, entropyList = ac.step(torch.as_tensor(o, dtype=torch.float32))
-            myLogger.keyValue('actorEntropy', actorEntropy)
+            
+            a, v, logp = ac.step(torch.as_tensor(o, dtype=torch.float32))
+            #TODO: Omer: I am summing the log probabilities here and not inside actorCritic
+            logp = logp.sum().item()
+
             myLogger.keyValue('logP', logp)
-            myLogger.keyValue('iAction', a[0])
-            myLogger.keyValue('jAction', a[1])
-            myLogger.keyValue('kAction', a[2])
-            myLogger.keyValue('hotBitsAction', a[3])
-            myLogger.keyValue('logpI', logpList[0].item())
-            myLogger.keyValue('logpJ', logpList[1].item())
-            myLogger.keyValue('logpK', logpList[2].item())
-            myLogger.keyValue('iEntropy', entropyList[0].item())
-            myLogger.keyValue('jEntropy', entropyList[1].item())
-            myLogger.keyValue('kEntropy', entropyList[2].item())
-            myLogger.keyValue('coordinatesEntropy', entropyList[2].item())
-            next_o, r, d, _ = env.step(a[-1])
+            
+            next_o, r, d, _, info = env.step(a) #env.step(a[-1])
             myLogger.keyValue('Reward', r)
             myLogger.keyValue('epochNumber', epoch)
             myLogger.keyValue('stepNumber', t)
@@ -451,14 +282,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             ep_len += 1
 
             # save and log
-            entropyArray = np.array([entropyList[0].item(), entropyList[1].item(), entropyList[2].item()])
-            #entropyArray = np.hstack((entropyArray, entropyList[3]].detach().numpy()))
-            if  OPEN_AI_PPO_NUMBER_OF_BUFFERS == 1:
-                # OSS: 07/01/2021 commented and reverted to regular buffer (no container) when debigging conc futures
-                #buf.store([o], [a[-2]], [r], [v], [logp], [actorEntropy], [entropyArray])
-                buf.store(o, a[-2], r, v, logp, actorEntropy, entropyArray)
-            else:
-                buf.store(o, a[-2], r, v, logp, actorEntropy, entropyArray)
+            
+            buf.store(o[0], a, r, v, logp)
             logger.store(VVals=v)
             
             # Update obs (critical!)
@@ -469,18 +294,15 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             epoch_ended = t==local_steps_per_epoch-1
 
             if terminal or epoch_ended:
-                #myPlotter.step(ep_ret)
                 if epoch_ended and not(terminal):
                     print('Warning: trajectory cut off by epoch at %d steps.'%ep_len, flush=True)
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if timeout or epoch_ended:
-                    _, v, _, _, _, _ = ac.step(torch.as_tensor(o, dtype=torch.float32))
+                    _, v, _ = ac.step(torch.as_tensor(o, dtype=torch.float32))
                 else:
                     v = 0
-                if OPEN_AI_PPO_NUMBER_OF_BUFFERS == 1:
-                    buf.finish_path([v])
-                else:
-                    buf.finish_path(v)
+                buf.finish_path(v)
+                
                 if terminal:
                     # only save EpRet / EpLen if trajectory finished
                     print("*** PPO acknowledges that the episode terminated")
@@ -488,40 +310,13 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
                     logger.store(EpRet=ep_ret, EpLen=ep_len)
                 o, ep_ret, ep_len = env.reset(), 0, 0
 
-                #############################
-                ## For debug puposes only ! 
-                ## Debugging conc futures
-                #next_o, r, d, _ = env.step(a[-1])
-                ## Did it work ? Yes !
-                #############################
-            
-            
-
-
-
-
-
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs-1):
             logger.save_state({'env': env}, None)
 
         # Perform PPO update!
-        #############################
-        ## For debug puposes only ! 
-        ## Debugging conc futures
-        #next_o, r, d, _ = env.step(a[-1])
-        #print("*** debugging conc futures - did I make it BEFORE the update ?") YES !!!
-        ## Did it work ? Yes !
-        #############################
         update()
-        #############################
-        ## For debug puposes only ! 
-        ## Debugging conc futures
-        #next_o, r, d, _ = env.step(a[-1])
-        #print("*** debugging conc futures - did I make it after the update ?") NO !
-        ## Did it work ? No !
-        #############################
-
+        
 
         # Log info about epoch
         logger.log_tabular('Epoch', epoch)
@@ -539,12 +334,12 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         logger.log_tabular('EpLen', average_only=True)
         logger.log_tabular('EpRet', with_min_and_max=True)
         logger.dump_tabular()
-    #myPlotter.saveAnimation("D:/ldpc/localData/plot.mp4")
+    
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default= 'bbcode-v0')
+    parser.add_argument('--env', type=str, default= 'qecc/bbcode-v0')
     parser.add_argument('--L', type=int, default= 6)
     parser.add_argument('--M', type=int, default= 6)
     parser.add_argument('--hid', type=int, default=64)
@@ -575,7 +370,11 @@ if __name__ == '__main__':
     #     seed=args.seed, steps_per_epoch=args.steps, epochs=args.epochs,
     #     logger_kwargs=logger_kwargs, envCudaDevices = args.envCudaDevices, experimentDataDir = experimentDataDir)
 
-    ppo(lambda x = 8200, y = 0: gym.make(args.env, l = args.L, m = args.M, seed = x, numberOfCudaDevices = y), #Omer Sella: Actor_Critic is now embedded and thus commented actor_critic=core.MLPActorCritic,
-        ac_kwargs=dict(hidden_sizes=[args.hid]*args.l), gamma=args.gamma, 
-        seed=args.seed, steps_per_epoch=args.steps, epochs=args.epochs,
+    
+    from qecc.bb_gym import exampleDecoderFunction
+    def environmentFunction():
+        return gym.make(args.env, l = args.L, m = args.M, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001], minimumNumberOfLogicalQubits = 6)
+    
+    ppo(env_fn = environmentFunction,
+        gamma=args.gamma, seed=args.seed, steps_per_epoch=args.steps, epochs=args.epochs,
         logger_kwargs=logger_kwargs, envCudaDevices = args.envCudaDevices, experimentDataDir = experimentDataDir)
